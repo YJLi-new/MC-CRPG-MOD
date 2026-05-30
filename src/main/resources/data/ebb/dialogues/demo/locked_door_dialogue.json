@@ -1,0 +1,139 @@
+{
+  "id": "ebb:demo/locked_door_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "旅馆走廊尽头的门框内侧有新鲜刮痕，像是有人用钥匙以外的东西试过。",
+      "choices": [
+        {
+          "id": "knock",
+          "type": "action",
+          "text": "敲门",
+          "next": "knock_reply",
+          "effects": [
+            {
+              "type": "set_flag",
+              "scope": "player",
+              "id": "demo.knocked_locked_door"
+            }
+          ]
+        },
+        {
+          "id": "force",
+          "type": "action",
+          "text": "试着撞开它",
+          "check": {
+            "attribute": "force",
+            "dc": 15,
+            "die": "d20",
+            "success": "force_success",
+            "failure": "force_failure"
+          },
+          "effects": [
+            {
+              "type": "set_flag",
+              "scope": "world",
+              "id": "demo.door_forced_attempted"
+            }
+          ]
+        },
+        {
+          "id": "think",
+          "type": "thought",
+          "text": "门不是为了挡住你，是为了挡住里面的东西。",
+          "next": "thought_reply"
+        },
+        {
+          "id": "remember_knock",
+          "type": "thought",
+          "text": "你刚才敲过门。门记住了，或者你希望它记住了。",
+          "next": "knock_memory",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "demo.knocked_locked_door",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    "knock_reply": {
+      "speaker": "door",
+      "text": "木头内部传来短促、空洞的回声。没有脚步声。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "重新考虑。",
+          "next": "start"
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "离开这扇门"
+        }
+      ]
+    },
+    "force_success": {
+      "speaker": "narrator",
+      "text": "【检定占位】你的肩膀让门闩发出危险的呻吟。真正的 d20 结果会在下一阶段接入。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "先不要真的撞坏它。",
+          "next": "start"
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "结束互动"
+        }
+      ]
+    },
+    "force_failure": {
+      "speaker": "narrator",
+      "text": "你想象了一下失败的声音：肩膀、门、尊严，三者至少会碎一个。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "明智地停下。",
+          "next": "start"
+        }
+      ]
+    },
+    "thought_reply": {
+      "speaker": "inner voice",
+      "text": "或者，门只是门。你的脑子强烈反对这个解释。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "继续怀疑。",
+          "next": "start"
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "结束互动"
+        }
+      ]
+    },
+    "knock_memory": {
+      "speaker": "inner voice",
+      "text": "重复的敲门不会制造答案，只会制造节奏。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "回到门前。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

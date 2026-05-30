@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "ebb",
+  "version": "${version}",
+  "name": "Esoteric Ebb CRPG",
+  "description": "A data-driven Disco-like CRPG interaction and dialogue framework for Minecraft 26.1.2.",
+  "authors": [
+    "CRPG_MOD Project"
+  ],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.crpg.ebb.EbbMod"
+    ],
+    "client": [
+      "com.crpg.ebb.client.EbbClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": ">=${fabric_api_version}",
+    "geckolib": ">=${geckolib_version}"
+  }
+}

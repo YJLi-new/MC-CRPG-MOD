@@ -1,0 +1,18 @@
+{
+  "modmenu.nameTranslation.ebb": "Esoteric Ebb CRPG",
+  "key.ebb.interact": "Interact",
+  "key.category.ebb.controls": "Esoteric Ebb",
+  "hud.ebb.interact_prompt": "Press [%s] to interact",
+  "message.ebb.no_target": "No interactable target.",
+  "message.ebb.target_too_far": "Move closer to interact.",
+  "message.ebb.network_unavailable": "Interaction channel is not available on this server.",
+  "message.ebb.interaction_denied": "Interaction denied: %s",
+  "message.ebb.open_dialogue_placeholder": "Opening dialogue %s for %s",
+  "message.ebb.dialogue_closed": "Dialogue closed: %s",
+  "screen.ebb.dialogue.title": "Dialogue",
+  "screen.ebb.dialogue.heading": "%s / %s",
+  "screen.ebb.dialogue.speaker": "%s:",
+  "screen.ebb.dev_snapshot.title": "Ebb Developer Snapshot",
+  "screen.ebb.dev_snapshot.prev": "Prev",
+  "screen.ebb.dev_snapshot.next": "Next"
+}

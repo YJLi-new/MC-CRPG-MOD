@@ -1,0 +1,54 @@
+{
+  "id": "ebb:debug/entity",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "你把注意力集中在眼前的生物上。它没有台词，但系统已经确认：目标检测、服务端校验与对话打开链路正在工作。",
+      "choices": [
+        {
+          "id": "greet",
+          "type": "dialogue",
+          "text": "你好？",
+          "next": "greet_reply"
+        },
+        {
+          "id": "observe",
+          "type": "action",
+          "text": "观察它的反应",
+          "next": "observe_reply"
+        },
+        {
+          "id": "thought",
+          "type": "thought",
+          "text": "这只是临时实体对话，但闭环是真的。",
+          "next": "thought_reply"
+        }
+      ]
+    },
+    "greet_reply": {
+      "speaker": "narrator",
+      "text": "它没有回答。Minecraft 的默认实体通常不会参与辩论。",
+      "choices": [
+        { "id": "back", "type": "dialogue", "text": "继续观察。", "next": "start" },
+        { "id": "leave", "type": "action", "text": "结束互动" }
+      ]
+    },
+    "observe_reply": {
+      "speaker": "narrator",
+      "text": "你记录下它的位置、轮廓和被选中的事实。稍后这条链路会接入属性检定与状态。",
+      "choices": [
+        { "id": "back", "type": "dialogue", "text": "回到开头。", "next": "start" },
+        { "id": "leave", "type": "action", "text": "结束互动" }
+      ]
+    },
+    "thought_reply": {
+      "speaker": "inner voice",
+      "text": "思想在 HUD 的后面翻涌：先让系统可用，再让世界变得奇怪。",
+      "choices": [
+        { "id": "back", "type": "thought", "text": "把这个念头放回口袋。", "next": "start" },
+        { "id": "leave", "type": "action", "text": "结束互动" }
+      ]
+    }
+  }
+}

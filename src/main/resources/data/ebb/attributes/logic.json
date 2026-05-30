@@ -1,0 +1,7 @@
+{
+  "key": "logic",
+  "name": "Logic",
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

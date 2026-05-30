@@ -1,0 +1,9 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/locked_door_dialogue",
+  "blocks": [
+    [0, 64, 4],
+    [0, 65, 4]
+  ],
+  "interaction_point": [0.5, 64.9, 3.75]
+}

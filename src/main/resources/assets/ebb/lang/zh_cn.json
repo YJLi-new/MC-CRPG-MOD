@@ -1,0 +1,18 @@
+{
+  "modmenu.nameTranslation.ebb": "Esoteric Ebb CRPG",
+  "key.ebb.interact": "互动",
+  "key.category.ebb.controls": "Esoteric Ebb",
+  "hud.ebb.interact_prompt": "按 [%s] 互动",
+  "message.ebb.no_target": "没有可互动目标。",
+  "message.ebb.target_too_far": "靠近后才能互动。",
+  "message.ebb.network_unavailable": "当前服务器未开放互动通道。",
+  "message.ebb.interaction_denied": "互动被拒绝：%s",
+  "message.ebb.open_dialogue_placeholder": "打开对话 %s（目标 %s）",
+  "message.ebb.dialogue_closed": "对话关闭：%s",
+  "screen.ebb.dialogue.title": "对话",
+  "screen.ebb.dialogue.heading": "%s / %s",
+  "screen.ebb.dialogue.speaker": "%s：",
+  "screen.ebb.dev_snapshot.title": "Ebb 开发者快照",
+  "screen.ebb.dev_snapshot.prev": "上一页",
+  "screen.ebb.dev_snapshot.next": "下一页"
+}
