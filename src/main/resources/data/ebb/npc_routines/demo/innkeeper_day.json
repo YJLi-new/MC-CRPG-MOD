@@ -1,0 +1,27 @@
+{
+  "steps": [
+    {
+      "time": [0, 6000],
+      "action": "stand",
+      "pos": [2.5, 64.0, 2.5],
+      "look": "counter"
+    },
+    {
+      "time": [6000, 12000],
+      "action": "walk",
+      "path": [[2.5, 64.0, 2.5], [5.5, 64.0, 2.5]],
+      "look": "hall"
+    },
+    {
+      "time": [12000, 24000],
+      "action": "stand",
+      "pos": [5.5, 64.0, 2.5],
+      "look": "door"
+    }
+  ],
+  "look_at_player": {
+    "enabled": true,
+    "range": 4.0,
+    "max_yaw_speed": 8.0
+  }
+}

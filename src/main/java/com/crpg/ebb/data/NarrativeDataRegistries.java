@@ -2,6 +2,8 @@ package com.crpg.ebb.data;
 
 import com.crpg.ebb.attribute.AttributeRegistry;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
+import com.crpg.ebb.routine.NpcRoutineRegistry;
 import com.crpg.ebb.dialogue.DialogueRegistry;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.minecraft.server.packs.PackType;
@@ -30,6 +32,8 @@ public final class NarrativeDataRegistries {
     public static void registerReloadListeners() {
         DIALOGUES.addReloadObserver(registry -> DialogueRegistry.rebuild(registry.entries()));
         BLOCK_GROUPS.addReloadObserver(registry -> BlockGroupIndex.rebuild(registry.entries()));
+        ENTITY_BINDINGS.addReloadObserver(registry -> EntityBindingRegistry.rebuild(registry.entries()));
+        NPC_ROUTINES.addReloadObserver(registry -> NpcRoutineRegistry.rebuild(registry.entries()));
         ATTRIBUTES.addReloadObserver(registry -> AttributeRegistry.rebuild(registry.entries()));
 
         ResourceLoader serverData = ResourceLoader.get(PackType.SERVER_DATA);
@@ -58,6 +62,8 @@ public final class NarrativeDataRegistries {
                 + "; validation_messages=" + totalMessageCount()
                 + "; " + DialogueRegistry.summaryLine()
                 + "; " + AttributeRegistry.summaryLine()
-                + "; " + BlockGroupIndex.summaryLine();
+                + "; " + BlockGroupIndex.summaryLine()
+                + "; " + EntityBindingRegistry.summaryLine()
+                + "; " + NpcRoutineRegistry.summaryLine();
     }
 }

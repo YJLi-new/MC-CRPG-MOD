@@ -1,9 +1,12 @@
 package com.crpg.ebb.dialogue;
 
 import com.crpg.ebb.state.NarrativeSavedData;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.util.GsonHelper;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -36,7 +39,7 @@ public record DialogueEffect(
                 normalized = "GIVE_ITEM_PLACEHOLDER";
             } else if ("TAKE_ITEM".equals(normalized)) {
                 normalized = "TAKE_ITEM_PLACEHOLDER";
-            } else if ("ROUTINE".equals(normalized)) {
+            } else if ("ROUTINE".equals(normalized) || "SET_ROUTINE".equals(normalized)) {
                 normalized = "ROUTINE_PLACEHOLDER";
             }
             try {
@@ -47,7 +50,28 @@ public record DialogueEffect(
         }
     }
 
-    static Optional<DialogueEffect> parse(JsonObject json, String path, List<String> messages) {
+    public static List<DialogueEffect> parseList(JsonObject json, String key, String path, List<String> messages) {
+        if (!json.has(key)) {
+            return List.of();
+        }
+        if (!json.get(key).isJsonArray()) {
+            messages.add(path + ": " + key + " must be an array when present");
+            return List.of();
+        }
+        List<DialogueEffect> effects = new ArrayList<>();
+        JsonArray array = json.getAsJsonArray(key);
+        for (int i = 0; i < array.size(); i++) {
+            JsonElement element = array.get(i);
+            if (!element.isJsonObject()) {
+                messages.add(path + "." + key + "[" + i + "]: effect must be an object");
+                continue;
+            }
+            parse(element.getAsJsonObject(), path + "." + key + "[" + i + "]", messages).ifPresent(effects::add);
+        }
+        return List.copyOf(effects);
+    }
+
+    public static Optional<DialogueEffect> parse(JsonObject json, String path, List<String> messages) {
         Optional<EffectType> type = EffectType.parse(optionalString(json, "type").orElse("set_flag"));
         if (type.isEmpty()) {
             messages.add(path + ": unknown effect type");
@@ -58,9 +82,9 @@ public record DialogueEffect(
             messages.add(path + ": scope must be player or world");
             return Optional.empty();
         }
-        Optional<String> id = optionalString(json, "id").or(() -> optionalString(json, "flag")).or(() -> optionalString(json, "attribute"));
+        Optional<String> id = optionalString(json, "id").or(() -> optionalString(json, "flag")).or(() -> optionalString(json, "attribute")).or(() -> optionalString(json, "routine"));
         if (id.isEmpty() || id.get().isBlank()) {
-            messages.add(path + ": missing id/flag/attribute string");
+            messages.add(path + ": missing id/flag/attribute/routine string");
             return Optional.empty();
         }
         Optional<Integer> value = optionalInt(json, "value");
@@ -95,6 +119,11 @@ public record DialogueEffect(
             }
         }
         return Optional.empty();
+    }
+
+    public String debugSummary() {
+        String value = attributeValue.map(v -> "=" + v).orElse("");
+        return type.name().toLowerCase(Locale.ROOT) + "(" + scope.name().toLowerCase(Locale.ROOT) + "," + id + value + ")";
     }
 
     private void setFlag(NarrativeSavedData state, UUID playerUuid, boolean value) {

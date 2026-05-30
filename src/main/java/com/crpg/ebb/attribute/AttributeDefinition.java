@@ -26,7 +26,9 @@ public record AttributeDefinition(
             return Optional.empty();
         }
         if (defaultScore < min || defaultScore > max) {
-            messages.add("attribute " + id + ": default score " + defaultScore + " is outside [" + min + ", " + max + "]");
+            int clamped = Math.max(min, Math.min(max, defaultScore));
+            messages.add("attribute " + id + ": default score " + defaultScore + " is outside [" + min + ", " + max + "]; clamped to " + clamped);
+            defaultScore = clamped;
         }
         return Optional.of(new AttributeDefinition(id, key, displayName, defaultScore, min, max));
     }

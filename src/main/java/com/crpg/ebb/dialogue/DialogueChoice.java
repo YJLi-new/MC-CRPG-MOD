@@ -8,17 +8,20 @@ import net.minecraft.util.GsonHelper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public record DialogueChoice(
         String id,
         ChoiceType type,
         String text,
+        Optional<String> textKey,
         Optional<String> next,
         Optional<DialogueCheck> check,
         List<DialogueCondition> conditions,
         List<DialogueEffect> effects
 ) {
     public DialogueChoice {
+        textKey = textKey == null ? Optional.empty() : textKey;
         next = next == null ? Optional.empty() : next;
         check = check == null ? Optional.empty() : check;
         conditions = conditions == null ? List.of() : List.copyOf(conditions);
@@ -28,12 +31,16 @@ public record DialogueChoice(
     static Optional<DialogueChoice> parse(JsonObject json, String path, List<String> messages) {
         String id = requiredString(json, "id", path, messages).orElse(null);
         String rawType = requiredString(json, "type", path, messages).orElse(null);
-        String text = requiredString(json, "text", path, messages).orElse(null);
+        Optional<String> text = optionalString(json, "text");
+        Optional<String> textKey = optionalString(json, "text_key");
+        if (text.isEmpty() && textKey.isEmpty()) {
+            messages.add(path + ": missing required string \"text\" or \"text_key\"");
+        }
         Optional<ChoiceType> type = ChoiceType.parse(rawType);
         if (rawType != null && type.isEmpty()) {
             messages.add(path + ": unknown choice type \"" + rawType + "\"; expected dialogue/action/thought");
         }
-        if (id == null || type.isEmpty() || text == null) {
+        if (id == null || type.isEmpty() || (text.isEmpty() && textKey.isEmpty())) {
             return Optional.empty();
         }
 
@@ -46,12 +53,9 @@ public record DialogueChoice(
         }
 
         List<DialogueCondition> conditions = parseConditions(json, path, messages);
-        List<DialogueEffect> effects = parseEffects(json, path, messages);
+        List<DialogueEffect> effects = DialogueEffect.parseList(json, "effects", path, messages);
 
-        if (next.isEmpty() && check.isEmpty()) {
-            // A terminal choice is valid; it closes the conversation.
-        }
-        return Optional.of(new DialogueChoice(id, type.get(), text, next, check, conditions, effects));
+        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects));
     }
 
     public Optional<String> defaultNextNode() {
@@ -59,6 +63,20 @@ public record DialogueChoice(
             return next;
         }
         return check.flatMap(DialogueCheck::success);
+    }
+
+    public String debugSummary() {
+        StringBuilder builder = new StringBuilder("choice " + id + " [" + type + "] text=\"" + text + "\"");
+        textKey.ifPresent(key -> builder.append(" text_key=").append(key));
+        next.ifPresent(value -> builder.append(" -> ").append(value));
+        check.ifPresent(value -> builder.append(" check=").append(value.debugSummary()));
+        if (!conditions.isEmpty()) {
+            builder.append(" conditions=").append(conditions.stream().map(DialogueCondition::debugSummary).collect(Collectors.joining(",", "[", "]")));
+        }
+        if (!effects.isEmpty()) {
+            builder.append(" effects(pre)=").append(effects.stream().map(DialogueEffect::debugSummary).collect(Collectors.joining(",", "[", "]")));
+        }
+        return builder.toString();
     }
 
     private static List<DialogueCondition> parseConditions(JsonObject json, String path, List<String> messages) {
@@ -81,28 +99,6 @@ public record DialogueChoice(
                     .ifPresent(conditions::add);
         }
         return List.copyOf(conditions);
-    }
-
-    private static List<DialogueEffect> parseEffects(JsonObject json, String path, List<String> messages) {
-        if (!json.has("effects")) {
-            return List.of();
-        }
-        if (!json.get("effects").isJsonArray()) {
-            messages.add(path + ": effects must be an array when present");
-            return List.of();
-        }
-        List<DialogueEffect> effects = new ArrayList<>();
-        JsonArray array = json.getAsJsonArray("effects");
-        for (int i = 0; i < array.size(); i++) {
-            JsonElement element = array.get(i);
-            if (!element.isJsonObject()) {
-                messages.add(path + ".effects[" + i + "]: effect must be an object");
-                continue;
-            }
-            DialogueEffect.parse(element.getAsJsonObject(), path + ".effects[" + i + "]", messages)
-                    .ifPresent(effects::add);
-        }
-        return List.copyOf(effects);
     }
 
     private static Optional<String> requiredString(JsonObject json, String key, String path, List<String> messages) {

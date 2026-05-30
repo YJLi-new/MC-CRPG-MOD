@@ -56,7 +56,9 @@ public record DialogueDefinition(
             return Optional.empty();
         }
 
-        validateReferences(id, nodes, messages);
+        if (!validateReferences(id, nodes, messages)) {
+            return Optional.empty();
+        }
         return Optional.of(new DialogueDefinition(id, start.get(), nodes));
     }
 
@@ -68,21 +70,24 @@ public record DialogueDefinition(
         return Optional.ofNullable(nodes.get(nodeId));
     }
 
-    private static void validateReferences(Identifier id, Map<String, DialogueNode> nodes, List<String> messages) {
+    private static boolean validateReferences(Identifier id, Map<String, DialogueNode> nodes, List<String> messages) {
+        boolean valid = true;
         for (DialogueNode node : nodes.values()) {
             for (DialogueChoice choice : node.choices()) {
-                validateRef(id, nodes, node.id(), choice.id(), "next", choice.next(), messages);
-                choice.check().ifPresent(check -> {
-                    validateRef(id, nodes, node.id(), choice.id(), "check.success", check.success(), messages);
-                    validateRef(id, nodes, node.id(), choice.id(), "check.failure", check.failure(), messages);
-                    validateRef(id, nodes, node.id(), choice.id(), "check.critical_success", check.criticalSuccess(), messages);
-                    validateRef(id, nodes, node.id(), choice.id(), "check.critical_failure", check.criticalFailure(), messages);
-                });
+                valid &= validateRef(id, nodes, node.id(), choice.id(), "next", choice.next(), messages);
+                if (choice.check().isPresent()) {
+                    DialogueCheck check = choice.check().get();
+                    valid &= validateRef(id, nodes, node.id(), choice.id(), "check.success", check.success(), messages);
+                    valid &= validateRef(id, nodes, node.id(), choice.id(), "check.failure", check.failure(), messages);
+                    valid &= validateRef(id, nodes, node.id(), choice.id(), "check.critical_success", check.criticalSuccess(), messages);
+                    valid &= validateRef(id, nodes, node.id(), choice.id(), "check.critical_failure", check.criticalFailure(), messages);
+                }
             }
         }
+        return valid;
     }
 
-    private static void validateRef(
+    private static boolean validateRef(
             Identifier id,
             Map<String, DialogueNode> nodes,
             String nodeId,
@@ -91,12 +96,16 @@ public record DialogueDefinition(
             Optional<String> ref,
             List<String> messages
     ) {
-        ref.ifPresent(next -> {
-            if (!nodes.containsKey(next)) {
-                messages.add("dialogue " + id + ": node \"" + nodeId + "\" choice \"" + choiceId
-                        + "\" has " + field + "=\"" + next + "\", but that node is missing");
-            }
-        });
+        if (ref.isEmpty()) {
+            return true;
+        }
+        String next = ref.get();
+        if (!nodes.containsKey(next)) {
+            messages.add("dialogue " + id + ": node \"" + nodeId + "\" choice \"" + choiceId
+                    + "\" has " + field + "=\"" + next + "\", but that node is missing");
+            return false;
+        }
+        return true;
     }
 
     private static Optional<String> requiredString(JsonObject json, String key, String path, List<String> messages) {

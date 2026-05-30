@@ -5,69 +5,117 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public record BlockGroupDefinition(
         Identifier id,
         ResourceKey<Level> dimension,
         List<BlockPos> blocks,
+        Map<BlockPos, Identifier> expectedBlocks,
         Vec3 interactionPoint,
         Identifier dialogueId,
         AABB bounds
 ) {
     public BlockGroupDefinition {
         blocks = List.copyOf(blocks);
+        expectedBlocks = Map.copyOf(expectedBlocks);
     }
 
     public BlockGroupTarget asTarget() {
         return new BlockGroupTarget(id, dimension, blocks, interactionPoint, dialogueId, bounds);
     }
 
+    public boolean expectedBlocksMatch(Level level) {
+        if (expectedBlocks.isEmpty()) {
+            return true;
+        }
+        for (Map.Entry<BlockPos, Identifier> entry : expectedBlocks.entrySet()) {
+            Block actual = level.getBlockState(entry.getKey()).getBlock();
+            Identifier actualId = BuiltInRegistries.BLOCK.getKey(actual);
+            if (!entry.getValue().equals(actualId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static Optional<BlockGroupDefinition> parse(Identifier id, JsonObject json, List<String> messages) {
         try {
             ResourceKey<Level> dimension = parseDimension(GsonHelper.getAsString(json, "dimension", "minecraft:overworld"));
             Identifier dialogueId = Identifier.parse(GsonHelper.getAsString(json, "dialogue"));
-            List<BlockPos> blocks = parseBlocks(GsonHelper.getAsJsonArray(json, "blocks"));
-            if (blocks.isEmpty()) {
+            ParsedBlocks parsedBlocks = parseBlocks(GsonHelper.getAsJsonArray(json, "blocks"), messages, id);
+            if (parsedBlocks.blocks().isEmpty()) {
                 messages.add("Block group " + id + " has no blocks.");
                 return Optional.empty();
             }
 
-            AABB bounds = computeBounds(blocks);
+            AABB bounds = computeBounds(parsedBlocks.blocks());
             Vec3 interactionPoint = json.has("interaction_point")
                     ? parseVec3(GsonHelper.getAsJsonArray(json, "interaction_point"), "interaction_point")
                     : bounds.getCenter();
 
-            return Optional.of(new BlockGroupDefinition(id, dimension, blocks, interactionPoint, dialogueId, bounds));
+            return Optional.of(new BlockGroupDefinition(id, dimension, parsedBlocks.blocks(), parsedBlocks.expectedBlocks(), interactionPoint, dialogueId, bounds));
         } catch (RuntimeException ex) {
             messages.add("Invalid block group " + id + ": " + ex.getMessage());
             return Optional.empty();
         }
     }
 
+    public static BlockGroupDefinition fromSynced(
+            Identifier id,
+            ResourceKey<Level> dimension,
+            List<BlockPos> blocks,
+            Map<BlockPos, Identifier> expectedBlocks,
+            Vec3 interactionPoint,
+            Identifier dialogueId
+    ) {
+        return new BlockGroupDefinition(id, dimension, blocks, expectedBlocks, interactionPoint, dialogueId, computeBounds(blocks));
+    }
+
     private static ResourceKey<Level> parseDimension(String value) {
         return ResourceKey.create(Registries.DIMENSION, Identifier.parse(value));
     }
 
-    private static List<BlockPos> parseBlocks(JsonArray blocksArray) {
+    private static ParsedBlocks parseBlocks(JsonArray blocksArray, List<String> messages, Identifier groupId) {
         List<BlockPos> blocks = new ArrayList<>();
+        Map<BlockPos, Identifier> expectedBlocks = new LinkedHashMap<>();
         int index = 0;
         for (JsonElement element : blocksArray) {
-            JsonArray coords = requireArraySize(element, "blocks[" + index + "]", 3);
-            blocks.add(new BlockPos(coords.get(0).getAsInt(), coords.get(1).getAsInt(), coords.get(2).getAsInt()));
+            if (element.isJsonArray()) {
+                JsonArray coords = requireArraySize(element, "blocks[" + index + "]", 3);
+                blocks.add(new BlockPos(coords.get(0).getAsInt(), coords.get(1).getAsInt(), coords.get(2).getAsInt()));
+            } else if (element.isJsonObject()) {
+                JsonObject object = element.getAsJsonObject();
+                JsonArray coords = requireArraySize(object.get("pos"), "blocks[" + index + "].pos", 3);
+                BlockPos pos = new BlockPos(coords.get(0).getAsInt(), coords.get(1).getAsInt(), coords.get(2).getAsInt());
+                blocks.add(pos);
+                if (object.has("block") && !object.get("block").isJsonNull()) {
+                    Identifier blockId = Identifier.parse(GsonHelper.getAsString(object, "block"));
+                    if (!BuiltInRegistries.BLOCK.containsKey(blockId)) {
+                        messages.add("Block group " + groupId + " block " + pos + " references unknown block " + blockId);
+                    }
+                    expectedBlocks.put(pos.immutable(), blockId);
+                }
+            } else {
+                throw new JsonParseException("blocks[" + index + "] must be [x,y,z] or {pos:[x,y,z], block:...}");
+            }
             index++;
         }
-        return blocks;
+        return new ParsedBlocks(List.copyOf(blocks), Map.copyOf(expectedBlocks));
     }
 
     private static Vec3 parseVec3(JsonArray coords, String name) {
@@ -78,7 +126,7 @@ public record BlockGroupDefinition(
     }
 
     private static JsonArray requireArraySize(JsonElement element, String name, int size) {
-        if (!element.isJsonArray()) {
+        if (element == null || !element.isJsonArray()) {
             throw new JsonParseException(name + " must be an array");
         }
         JsonArray array = element.getAsJsonArray();
@@ -96,5 +144,8 @@ public record BlockGroupDefinition(
             max = BlockPos.max(max, block);
         }
         return AABB.encapsulatingFullBlocks(min, max);
+    }
+
+    private record ParsedBlocks(List<BlockPos> blocks, Map<BlockPos, Identifier> expectedBlocks) {
     }
 }

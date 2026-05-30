@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-MVP verification complete; Phase 7 custom NPC/routine work deferred
+Review remediation complete; playable PCL/Fabric test client profile configured
 
 ## Phases
 
@@ -59,11 +59,29 @@ MVP verification complete; Phase 7 custom NPC/routine work deferred
 - **Status:** complete
 
 ### Phase 7: NPC Entity and Routine
-- [ ] Add narrative NPC entity and renderer.
-- [ ] Integrate GeckoLib after the core interaction-dialogue loop works.
-- [ ] Implement basic routine schedule and look-at-player behavior.
-- [ ] Link dialogue effects to NPC routine changes.
-- **Status:** deferred for current MVP (GeckoLib remains a hard dependency; custom NPC/routine work is intentionally postponed beyond the verified vanilla entity/block-group interaction-dialogue loop).
+- [x] Add narrative NPC entity and renderer.
+- [x] Integrate GeckoLib after the core interaction-dialogue loop works.
+- [x] Implement basic routine schedule and look-at-player behavior.
+- [x] Link dialogue effects to NPC routine changes.
+- **Status:** complete for review-remediation MVP skeleton. The implementation is intentionally basic: `ebb:npc`, GeckoLib idle/walk controller/assets, `/ebb summon_npc <routine>`, typed routine JSON, stand/walk destination updates, look-at-player, and routine effect wiring for interacted Ebb NPCs.
+
+### Phase 8: Review Remediation and Hardening
+- [x] Add dedicated-server-safe block-group sync and client block-group index.
+- [x] Add typed vanilla/custom entity binding parser, registry, resolver, and sample bindings.
+- [x] Expand `/ebb dev` into a full dialogue tree/entity binding/NPC routine browser.
+- [x] Add explicit check outcome effects and node enter effects.
+- [x] Add dialogue session lifecycle cleanup, timeout, and action revalidation.
+- [x] Harden packet count decoding, missing-reference validation, attribute defaults, and optional block predicates.
+- [x] Improve dialogue UI paging/wait-state/end behavior and text-key support.
+- [x] Verify with build, smoke test, jar hashes, and jar inspection.
+- **Status:** complete
+
+### Phase 9: Playable Client Test Profile
+- [x] Create a separate Fabric 26.1.2 profile instead of modifying the vanilla `26.1.2` profile in place.
+- [x] Install current Ebb mod jar plus Fabric API and GeckoLib in the profile-local `mods/` directory.
+- [x] Install/verify Fabric Loader libraries and PCL metadata needed for actual launch.
+- [x] Document launch and manual verification steps.
+- **Status:** complete
 
 ## Key Questions
 1. Version pins? Resolved: Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, Loom `1.17.0-alpha.13`, GeckoLib `5.5.1`; no Yarn dependency line for 26.1+.

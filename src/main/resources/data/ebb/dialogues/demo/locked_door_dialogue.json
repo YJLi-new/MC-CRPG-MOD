@@ -28,7 +28,21 @@
             "dc": 15,
             "die": "d20",
             "success": "force_success",
-            "failure": "force_failure"
+            "failure": "force_failure",
+            "success_effects": [
+              {
+                "type": "set_flag",
+                "scope": "world",
+                "id": "demo.door_forced_success"
+              }
+            ],
+            "failure_effects": [
+              {
+                "type": "set_flag",
+                "scope": "world",
+                "id": "demo.door_forced_failure"
+              }
+            ]
           },
           "effects": [
             {

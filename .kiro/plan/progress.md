@@ -326,3 +326,58 @@
 - Implemented: `/ebb` base/data/status/dev commands; JSON reload registries; typed block groups/dialogues/attributes; client crosshair target detection; highlights; default `X` prompt/key; server-authoritative interaction validation; dialogue UI with dialogue/action/thought styling; JSON branching; d20 checks; effects/conditions; narrative saved-data persistence; developer inspection basics.
 - Deferred by design: custom GeckoLib NPC entity/routine/animation work remains Phase 7+; GeckoLib is still declared as a hard dependency.
 - Manual client testing was not performed because it would require setting up/running a separate Fabric client profile; documented steps are in `docs/mvp_verification_steps.md`.
+
+
+### Review Remediation Completion Update
+- **Status:** complete
+- **Time:** 2026-05-30 Asia/Shanghai
+- Actions taken:
+  - Implemented `BlockGroupSyncPayload`, server lifecycle block-group sync, and client `ClientBlockGroupIndex`; client block-group detection no longer depends on server-data reload state.
+  - Implemented typed entity bindings with UUID/tag/name/entity-type matching and sample bindings for tagged villagers and `ebb:npc`; server entity validation now opens bound dialogues instead of always using debug.
+  - Expanded `/ebb dev` into a line-based full tree browser for dialogue ids, start nodes, nodes, choices, checks, conditions, effects, entity bindings, validation, and NPC routines.
+  - Added check outcome effects (`success_effects`, `failure_effects`, `critical_success_effects`, `critical_failure_effects`) and node `enter_effects`; existing choice effects are now documented/treated as pre-roll attempt effects.
+  - Added dialogue session lifecycle cleanup for disconnect/leave/respawn/level change/server stop, timeout pruning, and server-side ACTION target revalidation.
+  - Hardened packet count decoding, dialogue missing-reference validation, attribute default clamping, and optional block predicates.
+  - Improved dialogue UI with non-pausing screen, scrollable text, paged choices, pending-choice disable/wait state, explicit end/close button, and `text_key` support.
+  - Implemented `ebb:npc` GeckoLib MVP skeleton, renderer/assets, `/ebb summon_npc <routine>`, typed routine JSON, basic stand/walk/look-at-player controller, and routine effect wiring.
+  - Added `docs/review_remediation_2026-05-30.md` and updated `docs/mvp_verification_steps.md`.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `ReviewSmoke` → passed: dialogues=3, attributes=3, block_groups=1, entity_bindings=2, npc_routines=1; also verified check outcome effects and missing-reference hard invalidation.
+  - Jar SHA-256: `build/libs/ebb-0.1.0-dev.jar` = `9f6a09ceb005aea6148aaa3d8e1545212c9ca6aaca9305aba2a1b8ca3a85624e`; sources jar = `c5e3857cf88f4262890b2195b7e67822329dc0ae11dca19ad3a12cfaef101c96`.
+  - Jar inspection confirmed block-group sync/client index, entity binding registry, dev tree dumper, `EbbNpcEntity`, `ModEntityTypes`, NPC routine registry, sample entity bindings, sample routine, and GeckoLib assets.
+  - `scripts/gradle-local.sh --no-daemon runServer --args nogui` smoke loaded Fabric/Minecraft/GeckoLib/Ebb and reached the normal EULA gate without an Ebb mod crash.
+- Notes:
+  - Manual client testing still requires a separate Fabric 26.1.2 profile; the vanilla profile was not modified.
+  - Standalone smoke logged one expected unknown `ebb:npc` entity type warning because it did not run the full mod initializer before registry parsing; runtime initializer registers the entity before reload listeners.
+
+### Final Review-Remediation Verification Refresh
+- **Status:** complete
+- **Time:** 2026-05-30 Asia/Shanghai
+- Actions taken:
+  - Re-ran `scripts/gradle-local.sh --no-daemon build` after final robustness cleanup.
+  - Recompiled/re-ran `ReviewSmoke` from `build/tmp/verify-src/ReviewSmoke.java` against the current runtime classpath.
+  - Added minor hardening: invalid `/ebb summon_npc <routine>` identifiers now fail gracefully, and invalid/unavailable/action-target-invalid dialogue choice attempts update session activity before returning a server-authoritative status update.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 41s`.
+  - `ReviewSmoke` → `ReviewSmoke passed: dialogues=3, attributes=3, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - Current jar SHA-256: `build/libs/ebb-0.1.0-dev.jar` = `9f6a09ceb005aea6148aaa3d8e1545212c9ca6aaca9305aba2a1b8ca3a85624e`; sources jar = `c5e3857cf88f4262890b2195b7e67822329dc0ae11dca19ad3a12cfaef101c96`.
+  - Final `runServer --args nogui` smoke exited with status 0; Fabric loaded Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, GeckoLib `5.5.1`, and `ebb 0.1.0-dev`; `EbbMod` initialized and the dev server stopped at the normal EULA gate.
+  - `git diff --check` returned no whitespace/error output.
+
+### Playable PCL Test Client Configuration
+- **Status:** complete
+- **Time:** 2026-05-30 Asia/Shanghai
+- Actions taken:
+  - Created a separate PCL/Fabric test profile at `/mnt/e/MC/PCL/.minecraft/versions/26.1.2-Fabric-Ebb-Test`.
+  - Preserved the vanilla `/mnt/e/MC/PCL/.minecraft/versions/26.1.2` profile; no in-place vanilla profile modification was made.
+  - Added `scripts/configure_pcl_test_client.sh` to regenerate/update the dedicated test profile after future builds.
+  - Generated a full PCL-style Fabric version JSON using Fabric Loader `0.19.2` for Minecraft `26.1.2` with main class `net.fabricmc.loader.impl.launch.knot.KnotClient`.
+  - Installed profile-local mods: `ebb-0.1.0-dev.jar`, `fabric-api-0.150.0+26.1.2.jar`, and `geckolib-fabric-26.1.2-5.5.1.jar`.
+  - Copied required Fabric loader libraries into the PCL `.minecraft/libraries` cache.
+  - Added profile command-history helper commands for `/ebb`, NPC summon, locked-door block setup, and villager tagging.
+  - Documented the setup in `docs/client_test_profile_setup_2026-05-30.md`.
+- Verification:
+  - Profile JSON exists and reports `id=26.1.2-Fabric-Ebb-Test`, `clientVersion=26.1.2`, `mainClass=net.fabricmc.loader.impl.launch.knot.KnotClient`, and 114 libraries.
+  - Windows-applicable missing library count is `0`.
+  - Profile-local mods are present with hashes: Ebb `9f6a09ceb005aea6148aaa3d8e1545212c9ca6aaca9305aba2a1b8ca3a85624e`, Fabric API `43bdfc59a21ace202345bc4c42c751fa36b80617a61cf7b2f8c3698b806305d8`, GeckoLib `63d2519dc13e302da52911727f11ecb7b6bbecc79968751a90bf607273d5f8bc`.

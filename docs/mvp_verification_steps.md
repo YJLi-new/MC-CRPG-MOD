@@ -4,7 +4,7 @@ Generated: 2026-05-30 Asia/Shanghai
 
 ## Automated/build verification already run
 
-From `E:\MC\SIMMC2_1-21-8\CRPG_MOD` / `/mnt/e/MC/SIMMC2_1-21-8/CRPG_MOD`:
+From the active checkout (`/mnt/e/MC/PCL/CRPG_MOD`; original project path was `E:\MC\SIMMC2_1-21-8\CRPG_MOD`):
 
 ```bash
 scripts/gradle-local.sh --no-daemon build
@@ -12,10 +12,11 @@ scripts/gradle-local.sh --no-daemon build
 
 Expected/current result: `BUILD SUCCESSFUL` and jar output in `build/libs/`.
 
-Additional smoke checks run from `build/tmp/verify`:
+Additional smoke checks run from `build/tmp/verify` / `build/tmp/verify-src`:
 
 - `DialogueParserSmoke`: validates sample dialogue parsing and invalid-dialogue validation messages.
 - `Phase5Smoke`: validates attribute registry, locked-door check/effect/condition parsing, condition state changes, and `NarrativeSavedData` codec round trip.
+- `ReviewSmoke`: validates review-remediation registries: dialogues, attributes, block groups, entity bindings, NPC routines, check outcome effects, and hard-invalid missing dialogue references.
 
 ## Generated jars
 
@@ -32,15 +33,17 @@ Suggested checks in a single-player test world or LAN/server with the mod instal
 2. Run `/ebb dev` as an OP/cheat-enabled player; expect the developer snapshot screen.
 3. Look at a vanilla pickable entity within 10m; expect cyan highlight.
 4. Move within 2m; expect `按 [X] 互动` / `Press [X] to interact` prompt.
-5. Press `X`; expect the `ebb:debug/entity` dialogue screen.
+5. Press `X`; unbound entities still use fallback `ebb:debug/entity`, while tagged/bound entities use their configured entity binding dialogue.
 6. Choose dialogue/action/thought options; expect branching and terminal close behavior.
 7. Build or place a two-block locked-door test target at overworld blocks `[0,64,4]` and `[0,65,4]`; look at it within range and press `X`; expect `ebb:demo/locked_door_dialogue`.
 8. Choose the force action; expect a server-side d20 roll summary and success/failure branch.
 9. Choose the knock action, return to the start node, and verify the conditional thought choice becomes visible after the player flag is set.
-10. Run `/reload`; invalid JSON should produce validation messages rather than crash. Then re-run `/ebb data` or `/ebb dev`.
+10. Run `/reload`; invalid JSON should produce validation messages rather than crash. On a dedicated server, block-group definitions should resync to connected modded clients through `BlockGroupSyncPayload`. Then re-run `/ebb data` or `/ebb dev`.
+11. Tag a villager with `ebb.npc.innkeeper` or run `/ebb summon_npc ebb:demo/innkeeper_day`; interact to verify `ebb:demo/innkeeper_intro` rather than the fallback debug dialogue.
+12. In `/ebb dev`, verify full tree lines for dialogue ids, nodes, choices, checks, conditions, effects, entity bindings, and NPC routines.
 
 ## Notes
 
 - Current interaction key is configurable in Controls but defaults to `X`.
-- GeckoLib remains a hard dependency, but custom GeckoLib NPC/routine work is intentionally deferred.
-- The sample block group is deliberately small and coordinate-based for deterministic testing; content authors can replace it with real inn-corridor coordinates later.
+- GeckoLib remains a hard dependency and now has an MVP `ebb:npc` skeleton with idle/walk controller and routine/look-at-player logic.
+- The sample block group is deliberately small and coordinate-based for deterministic testing; content authors can replace it with real inn-corridor coordinates later. Optional block predicates are supported with `{ "pos": [x,y,z], "block": "minecraft:block_id" }`.

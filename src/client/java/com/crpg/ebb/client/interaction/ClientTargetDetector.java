@@ -2,10 +2,10 @@ package com.crpg.ebb.client.interaction;
 
 import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.interaction.BlockGroupDefinition;
-import com.crpg.ebb.interaction.BlockGroupIndex;
 import com.crpg.ebb.interaction.BlockGroupTarget;
 import com.crpg.ebb.interaction.EntityTarget;
 import com.crpg.ebb.interaction.InteractionTarget;
+import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -75,7 +75,7 @@ public final class ClientTargetDetector {
                     entity.getUUID(),
                     entity.getBoundingBox().getCenter(),
                     entity.getBoundingBox(),
-                    EbbMod.id("debug/entity")
+                    EntityBindingRegistry.resolve(entity).map(binding -> binding.dialogueId()).orElse(EbbMod.id("debug/entity"))
             );
             distance = eye.distanceTo(target.interactionPoint());
             reason = "entity_hit";
@@ -100,7 +100,7 @@ public final class ClientTargetDetector {
         if (blockHit.getType() != HitResult.Type.BLOCK) {
             return Optional.empty();
         }
-        return BlockGroupIndex.byBlock(player.level().dimension(), blockHit.getBlockPos())
+        return ClientBlockGroupIndex.byBlock(player.level().dimension(), blockHit.getBlockPos())
                 .map(BlockGroupDefinition::asTarget);
     }
 

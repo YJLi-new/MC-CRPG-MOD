@@ -12,7 +12,10 @@ import com.crpg.ebb.network.dialogue.ChooseDialogueOptionPayload;
 import com.crpg.ebb.network.dialogue.CloseDialogueRequestPayload;
 import com.crpg.ebb.network.dialogue.DialogueClosePayload;
 import com.crpg.ebb.network.dialogue.DialogueUpdatePayload;
+import com.crpg.ebb.network.sync.BlockGroupSyncPayload;
+import com.crpg.ebb.client.interaction.ClientBlockGroupIndex;
 import com.crpg.ebb.network.dev.DevSnapshotPayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -40,6 +43,10 @@ public final class ClientInteractionNetworking {
         ClientPlayNetworking.registerGlobalReceiver(DevSnapshotPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> context.client().setScreen(new DevSnapshotScreen(payload)))
         );
+        ClientPlayNetworking.registerGlobalReceiver(BlockGroupSyncPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> ClientBlockGroupIndex.rebuild(payload.definitions()))
+        );
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientBlockGroupIndex.clear());
     }
 
     public static void sendCurrentTargetInteraction(Minecraft minecraft) {
@@ -102,7 +109,9 @@ public final class ClientInteractionNetworking {
                 payload.nodeId(),
                 payload.speaker(),
                 payload.text(),
-                payload.choices()
+                payload.textKey(),
+                payload.choices(),
+                payload.statusMessage()
         )));
     }
 

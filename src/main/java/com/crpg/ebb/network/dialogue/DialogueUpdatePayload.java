@@ -16,6 +16,7 @@ public record DialogueUpdatePayload(
         String nodeId,
         String speaker,
         String text,
+        Optional<String> textKey,
         List<VisibleDialogueChoice> choices,
         Optional<RollResultPayload> rollResult,
         Optional<String> statusMessage
@@ -27,6 +28,7 @@ public record DialogueUpdatePayload(
     );
 
     public DialogueUpdatePayload {
+        textKey = textKey == null ? Optional.empty() : textKey;
         choices = List.copyOf(choices);
         rollResult = rollResult == null ? Optional.empty() : rollResult;
         statusMessage = statusMessage == null ? Optional.empty() : statusMessage;
@@ -38,11 +40,11 @@ public record DialogueUpdatePayload(
         buffer.writeUtf(nodeId, DialoguePayloadCodecs.MAX_NODE_ID_LENGTH);
         buffer.writeUtf(speaker, DialoguePayloadCodecs.MAX_SPEAKER_LENGTH);
         buffer.writeUtf(text, DialoguePayloadCodecs.MAX_TEXT_LENGTH);
+        DialoguePayloadCodecs.writeOptionalUtf(buffer, textKey, DialoguePayloadCodecs.MAX_TEXT_KEY_LENGTH);
         DialoguePayloadCodecs.writeChoices(buffer, choices);
         buffer.writeBoolean(rollResult.isPresent());
         rollResult.ifPresent(result -> result.write(buffer));
-        buffer.writeBoolean(statusMessage.isPresent());
-        statusMessage.ifPresent(message -> buffer.writeUtf(message, DialoguePayloadCodecs.MAX_TEXT_LENGTH));
+        DialoguePayloadCodecs.writeOptionalUtf(buffer, statusMessage, DialoguePayloadCodecs.MAX_TEXT_LENGTH);
     }
 
     private static DialogueUpdatePayload read(RegistryFriendlyByteBuf buffer) {
@@ -51,14 +53,13 @@ public record DialogueUpdatePayload(
         String nodeId = buffer.readUtf(DialoguePayloadCodecs.MAX_NODE_ID_LENGTH);
         String speaker = buffer.readUtf(DialoguePayloadCodecs.MAX_SPEAKER_LENGTH);
         String text = buffer.readUtf(DialoguePayloadCodecs.MAX_TEXT_LENGTH);
+        Optional<String> textKey = DialoguePayloadCodecs.readOptionalUtf(buffer, DialoguePayloadCodecs.MAX_TEXT_KEY_LENGTH);
         List<VisibleDialogueChoice> choices = DialoguePayloadCodecs.readChoices(buffer);
         Optional<RollResultPayload> rollResult = buffer.readBoolean()
                 ? Optional.of(RollResultPayload.read(buffer))
                 : Optional.empty();
-        Optional<String> statusMessage = buffer.readBoolean()
-                ? Optional.of(buffer.readUtf(DialoguePayloadCodecs.MAX_TEXT_LENGTH))
-                : Optional.empty();
-        return new DialogueUpdatePayload(conversationId, dialogueId, nodeId, speaker, text, choices, rollResult, statusMessage);
+        Optional<String> statusMessage = DialoguePayloadCodecs.readOptionalUtf(buffer, DialoguePayloadCodecs.MAX_TEXT_LENGTH);
+        return new DialogueUpdatePayload(conversationId, dialogueId, nodeId, speaker, text, textKey, choices, rollResult, statusMessage);
     }
 
     @Override

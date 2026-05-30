@@ -6,6 +6,8 @@ import com.crpg.ebb.data.NarrativeDataRegistries;
 import com.crpg.ebb.dialogue.DialogueRegistry;
 import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
+import com.crpg.ebb.routine.NpcRoutineRegistry;
 import com.crpg.ebb.state.NarrativeSavedData;
 import net.minecraft.server.MinecraftServer;
 
@@ -18,7 +20,7 @@ public final class DevSnapshotService {
 
     public static List<String> build(MinecraftServer server) {
         List<String> lines = new ArrayList<>();
-        lines.add("Esoteric Ebb CRPG developer snapshot");
+        lines.add("Esoteric Ebb CRPG developer tree browser");
         lines.add(NarrativeDataRegistries.summaryLine());
         lines.add("dialogue_sessions(active=" + DialogueService.activeSessionCount() + ")");
         lines.add(NarrativeSavedData.get(server).summaryLine());
@@ -34,6 +36,11 @@ public final class DevSnapshotService {
         lines.add("- " + DialogueRegistry.summaryLine());
         lines.add("- " + AttributeRegistry.summaryLine());
         lines.add("- " + BlockGroupIndex.summaryLine());
+        lines.add("- " + EntityBindingRegistry.summaryLine());
+        lines.add("- " + NpcRoutineRegistry.summaryLine());
+        DialogueDebugDumper.appendDialogueTrees(lines);
+        DialogueDebugDumper.appendEntityBindings(lines);
+        DialogueDebugDumper.appendRoutines(lines);
         appendMessages(lines, "Raw JSON messages", NarrativeDataRegistries.all().stream()
                 .flatMap(registry -> registry.validationMessages().stream()
                         .map(message -> registry.directory() + ": " + message))
@@ -41,6 +48,8 @@ public final class DevSnapshotService {
         appendMessages(lines, "Dialogue validation", DialogueRegistry.validationMessages());
         appendMessages(lines, "Attribute validation", AttributeRegistry.validationMessages());
         appendMessages(lines, "Block group validation", BlockGroupIndex.messages());
+        appendMessages(lines, "Entity binding validation", EntityBindingRegistry.validationMessages());
+        appendMessages(lines, "NPC routine validation", NpcRoutineRegistry.validationMessages());
         return lines;
     }
 
@@ -51,9 +60,9 @@ public final class DevSnapshotService {
             lines.add("- none");
             return;
         }
-        messages.stream().limit(24).forEach(message -> lines.add("- " + message));
-        if (messages.size() > 24) {
-            lines.add("- ... " + (messages.size() - 24) + " more");
+        messages.stream().limit(96).forEach(message -> lines.add("- " + message));
+        if (messages.size() > 96) {
+            lines.add("- ... " + (messages.size() - 96) + " more");
         }
     }
 }

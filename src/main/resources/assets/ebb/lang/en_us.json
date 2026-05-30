@@ -14,5 +14,8 @@
   "screen.ebb.dialogue.speaker": "%s:",
   "screen.ebb.dev_snapshot.title": "Ebb Developer Snapshot",
   "screen.ebb.dev_snapshot.prev": "Prev",
-  "screen.ebb.dev_snapshot.next": "Next"
+  "screen.ebb.dev_snapshot.next": "Next",
+  "screen.ebb.dialogue.end": "End conversation",
+  "screen.ebb.dialogue.waiting": "Waiting for server...",
+  "entity.ebb.npc": "Ebb NPC"
 }

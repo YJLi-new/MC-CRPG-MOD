@@ -1,0 +1,78 @@
+{
+  "id": "ebb:demo/innkeeper_intro",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "innkeeper",
+      "text": "旅馆老板抬起眼，像是早已知道你会在这个时刻站到这里。",
+      "enter_effects": [
+        { "type": "set_flag", "scope": "player", "id": "demo.met_innkeeper" }
+      ],
+      "choices": [
+        {
+          "id": "ask_door",
+          "type": "dialogue",
+          "text": "走廊尽头那扇门怎么回事？",
+          "next": "door_hint"
+        },
+        {
+          "id": "inspect_expression",
+          "type": "thought",
+          "text": "他在等你问门的事。",
+          "next": "expression"
+        },
+        {
+          "id": "push",
+          "type": "action",
+          "text": "逼问他交出钥匙",
+          "check": {
+            "attribute": "empathy",
+            "dc": 12,
+            "success": "push_success",
+            "failure": "push_failure",
+            "success_effects": [
+              { "type": "set_flag", "scope": "player", "id": "demo.innkeeper_helped" }
+            ],
+            "failure_effects": [
+              { "type": "set_flag", "scope": "player", "id": "demo.innkeeper_annoyed" }
+            ]
+          }
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "结束交谈"
+        }
+      ]
+    },
+    "door_hint": {
+      "speaker": "innkeeper",
+      "text": "“门会告诉你它愿意告诉你的东西。先别用肩膀，年轻人。”",
+      "choices": [
+        { "id": "back", "type": "dialogue", "text": "换个问题。", "next": "start" },
+        { "id": "leave", "type": "action", "text": "离开" }
+      ]
+    },
+    "expression": {
+      "speaker": "inner voice",
+      "text": "这不是恐惧，是一种职业性的疲惫。每天都有人问那扇门。",
+      "choices": [
+        { "id": "back", "type": "thought", "text": "回到谈话。", "next": "start" }
+      ]
+    },
+    "push_success": {
+      "speaker": "innkeeper",
+      "text": "他叹了口气，把一枚不存在于物品栏里的钥匙推向你。至少，现在状态记住了这件事。",
+      "choices": [
+        { "id": "back", "type": "dialogue", "text": "继续。", "next": "start" }
+      ]
+    },
+    "push_failure": {
+      "speaker": "innkeeper",
+      "text": "“你把威胁说得像是在背菜单。” 他把钥匙收得更远。",
+      "choices": [
+        { "id": "back", "type": "dialogue", "text": "重新组织语言。", "next": "start" }
+      ]
+    }
+  }
+}

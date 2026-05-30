@@ -72,6 +72,10 @@ public final class BlockGroupIndex {
         return snapshot.messages;
     }
 
+    public static Map<Identifier, BlockGroupDefinition> definitions() {
+        return snapshot.byId;
+    }
+
     public static Optional<BlockGroupDefinition> byId(Identifier id) {
         return Optional.ofNullable(snapshot.byId.get(id));
     }

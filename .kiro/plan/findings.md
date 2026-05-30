@@ -197,3 +197,23 @@ Still needs explicit or implicit confirmation:
 - Added sample block-group content `data/ebb/interactions/block_groups/demo/locked_door.json` for the locked-door dialogue.
 - `docs/mvp_verification_steps.md` documents build/smoke/manual verification without modifying the vanilla `26.1.2` profile.
 - Final verification: `scripts/gradle-local.sh --no-daemon build` succeeded; both smoke checks passed; jar inspection confirms dev snapshot classes/resources and sample content are packaged.
+
+
+## Review Remediation Findings — 2026-05-30
+- Read `C:\Users\lanla\Downloads\ebb_project_review.md` and implemented the requested hardening/remediation set in the active checkout `/mnt/e/MC/PCL/CRPG_MOD`.
+- Dedicated-server block groups now sync with `BlockGroupSyncPayload`; client detection uses `ClientBlockGroupIndex`, not the server-data `BlockGroupIndex`.
+- Entity binding registry now parses `interactions/entity_bindings` and resolves server-side entity dialogue/range by UUID/tag/name/entity type/priority, with debug fallback.
+- `/ebb dev` now includes complete dialogue tree dumps with nodes, choices, conditions, effects, checks, and outcome effects, plus entity bindings and NPC routines.
+- Dialogue checks now support `success_effects`, `failure_effects`, `critical_success_effects`, and `critical_failure_effects`; nodes support `enter_effects`.
+- Dialogue sessions now close on disconnect/leave/respawn/level change/server stop, expire after inactivity, and revalidate ACTION choice target LOS/range before applying effects.
+- Packet list decoders now reject bad counts; missing dialogue references are hard-invalid; attribute defaults clamp to min/max; block groups support optional block predicates.
+- Added `ebb:npc` GeckoLib MVP skeleton with renderer/assets, `/ebb summon_npc <routine>`, typed routine registry, basic stand/walk/look-at-player controller, and routine effect wiring for interacted Ebb NPCs.
+- Verification: `scripts/gradle-local.sh --no-daemon build` succeeded; `ReviewSmoke` passed for registries/effects/hard-invalid refs; jar inspection confirmed new classes/resources.
+
+- Additional review-remediation verification: `runServer --args nogui` loaded Minecraft 26.1.2, Fabric Loader 0.19.2, Fabric API 0.150.0+26.1.2, GeckoLib 5.5.1, and `ebb`; the dev server stopped at the normal EULA gate rather than an Ebb initialization crash.
+
+## Playable Client Setup Findings — 2026-05-30
+- The actual PCL Minecraft directory in this environment is `/mnt/e/MC/PCL/.minecraft`; `/mnt/e/MC/SIMMC2_1-21-8/.minecraft` is absent.
+- The vanilla `26.1.2` profile is at `/mnt/e/MC/PCL/.minecraft/versions/26.1.2` and remains preserved.
+- A new independent PCL profile `26.1.2-Fabric-Ebb-Test` was created with Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, GeckoLib `5.5.1`, and the current Ebb mod jar.
+- PCL Fabric profiles in this install use full version JSON plus `PCL/Setup.ini`; the test profile follows that pattern rather than modifying the vanilla profile.

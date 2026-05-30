@@ -1,6 +1,9 @@
 package com.crpg.ebb.interaction;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.dialogue.DialogueSession;
+import com.crpg.ebb.interaction.entity.EntityBindingDefinition;
+import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -18,12 +21,24 @@ public final class InteractionService {
     private InteractionService() {
     }
 
+    public static InteractionValidationResult validateSessionTarget(ServerPlayer player, DialogueSession session) {
+        return switch (session.targetType()) {
+            case BLOCK_GROUP -> validateBlockGroup(player, session.targetId());
+            case ENTITY -> session.entityUuid()
+                    .map(uuid -> validateEntity(player, uuid))
+                    .orElseGet(() -> InteractionValidationResult.deny("missing_session_entity_uuid"));
+        };
+    }
+
     public static InteractionValidationResult validateBlockGroup(ServerPlayer player, BlockGroupDefinition definition) {
         if (player.isSpectator()) {
             return InteractionValidationResult.deny("spectator");
         }
         if (!player.level().dimension().equals(definition.dimension())) {
             return InteractionValidationResult.deny("wrong_dimension");
+        }
+        if (!definition.expectedBlocksMatch(player.level())) {
+            return InteractionValidationResult.deny("block_predicate_mismatch");
         }
         double distance = Math.sqrt(definition.bounds().distanceToSqr(player.position()));
         if (distance > INTERACTION_RANGE) {
@@ -57,9 +72,10 @@ public final class InteractionService {
             return InteractionValidationResult.deny("entity_not_interactable");
         }
 
+        EntityBindingDefinition binding = EntityBindingRegistry.resolve(entity).orElseThrow();
         Vec3 interactionPoint = entity.getBoundingBox().getCenter();
         double distance = player.getEyePosition().distanceTo(interactionPoint);
-        if (distance > INTERACTION_RANGE) {
+        if (distance > binding.interactionRange()) {
             return InteractionValidationResult.deny("too_far");
         }
         if (!hasClearRay(player, interactionPoint)) {
@@ -71,7 +87,7 @@ public final class InteractionService {
                 entity.getUUID(),
                 interactionPoint,
                 entity.getBoundingBox(),
-                EbbMod.id("debug/entity")
+                binding.dialogueId()
         ));
     }
 

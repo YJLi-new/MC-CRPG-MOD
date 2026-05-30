@@ -14,5 +14,8 @@
   "screen.ebb.dialogue.speaker": "%s：",
   "screen.ebb.dev_snapshot.title": "Ebb 开发者快照",
   "screen.ebb.dev_snapshot.prev": "上一页",
-  "screen.ebb.dev_snapshot.next": "下一页"
+  "screen.ebb.dev_snapshot.next": "下一页",
+  "screen.ebb.dialogue.end": "结束对话",
+  "screen.ebb.dialogue.waiting": "等待服务器……",
+  "entity.ebb.npc": "Ebb NPC"
 }

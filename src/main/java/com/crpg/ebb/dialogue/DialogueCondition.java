@@ -41,6 +41,10 @@ public record DialogueCondition(
         return actual == expected;
     }
 
+    public String debugSummary() {
+        return scope.name().toLowerCase(java.util.Locale.ROOT) + " flag " + flag + " == " + expected;
+    }
+
     private static Optional<String> optionalString(JsonObject json, String key) {
         return json.has(key) && !json.get(key).isJsonNull()
                 ? Optional.of(GsonHelper.getAsString(json, key))
