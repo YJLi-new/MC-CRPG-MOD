@@ -1,7 +1,0 @@
-{
-  "key": "force",
-  "name": "Force",
-  "default": 1,
-  "min": -5,
-  "max": 10
-}

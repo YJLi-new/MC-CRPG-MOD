@@ -73,10 +73,17 @@ public final class ClientInteractionNetworking {
         ClientPlayNetworking.send(InteractionRequestPayload.fromTarget(target.get()));
     }
 
-    public static void sendDialogueChoice(UUID conversationId, String choiceId) {
+    public static boolean sendDialogueChoice(UUID conversationId, String choiceId) {
         if (ClientPlayNetworking.canSend(ChooseDialogueOptionPayload.TYPE)) {
             ClientPlayNetworking.send(new ChooseDialogueOptionPayload(conversationId, choiceId));
+            return true;
         }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            minecraft.player.sendOverlayMessage(Component.translatable("message.ebb.dialogue_choice_network_unavailable"));
+        }
+        EbbMod.LOGGER.warn("Cannot send dialogue choice payload; server does not advertise {}", ChooseDialogueOptionPayload.TYPE.id());
+        return false;
     }
 
     public static void sendDialogueClose(UUID conversationId, String reason) {

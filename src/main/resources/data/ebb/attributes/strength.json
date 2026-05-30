@@ -1,0 +1,8 @@
+{
+  "key": "strength",
+  "name": "力量 / Strength",
+  "aliases": ["str", "force"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

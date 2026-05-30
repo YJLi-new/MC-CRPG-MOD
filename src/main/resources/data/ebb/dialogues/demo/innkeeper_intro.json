@@ -25,8 +25,9 @@
           "id": "push",
           "type": "action",
           "text": "逼问他交出钥匙",
+          "revalidate_target": false,
           "check": {
-            "attribute": "empathy",
+            "attribute": "charisma",
             "dc": 12,
             "success": "push_success",
             "failure": "push_failure",

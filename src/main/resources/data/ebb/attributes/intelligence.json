@@ -1,0 +1,8 @@
+{
+  "key": "intelligence",
+  "name": "智力 / Intelligence",
+  "aliases": ["int", "logic"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

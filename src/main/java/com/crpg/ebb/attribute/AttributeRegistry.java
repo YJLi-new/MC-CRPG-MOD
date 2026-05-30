@@ -31,6 +31,9 @@ public final class AttributeRegistry {
                     putKey(nextByKey, definition.key(), definition, messages);
                     putKey(nextByKey, definition.id().toString(), definition, messages);
                     putKey(nextByKey, definition.id().getPath(), definition, messages);
+                    for (String alias : definition.aliases()) {
+                        putKey(nextByKey, alias, definition, messages);
+                    }
                 });
             } catch (RuntimeException ex) {
                 messages.add("attribute " + entry.getKey() + ": parser exception: " + ex.getMessage());
@@ -59,6 +62,24 @@ public final class AttributeRegistry {
 
     public static int clamp(String key, int value) {
         return byKey(key).map(definition -> definition.clamp(value)).orElse(value);
+    }
+
+    public static String canonicalKey(String key) {
+        if (key == null) {
+            return "";
+        }
+        String normalized = normalize(key);
+        return byKey(normalized).map(AttributeDefinition::key).orElse(normalized);
+    }
+
+    public static Map<Identifier, AttributeDefinition> definitions() {
+        return byId;
+    }
+
+    public static List<AttributeDefinition> orderedDefinitions() {
+        return byId.values().stream()
+                .sorted(java.util.Comparator.comparing(AttributeDefinition::key))
+                .toList();
     }
 
     public static int size() {

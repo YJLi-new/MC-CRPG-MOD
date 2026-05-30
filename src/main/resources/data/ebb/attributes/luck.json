@@ -1,0 +1,8 @@
+{
+  "key": "luck",
+  "name": "幸运 / Luck",
+  "aliases": ["luc"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

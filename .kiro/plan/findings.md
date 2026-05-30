@@ -217,3 +217,15 @@ Still needs explicit or implicit confirmation:
 - The vanilla `26.1.2` profile is at `/mnt/e/MC/PCL/.minecraft/versions/26.1.2` and remains preserved.
 - A new independent PCL profile `26.1.2-Fabric-Ebb-Test` was created with Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, GeckoLib `5.5.1`, and the current Ebb mod jar.
 - PCL Fabric profiles in this install use full version JSON plus `PCL/Setup.ini`; the test profile follows that pattern rather than modifying the vanilla profile.
+
+## DND-8 Attribute Points Findings — 2026-05-30
+- Implemented the project's first player-facing point allocation feature as eight DND-like dimensions: strength, dexterity, constitution, intelligence, wisdom, charisma, perception, and luck.
+- The implementation intentionally stores scores as direct d20 modifiers in the existing CRPG check model rather than D&D ability scores; one unspent point raises one modifier by +1.
+- Legacy dialogue/content keys remain compatible through aliases: force, logic, and empathy map to strength, intelligence, and charisma respectively.
+- Current debug/admin commands operate on the invoking player only; target-player administration can be added later if needed.
+
+## Finding: Dialogue roll/status text must share layout with choice buttons
+- **Date:** 2026-05-30
+- **Context:** Screenshot after a successful checked dialogue choice showed status text bleeding through the choice button row.
+- **Decision:** Avoid fixed Y coordinates for dynamic dialogue UI sections. Derive body, status, choices, and done button Y positions from one panel layout; scissor status text above choices.
+

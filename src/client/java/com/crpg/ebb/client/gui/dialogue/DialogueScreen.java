@@ -26,6 +26,10 @@ public final class DialogueScreen extends Screen {
     private static final int STATUS_COLOR = 0xFFFFD166;
     private static final int MUTED_COLOR = 0xFFAAAAAA;
     private static final int VISIBLE_CHOICES = 5;
+    private static final int PANEL_MAX_WIDTH = 560;
+    private static final int PANEL_MAX_HEIGHT = 360;
+    private static final int PANEL_MARGIN = 16;
+    private static final int LINE_HEIGHT = 10;
 
     private final UUID conversationId;
     private final Identifier dialogueId;
@@ -81,16 +85,16 @@ public final class DialogueScreen extends Screen {
 
     @Override
     protected void init() {
-        int panelWidth = Math.min(520, this.width - 32);
-        int left = (this.width - panelWidth) / 2;
+        int panelWidth = panelWidth();
+        int left = panelLeft();
         int buttonWidth = panelWidth - 104;
-        int buttonY = Math.max(124, this.height - 28 - VISIBLE_CHOICES * 24);
+        int buttonY = choicesTop();
         int start = choicePage * VISIBLE_CHOICES;
         int end = Math.min(choices.size(), start + VISIBLE_CHOICES);
 
         if (choices.isEmpty()) {
             addRenderableWidget(Button.builder(Component.translatable("screen.ebb.dialogue.end"), button -> closeByPlayer())
-                    .bounds(left + 16, this.height - 52, panelWidth - 32, 20).build());
+                    .bounds(left + PANEL_MARGIN, doneButtonY(), panelWidth - PANEL_MARGIN * 2, 20).build());
             return;
         }
 
@@ -121,41 +125,31 @@ public final class DialogueScreen extends Screen {
         addRenderableWidget(next);
 
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> closeByPlayer())
-                .bounds(left + 16, this.height - 28, panelWidth - 32, 20).build());
+                .bounds(left + PANEL_MARGIN, doneButtonY(), panelWidth - PANEL_MARGIN * 2, 20).build());
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float tickDelta) {
         extractTransparentBackground(graphics);
 
-        int panelWidth = Math.min(560, this.width - 24);
-        int panelHeight = Math.min(320, this.height - 36);
-        int left = (this.width - panelWidth) / 2;
-        int top = this.height - panelHeight - 18;
+        int panelWidth = panelWidth();
+        int panelHeight = panelHeight();
+        int left = panelLeft();
+        int top = panelTop();
         int right = left + panelWidth;
         int bottom = top + panelHeight;
+        int choiceTop = choicesTop();
+        int statusTop = statusTop();
 
         graphics.fill(left, top, right, bottom, PANEL_COLOR);
         graphics.outline(left, top, panelWidth, panelHeight, PANEL_BORDER);
         graphics.centeredText(this.font, Component.translatable("screen.ebb.dialogue.heading", dialogueId.toString(), nodeId), this.width / 2, top + 8, TITLE_COLOR);
-        graphics.text(this.font, speakerComponent(), left + 16, top + 28, TITLE_COLOR);
+        graphics.text(this.font, speakerComponent(), left + PANEL_MARGIN, top + 28, TITLE_COLOR);
         int bodyTop = top + 44;
-        int bodyBottom = bottom - 130;
-        renderScrollableBody(graphics, left + 16, bodyTop, panelWidth - 32, bodyBottom - bodyTop);
+        int bodyBottom = Math.max(bodyTop + LINE_HEIGHT, statusTop - 8);
+        renderScrollableBody(graphics, left + PANEL_MARGIN, bodyTop, panelWidth - PANEL_MARGIN * 2, bodyBottom - bodyTop);
+        renderStatusArea(graphics, left + PANEL_MARGIN, statusTop, panelWidth - PANEL_MARGIN * 2, Math.max(LINE_HEIGHT, choiceTop - statusTop - 8));
 
-        int statusY = bottom - 120;
-        if (rollResult.isPresent()) {
-            RollResultPayload result = rollResult.get();
-            graphics.textWithWordWrap(this.font, Component.literal(result.summary()), left + 16, statusY, panelWidth - 32, STATUS_COLOR);
-            statusY += 22;
-        }
-        if (statusMessage.isPresent()) {
-            graphics.textWithWordWrap(this.font, Component.literal(statusMessage.get()), left + 16, statusY, panelWidth - 32, STATUS_COLOR);
-            statusY += 22;
-        }
-        if (waitingForServer) {
-            graphics.text(this.font, Component.translatable("screen.ebb.dialogue.waiting"), left + 16, statusY, MUTED_COLOR);
-        }
         if (choices.size() > VISIBLE_CHOICES) {
             graphics.text(this.font, Component.literal("choices " + (choicePage + 1) + " / " + (maxChoicePage() + 1)), right - 110, bottom - 42, MUTED_COLOR);
         }
@@ -195,8 +189,19 @@ public final class DialogueScreen extends Screen {
             return;
         }
         waitingForServer = true;
-        ClientInteractionNetworking.sendDialogueChoice(conversationId, choiceId);
+        rollResult = Optional.empty();
+        findChoice(choiceId)
+                .flatMap(VisibleDialogueChoice::checkSummary)
+                .ifPresent(summary -> statusMessage = Optional.of(Component.translatable("screen.ebb.dialogue.rolling", summary).getString()));
+        if (!ClientInteractionNetworking.sendDialogueChoice(conversationId, choiceId)) {
+            waitingForServer = false;
+            statusMessage = Optional.of(Component.translatable("message.ebb.dialogue_choice_network_unavailable").getString());
+        }
         rebuildWidgets();
+    }
+
+    private Optional<VisibleDialogueChoice> findChoice(String choiceId) {
+        return choices.stream().filter(choice -> choice.id().equals(choiceId)).findFirst();
     }
 
     private void closeByPlayer() {
@@ -210,11 +215,9 @@ public final class DialogueScreen extends Screen {
     }
 
     private int maxTextScroll() {
-        int panelWidth = Math.min(560, this.width - 24);
-        int panelHeight = Math.min(320, this.height - 36);
-        int bodyHeight = panelHeight - 174;
+        int bodyHeight = Math.max(LINE_HEIGHT, statusTop() - 8 - (panelTop() + 44));
         int visibleLines = Math.max(1, bodyHeight / 10);
-        return Math.max(0, this.font.split(bodyComponent(), panelWidth - 32).size() - visibleLines);
+        return Math.max(0, this.font.split(bodyComponent(), panelWidth() - PANEL_MARGIN * 2).size() - visibleLines);
     }
 
     private void renderScrollableBody(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
@@ -232,6 +235,81 @@ public final class DialogueScreen extends Screen {
         if (maxScroll > 0) {
             graphics.text(this.font, Component.literal("text " + (textScroll + 1) + " / " + (maxScroll + 1)), x + width - 90, y + height - 10, MUTED_COLOR);
         }
+    }
+
+    private void renderStatusArea(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
+        int bottom = y + height;
+        int lineY = y;
+        graphics.enableScissor(x, y, x + width, bottom);
+        if (rollResult.isPresent()) {
+            lineY = renderWrapped(graphics, Component.literal(rollResult.get().summary()), x, lineY, width, bottom, STATUS_COLOR);
+        }
+        if (statusMessage.isPresent()) {
+            lineY = renderWrapped(graphics, Component.literal(statusMessage.get()), x, lineY, width, bottom, STATUS_COLOR);
+        }
+        if (waitingForServer && lineY + LINE_HEIGHT <= bottom) {
+            graphics.text(this.font, Component.translatable("screen.ebb.dialogue.waiting"), x, lineY, MUTED_COLOR);
+        }
+        graphics.disableScissor();
+    }
+
+    private int renderWrapped(GuiGraphicsExtractor graphics, Component component, int x, int y, int width, int bottom, int color) {
+        List<net.minecraft.util.FormattedCharSequence> lines = this.font.split(component, width);
+        for (net.minecraft.util.FormattedCharSequence line : lines) {
+            if (y + LINE_HEIGHT > bottom) {
+                break;
+            }
+            graphics.text(this.font, line, x, y, color);
+            y += LINE_HEIGHT;
+        }
+        return y + 2;
+    }
+
+    private int panelWidth() {
+        return Math.min(PANEL_MAX_WIDTH, this.width - 24);
+    }
+
+    private int panelHeight() {
+        return Math.min(PANEL_MAX_HEIGHT, this.height - 36);
+    }
+
+    private int panelLeft() {
+        return (this.width - panelWidth()) / 2;
+    }
+
+    private int panelTop() {
+        return this.height - panelHeight() - 18;
+    }
+
+    private int panelBottom() {
+        return panelTop() + panelHeight();
+    }
+
+    private int doneButtonY() {
+        return panelBottom() - 28;
+    }
+
+    private int visibleChoiceCountOnPage() {
+        int start = choicePage * VISIBLE_CHOICES;
+        int end = Math.min(choices.size(), start + VISIBLE_CHOICES);
+        return Math.max(1, end - start);
+    }
+
+    private int choicesTop() {
+        if (choices.isEmpty()) {
+            return doneButtonY() - 28;
+        }
+        return doneButtonY() - 8 - visibleChoiceCountOnPage() * 24;
+    }
+
+    private int statusTop() {
+        int preferredHeight = hasStatusLines() ? 46 : LINE_HEIGHT;
+        int minTop = panelTop() + 62;
+        return Math.max(minTop, choicesTop() - preferredHeight);
+    }
+
+    private boolean hasStatusLines() {
+        return rollResult.isPresent() || statusMessage.isPresent() || waitingForServer;
     }
 
     private Component speakerComponent() {

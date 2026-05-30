@@ -6,6 +6,7 @@
   "message.ebb.no_target": "No interactable target.",
   "message.ebb.target_too_far": "Move closer to interact.",
   "message.ebb.network_unavailable": "Interaction channel is not available on this server.",
+  "message.ebb.dialogue_choice_network_unavailable": "Dialogue choice channel is not available on this server.",
   "message.ebb.interaction_denied": "Interaction denied: %s",
   "message.ebb.open_dialogue_placeholder": "Opening dialogue %s for %s",
   "message.ebb.dialogue_closed": "Dialogue closed: %s",
@@ -17,5 +18,6 @@
   "screen.ebb.dev_snapshot.next": "Next",
   "screen.ebb.dialogue.end": "End conversation",
   "screen.ebb.dialogue.waiting": "Waiting for server...",
+  "screen.ebb.dialogue.rolling": "Rolling... %s",
   "entity.ebb.npc": "Ebb NPC"
 }

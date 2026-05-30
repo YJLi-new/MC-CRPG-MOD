@@ -1,6 +1,7 @@
 package com.crpg.ebb.state;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.attribute.AttributeDefinition;
 import com.crpg.ebb.attribute.AttributeRegistry;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -56,13 +57,74 @@ public final class NarrativeSavedData extends SavedData {
 
     public int getAttribute(UUID playerUuid, String key) {
         String normalized = normalize(key);
-        return player(playerUuid).attributes().getOrDefault(normalized, AttributeRegistry.defaultScore(normalized));
+        String canonical = AttributeRegistry.canonicalKey(normalized);
+        Map<String, Integer> attributes = player(playerUuid).attributes();
+        if (attributes.containsKey(canonical)) {
+            return attributes.get(canonical);
+        }
+        if (!canonical.equals(normalized) && attributes.containsKey(normalized)) {
+            return attributes.get(normalized);
+        }
+        return AttributeRegistry.defaultScore(canonical);
     }
 
     public void setAttribute(UUID playerUuid, String key, int value) {
-        String normalized = normalize(key);
-        player(playerUuid).attributes().put(normalized, AttributeRegistry.clamp(normalized, value));
+        String canonical = AttributeRegistry.canonicalKey(key);
+        player(playerUuid).attributes().put(canonical, AttributeRegistry.clamp(canonical, value));
         setDirty();
+    }
+
+    public int getAttributePoints(UUID playerUuid) {
+        return player(playerUuid).attributePoints();
+    }
+
+    public void setAttributePoints(UUID playerUuid, int points) {
+        player(playerUuid).setAttributePoints(points);
+        setDirty();
+    }
+
+    public void addAttributePoints(UUID playerUuid, int points) {
+        PlayerNarrativeState state = player(playerUuid);
+        state.setAttributePoints(state.attributePoints() + points);
+        setDirty();
+    }
+
+    public SpendResult spendAttributePoint(UUID playerUuid, String key, int amount) {
+        if (amount <= 0) {
+            return new SpendResult(false, "amount_must_be_positive", getAttribute(playerUuid, key), getAttributePoints(playerUuid));
+        }
+        String canonical = AttributeRegistry.canonicalKey(key);
+        AttributeDefinition definition = AttributeRegistry.byKey(canonical).orElse(null);
+        if (definition == null) {
+            return new SpendResult(false, "unknown_attribute:" + key, 0, getAttributePoints(playerUuid));
+        }
+        PlayerNarrativeState state = player(playerUuid);
+        if (state.attributePoints() < amount) {
+            return new SpendResult(false, "not_enough_attribute_points", getAttribute(playerUuid, canonical), state.attributePoints());
+        }
+        int current = getAttribute(playerUuid, canonical);
+        int next = current + amount;
+        if (next > definition.max()) {
+            return new SpendResult(false, "attribute_max:" + definition.max(), current, state.attributePoints());
+        }
+        state.attributes().put(canonical, next);
+        state.setAttributePoints(state.attributePoints() - amount);
+        setDirty();
+        return new SpendResult(true, canonical, next, state.attributePoints());
+    }
+
+    public void resetAttributes(UUID playerUuid) {
+        PlayerNarrativeState state = player(playerUuid);
+        state.attributes().clear();
+        state.setAttributePoints(PlayerNarrativeState.DEFAULT_ATTRIBUTE_POINTS);
+        setDirty();
+    }
+
+    public String attributeLine(UUID playerUuid, String key) {
+        String canonical = AttributeRegistry.canonicalKey(key);
+        AttributeDefinition definition = AttributeRegistry.byKey(canonical).orElse(null);
+        String name = definition == null ? canonical : definition.displayName();
+        return canonical + " (" + name + ") = " + getAttribute(playerUuid, canonical);
     }
 
     public boolean hasPlayerFlag(UUID playerUuid, String flag) {
@@ -113,5 +175,8 @@ public final class NarrativeSavedData extends SavedData {
 
     private static String normalize(String key) {
         return key.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public record SpendResult(boolean success, String reason, int score, int remainingPoints) {
     }
 }

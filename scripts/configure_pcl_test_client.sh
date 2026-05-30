@@ -191,6 +191,9 @@ cat > "$PROFILE_DIR/command_history.txt" <<'EOF_COMMANDS'
 /ebb status
 /ebb data
 /ebb dev
+/ebb attributes
+/ebb attributes spend charisma 1
+/ebb attributes grant 8
 /ebb summon_npc ebb:demo/innkeeper_day
 /setblock 0 64 4 minecraft:oak_door[half=lower,facing=south]
 /setblock 0 65 4 minecraft:oak_door[half=upper,facing=south]

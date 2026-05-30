@@ -1,0 +1,8 @@
+{
+  "key": "perception",
+  "name": "察觉 / Perception",
+  "aliases": ["per"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

@@ -1,0 +1,8 @@
+{
+  "key": "charisma",
+  "name": "魅力 / Charisma",
+  "aliases": ["cha", "empathy"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

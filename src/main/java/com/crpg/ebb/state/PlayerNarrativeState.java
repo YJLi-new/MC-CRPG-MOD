@@ -10,20 +10,25 @@ import java.util.Map;
 import java.util.Set;
 
 public final class PlayerNarrativeState {
+    public static final int DEFAULT_ATTRIBUTE_POINTS = 8;
+
     public static final Codec<PlayerNarrativeState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.unboundedMap(Codec.STRING, Codec.INT).optionalFieldOf("attributes", Map.of()).forGetter(PlayerNarrativeState::attributesForCodec),
-            Codec.STRING.listOf().optionalFieldOf("flags", List.of()).forGetter(PlayerNarrativeState::flagsForCodec)
+            Codec.STRING.listOf().optionalFieldOf("flags", List.of()).forGetter(PlayerNarrativeState::flagsForCodec),
+            Codec.INT.optionalFieldOf("attribute_points", DEFAULT_ATTRIBUTE_POINTS).forGetter(PlayerNarrativeState::attributePoints)
     ).apply(instance, PlayerNarrativeState::new));
 
     private final Map<String, Integer> attributes = new LinkedHashMap<>();
     private final Set<String> flags = new LinkedHashSet<>();
+    private int attributePoints = DEFAULT_ATTRIBUTE_POINTS;
 
     public PlayerNarrativeState() {
     }
 
-    private PlayerNarrativeState(Map<String, Integer> attributes, List<String> flags) {
+    private PlayerNarrativeState(Map<String, Integer> attributes, List<String> flags, int attributePoints) {
         this.attributes.putAll(attributes);
         this.flags.addAll(flags);
+        this.attributePoints = Math.max(0, attributePoints);
     }
 
     public Map<String, Integer> attributes() {
@@ -32,6 +37,14 @@ public final class PlayerNarrativeState {
 
     public Set<String> flags() {
         return flags;
+    }
+
+    public int attributePoints() {
+        return attributePoints;
+    }
+
+    public void setAttributePoints(int attributePoints) {
+        this.attributePoints = Math.max(0, attributePoints);
     }
 
     private Map<String, Integer> attributesForCodec() {

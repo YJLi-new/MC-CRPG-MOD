@@ -1,0 +1,8 @@
+{
+  "key": "dexterity",
+  "name": "敏捷 / Dexterity",
+  "aliases": ["dex"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

@@ -381,3 +381,55 @@
   - Profile JSON exists and reports `id=26.1.2-Fabric-Ebb-Test`, `clientVersion=26.1.2`, `mainClass=net.fabricmc.loader.impl.launch.knot.KnotClient`, and 114 libraries.
   - Windows-applicable missing library count is `0`.
   - Profile-local mods are present with hashes: Ebb `9f6a09ceb005aea6148aaa3d8e1545212c9ca6aaca9305aba2a1b8ca3a85624e`, Fabric API `43bdfc59a21ace202345bc4c42c751fa36b80617a61cf7b2f8c3698b806305d8`, GeckoLib `63d2519dc13e302da52911727f11ecb7b6bbecc79968751a90bf607273d5f8bc`.
+
+### Dice Roll Interaction Fix
+- **Status:** complete
+- **Time:** 2026-05-30 Asia/Shanghai
+- Trigger:
+  - User reported that clicking the visible `[empathy] DC 12 d20` dialogue button did not trigger a random dice roll.
+- Root cause / implementation notes:
+  - Server-side d20 rolling existed, but all `ACTION` choices were revalidating the original target before resolving checks. For the innkeeper social check, the NPC routine/position could invalidate the target before the social roll, so the choice returned a target-invalid status instead of rolling.
+  - Added choice-level `revalidate_target` support. It defaults to true for material action choices, but the innkeeper social pressure check now sets `"revalidate_target": false`, so clicking it proceeds to the authoritative server-side d20 roll.
+  - Added immediate client feedback `掷骰中……<check>` while waiting for the server response, plus explicit network-unavailable feedback if the choice packet cannot be sent.
+  - Added server log evidence for every dialogue roll: attribute, choice id, player, d20, modifier, total, DC, and outcome.
+  - Added GeckoLib 5 resource-path copies under `assets/ebb/geckolib/models/...` and `assets/ebb/geckolib/animations/...` to address the test-client log spam about missing `ebb:entity/npc` model/animation resources.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 50s`.
+  - Refreshed playable PCL test profile via `scripts/configure_pcl_test_client.sh`; installed test-client Ebb jar hash now matches build jar: `2894be7aecc5689df6ee78b8d1c240153659652b8b5e4c3f331d38b42af72ad2`.
+  - Jar inspection confirms `data/ebb/dialogues/demo/innkeeper_intro.json` has `push.revalidate_target=false` and bundled GeckoLib resource paths exist.
+  - `ReviewSmoke` still passes: `dialogues=3, attributes=3, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - `git diff --check` returned no whitespace/error output.
+
+### DND-8 Player Attribute Points
+- **Status:** complete
+- **Time:** 2026-05-30 Asia/Shanghai
+- Actions taken:
+  - Replaced the previous three sample attributes with DND-like eight dimensions: `strength`, `dexterity`, `constitution`, `intelligence`, `wisdom`, `charisma`, `perception`, and `luck`.
+  - Added attribute aliases so older content keys remain compatible: `force -> strength`, `logic -> intelligence`, `empathy -> charisma`.
+  - Added persistent per-player unspent attribute points to `PlayerNarrativeState`; new/old player states default to `8` unspent points.
+  - Added `/ebb attributes` and `/ebb attr` commands to display scores and points.
+  - Added `/ebb attributes spend <attribute> <points>` for player point spending.
+  - Added OP/debug commands `/ebb attributes grant <points>`, `/ebb attributes set <attribute> <score>`, and `/ebb attributes reset` for the invoking player.
+  - Updated sample checks to use DND-8 keys: locked door uses `strength`; innkeeper pressure uses `charisma`.
+  - Added `docs/player_attributes_dnd8.md` and updated manual verification docs/command history.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 51s`.
+  - `ReviewSmoke` → `dialogues=3, attributes=8, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - `AttributePointsSmoke` → `AttributePointsSmoke passed: attributes=8, points=8`, verifying aliases, default points, spend, unknown rejection, and reset.
+  - Refreshed playable PCL profile; build jar and installed test-client jar both hash to `823c52f5dc521a78b7c8d155420315b3a12fab5700d178d0631a4cc4c7ac895e`.
+
+### Dialogue UI Roll/Status Layout Fix
+- **Status:** complete
+- **Time:** 2026-05-30 Asia/Shanghai
+- Trigger:
+  - User screenshot showed the roll/result/status line rendered through the choice-row area after clicking a dialogue check, visually colliding with arrow and choice buttons.
+- Root cause / implementation notes:
+  - `DialogueScreen` rendered roll/result/status text at a fixed `bottom - 120` Y coordinate while choice buttons used a separate bottom-anchored layout, so a one-choice post-roll node could draw status text in the same vertical band as the visible choice buttons.
+  - Added shared panel layout helpers and a dedicated, scissored status area immediately above the current page of choice buttons. The dialogue body now shrinks to the area above status text, and long status/roll text is clipped instead of being drawn underneath buttons.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 37s`.
+  - `ReviewSmoke` → `ReviewSmoke passed: dialogues=3, attributes=8, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - `AttributePointsSmoke` → `AttributePointsSmoke passed: attributes=8, points=8`.
+  - Refreshed playable PCL profile via `scripts/configure_pcl_test_client.sh`; build jar and installed test-client jar both hash to `6ffae3ba4a80e4a1ce20dfbc0f26963ff570b41871f7b8a8cd576f1f04963000`.
+  - `git diff --check` returned no whitespace/error output.
+

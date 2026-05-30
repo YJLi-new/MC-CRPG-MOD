@@ -123,7 +123,7 @@ public final class DialogueService {
             sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("choice_unavailable:" + payload.choiceId()));
             return;
         }
-        if (choice.get().type() == ChoiceType.ACTION) {
+        if (choice.get().type() == ChoiceType.ACTION && choice.get().revalidateTarget()) {
             InteractionValidationResult validation = InteractionService.validateSessionTarget(player, session);
             if (!validation.allowed()) {
                 DialogueSession touched = session.touch(gameTime);
@@ -245,6 +245,15 @@ public final class DialogueService {
                 critical,
                 outcome
         );
+        EbbMod.LOGGER.info("Dialogue roll {} choice {} for {}: d20 {} + {} = {} vs DC {} -> {}",
+                choice.check().map(DialogueCheck::attribute).orElse(check.attribute()),
+                choice.id(),
+                player.getName().getString(),
+                dieRoll,
+                attributeScore,
+                total,
+                check.dc(),
+                outcome);
         return new ChoiceResolution(next, Optional.of(roll), Optional.empty(), check.effectsForOutcome(outcome));
     }
 

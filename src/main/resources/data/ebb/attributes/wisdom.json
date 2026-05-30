@@ -1,0 +1,8 @@
+{
+  "key": "wisdom",
+  "name": "感知 / Wisdom",
+  "aliases": ["wis"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

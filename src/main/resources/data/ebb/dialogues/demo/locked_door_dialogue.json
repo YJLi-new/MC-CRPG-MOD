@@ -24,7 +24,7 @@
           "type": "action",
           "text": "试着撞开它",
           "check": {
-            "attribute": "force",
+            "attribute": "strength",
             "dc": 15,
             "die": "d20",
             "success": "force_success",

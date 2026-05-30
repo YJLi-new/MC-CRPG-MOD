@@ -1,0 +1,8 @@
+{
+  "key": "constitution",
+  "name": "体质 / Constitution",
+  "aliases": ["con"],
+  "default": 0,
+  "min": -5,
+  "max": 10
+}

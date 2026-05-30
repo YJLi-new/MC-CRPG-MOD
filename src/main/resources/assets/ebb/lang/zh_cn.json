@@ -6,6 +6,7 @@
   "message.ebb.no_target": "没有可互动目标。",
   "message.ebb.target_too_far": "靠近后才能互动。",
   "message.ebb.network_unavailable": "当前服务器未开放互动通道。",
+  "message.ebb.dialogue_choice_network_unavailable": "当前服务器未开放对话选择通道。",
   "message.ebb.interaction_denied": "互动被拒绝：%s",
   "message.ebb.open_dialogue_placeholder": "打开对话 %s（目标 %s）",
   "message.ebb.dialogue_closed": "对话关闭：%s",
@@ -17,5 +18,6 @@
   "screen.ebb.dev_snapshot.next": "下一页",
   "screen.ebb.dialogue.end": "结束对话",
   "screen.ebb.dialogue.waiting": "等待服务器……",
+  "screen.ebb.dialogue.rolling": "掷骰中……%s",
   "entity.ebb.npc": "Ebb NPC"
 }

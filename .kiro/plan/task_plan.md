@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Review remediation complete; playable PCL/Fabric test client profile configured
+Dialogue roll/status UI overlap fix complete; playable PCL/Fabric test client refreshed
 
 ## Phases
 
@@ -81,6 +81,28 @@ Review remediation complete; playable PCL/Fabric test client profile configured
 - [x] Install current Ebb mod jar plus Fabric API and GeckoLib in the profile-local `mods/` directory.
 - [x] Install/verify Fabric Loader libraries and PCL metadata needed for actual launch.
 - [x] Document launch and manual verification steps.
+- **Status:** complete
+
+### Phase 10: Dice Roll Playtest Fix
+- [x] Make checked dialogue choices produce visible roll feedback when clicked.
+- [x] Allow social checked actions to skip target revalidation while preserving default revalidation for material action choices.
+- [x] Refresh the playable PCL test profile with the rebuilt jar.
+- [x] Verify build and smoke checks.
+- **Status:** complete
+
+### Phase 11: DND-8 Player Attribute Points
+- [x] Replace sample attributes with DND-like eight dimensions.
+- [x] Preserve legacy attribute aliases for existing content.
+- [x] Persist per-player unspent attribute points.
+- [x] Add player commands for viewing/spending points and OP debug commands for grant/set/reset.
+- [x] Update sample dialogue checks and verification docs.
+- **Status:** complete
+
+### Phase 12: Dialogue UI Roll Status Layout Fix
+- [x] Move roll-result/status rendering into a bounded area above the visible choice buttons.
+- [x] Derive choice buttons, status area, body scissor, and end button from one panel layout to avoid overlap at different GUI scales.
+- [x] Clip long roll/status text instead of drawing underneath buttons.
+- [x] Rebuild and refresh the playable PCL/Fabric test profile.
 - **Status:** complete
 
 ## Key Questions

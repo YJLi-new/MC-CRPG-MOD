@@ -18,7 +18,8 @@ public record DialogueChoice(
         Optional<String> next,
         Optional<DialogueCheck> check,
         List<DialogueCondition> conditions,
-        List<DialogueEffect> effects
+        List<DialogueEffect> effects,
+        boolean revalidateTarget
 ) {
     public DialogueChoice {
         textKey = textKey == null ? Optional.empty() : textKey;
@@ -54,8 +55,11 @@ public record DialogueChoice(
 
         List<DialogueCondition> conditions = parseConditions(json, path, messages);
         List<DialogueEffect> effects = DialogueEffect.parseList(json, "effects", path, messages);
+        boolean defaultRevalidateTarget = type.get() == ChoiceType.ACTION
+                && (next.isPresent() || check.isPresent() || !effects.isEmpty());
+        boolean revalidateTarget = optionalBoolean(json, "revalidate_target").orElse(defaultRevalidateTarget);
 
-        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects));
+        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects, revalidateTarget));
     }
 
     public Optional<String> defaultNextNode() {
@@ -69,6 +73,9 @@ public record DialogueChoice(
         StringBuilder builder = new StringBuilder("choice " + id + " [" + type + "] text=\"" + text + "\"");
         textKey.ifPresent(key -> builder.append(" text_key=").append(key));
         next.ifPresent(value -> builder.append(" -> ").append(value));
+        if (type == ChoiceType.ACTION) {
+            builder.append(" revalidate_target=").append(revalidateTarget);
+        }
         check.ifPresent(value -> builder.append(" check=").append(value.debugSummary()));
         if (!conditions.isEmpty()) {
             builder.append(" conditions=").append(conditions.stream().map(DialogueCondition::debugSummary).collect(Collectors.joining(",", "[", "]")));
@@ -113,6 +120,12 @@ public record DialogueChoice(
     private static Optional<String> optionalString(JsonObject json, String key) {
         return json.has(key) && !json.get(key).isJsonNull()
                 ? Optional.of(GsonHelper.getAsString(json, key))
+                : Optional.empty();
+    }
+
+    private static Optional<Boolean> optionalBoolean(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull()
+                ? Optional.of(GsonHelper.getAsBoolean(json, key))
                 : Optional.empty();
     }
 }
