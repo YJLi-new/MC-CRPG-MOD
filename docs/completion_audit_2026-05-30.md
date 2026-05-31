@@ -8,7 +8,7 @@ Audit source: `C:\Users\lanla\Downloads\ebb_project_review.md` and the user's re
 | Requirement | Current evidence | Status |
 |---|---|---:|
 | Dedicated-server-safe block-group sync | `BlockGroupSyncPayload`, `InteractionSyncService`, `ClientBlockGroupIndex`; payload registered in `ModPackets`; server sync on data-pack contents/reload; client receiver rebuilds index and clears it on disconnect. | Complete |
-| Entity bindings, not all entities debug | `EntityBindingDefinition`, `EntityBindingRegistry`, `EntityBindingRegistry.resolve(entity)` in `InteractionService.validateEntity`; samples under `data/ebb/interactions/entity_bindings/demo`. | Complete |
+| Entity bindings, not all entities debug | `InteractionSettings` makes debug fallback configurable and the bundled demo disables it; `EntityBindingSyncPayload` syncs bindings/settings to clients; `ClientTargetDetector` filters entity hits through synced bindings; `InteractionService.validateEntity` denies `unbound_entity` unless fallback is explicitly enabled. | Complete |
 | Dev tree viewer, not just snapshot | `DialogueDebugDumper` called by `DevSnapshotService`; dumps dialogue id/start/node/choice/condition/effect/check/outcome effects plus entity bindings/routines. | Complete |
 | Check effects semantics | `DialogueCheck` parses `success_effects`, `failure_effects`, `critical_success_effects`, `critical_failure_effects`; `DialogueService` applies outcome effects after roll; `DialogueNode` parses/applies `enter_effects`. | Complete |
 | Dialogue session lifecycle | `DialogueService.registerLifecycleEvents()` handles disconnect/leave/respawn/level change/server stopping; server tick timeout; ACTION target revalidation; rejected choice attempts refresh session activity before returning status. | Complete |
@@ -20,7 +20,7 @@ Audit source: `C:\Users\lanla\Downloads\ebb_project_review.md` and the user's re
 | Text localization strategy | Dialogue/node/choice `text_key` is parsed and transmitted; client renders text keys as translatable components while preserving literal text fallback. | Complete |
 | Vanilla entity binding before NPC | Entity binding registry/samples exist and server validates entity dialogue/range through bindings. | Complete |
 | Custom NPC skeleton | `ModEntityTypes`, `EbbNpcEntity`, `ModEntityRenderers`, GeckoLib assets, and `/ebb summon_npc <routine>` with invalid-id guard. | Complete |
-| Routine controller | `NpcRoutineDefinition`, `NpcRoutineRegistry`, `NpcRoutineController` implement stand/walk destination and `look_at_player`. | Complete |
+| Routine controller | `NpcRoutineDefinition`, `NpcRoutineRegistry`, `NpcRoutineController` implement stand/walk destination, waypoint path progression, and `look_at_player`. | Complete |
 | Routine/dialogue state bridge | `DialogueEffect.ROUTINE_PLACEHOLDER` sets routine flags and, when interacting with `EbbNpcEntity`, updates that NPC's routine id. | Complete |
 | No vanilla 26.1.2 profile modification | Work stayed under active project checkout; run-server smoke created ignored files under project-local `run/`, not `.minecraft/versions/26.1.2`. | Complete |
 

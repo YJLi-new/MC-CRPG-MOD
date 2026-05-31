@@ -202,7 +202,7 @@ Still needs explicit or implicit confirmation:
 ## Review Remediation Findings — 2026-05-30
 - Read `C:\Users\lanla\Downloads\ebb_project_review.md` and implemented the requested hardening/remediation set in the active checkout `/mnt/e/MC/PCL/CRPG_MOD`.
 - Dedicated-server block groups now sync with `BlockGroupSyncPayload`; client detection uses `ClientBlockGroupIndex`, not the server-data `BlockGroupIndex`.
-- Entity binding registry now parses `interactions/entity_bindings` and resolves server-side entity dialogue/range by UUID/tag/name/entity type/priority, with debug fallback.
+- Entity binding registry now parses `interactions/entity_bindings` and resolves server-side entity dialogue/range by UUID/tag/name/entity type/priority; debug fallback is data-configurable through interaction settings and disabled for bundled demo content.
 - `/ebb dev` now includes complete dialogue tree dumps with nodes, choices, conditions, effects, checks, and outcome effects, plus entity bindings and NPC routines.
 - Dialogue checks now support `success_effects`, `failure_effects`, `critical_success_effects`, and `critical_failure_effects`; nodes support `enter_effects`.
 - Dialogue sessions now close on disconnect/leave/respawn/level change/server stop, expire after inactivity, and revalidate ACTION choice target LOS/range before applying effects.
@@ -229,3 +229,18 @@ Still needs explicit or implicit confirmation:
 - **Context:** Screenshot after a successful checked dialogue choice showed status text bleeding through the choice button row.
 - **Decision:** Avoid fixed Y coordinates for dynamic dialogue UI sections. Derive body, status, choices, and done button Y positions from one panel layout; scissor status text above choices.
 
+## Finding: Entity fallback binding made every pickable entity look interactable
+- **Date:** 2026-05-30
+- **Context:** Client entity raycast highlighted all pickable entities because unmatched entities resolved to a debug fallback binding.
+- **Decision:** Explicit entity bindings are now required for Ebb entity highlight/prompt. Unbound entities return no binding client-side and are denied as `unbound_entity` server-side.
+
+## Finding: Second review release semantics and dedicated-client prediction
+- **Date:** 2026-05-30
+- **Context:** `ebb_project_review_2026-05-30_second.md` flagged debug fallback release semantics, entity binding client prediction, silent block-group sync truncation, and routine skeleton limits.
+- **Decision:** Add `InteractionSettings`, default demo fallback off, sync entity bindings/settings to clients, hard-invalidate oversized block groups, and support sequential routine waypoints while documenting remaining full-NPC work as future iteration.
+
+
+## Finding: Tag-based entity bindings need matched-entity UUID sync
+- **Date:** 2026-05-31
+- **Context:** Human GUI testing showed an `ebb:npc` with server-side tags (`ebb.npc`, `ebb.npc.ebb`, `ebb_npc`) and loaded bindings/settings, but the client still displayed no Ebb highlight/prompt.
+- **Decision:** Do not rely on remote clients seeing scoreboard/entity tags for prediction. Keep server validation authoritative, and add periodic `EntityTargetSyncPayload` snapshots that sync nearby entity UUIDs already matched by the server-side entity binding registry. Client raycast prediction now accepts either a synced registered entity UUID or a locally resolvable binding/debug fallback.

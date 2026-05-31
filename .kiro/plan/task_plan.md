@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Dialogue roll/status UI overlap fix complete; playable PCL/Fabric test client refreshed
+Second review remediation plus registered-entity target sync implemented; build/smoke/profile refresh complete; Windows GUI retest pending human execution
 
 ## Phases
 
@@ -104,6 +104,25 @@ Dialogue roll/status UI overlap fix complete; playable PCL/Fabric test client re
 - [x] Clip long roll/status text instead of drawing underneath buttons.
 - [x] Rebuild and refresh the playable PCL/Fabric test profile.
 - **Status:** complete
+
+### Phase 13: Registered Entity Target Filtering
+- [x] Remove implicit fallback that treated every pickable entity as an Ebb debug interaction target.
+- [x] Filter client entity crosshair detection through explicit entity bindings before creating highlights/prompts.
+- [x] Deny unbound entity interaction requests server-side with `unbound_entity`.
+- [x] Update verification docs to require tagged/bound entities for entity highlights.
+- **Status:** complete
+
+### Phase 14: Second Review Remediation
+- [x] Read `ebb_project_review_2026-05-30_second.md` and map required fixes.
+- [x] Add data-driven interaction settings with configurable debug entity fallback, disabled for bundled demo.
+- [x] Add `EntityBindingSyncPayload` and sync entity bindings/settings to dedicated-server clients.
+- [x] Add `EntityTargetSyncPayload` so tag-matched server entities are explicitly synced to clients for highlight/prompt prediction.
+- [x] Make block-group sync limits explicit and invalidate oversized groups before sync.
+- [x] Upgrade routine path handling from first-point-only to sequential waypoint progression.
+- [x] Update verification docs and add JSON authoring guide / second review remediation report.
+- [x] Re-run build and smoke checks.
+- [ ] Execute full Windows GUI manual client retest from `26.1.2-Fabric-Ebb-Test`; pending human GUI operation.
+- **Status:** code/docs complete; manual GUI retest pending
 
 ## Key Questions
 1. Version pins? Resolved: Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, Loom `1.17.0-alpha.13`, GeckoLib `5.5.1`; no Yarn dependency line for 26.1+.

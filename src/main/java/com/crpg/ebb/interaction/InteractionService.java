@@ -72,7 +72,11 @@ public final class InteractionService {
             return InteractionValidationResult.deny("entity_not_interactable");
         }
 
-        EntityBindingDefinition binding = EntityBindingRegistry.resolve(entity).orElseThrow();
+        EntityBindingDefinition binding = EntityBindingRegistry.resolve(entity)
+                .orElse(null);
+        if (binding == null) {
+            return InteractionValidationResult.deny("unbound_entity");
+        }
         Vec3 interactionPoint = entity.getBoundingBox().getCenter();
         double distance = player.getEyePosition().distanceTo(interactionPoint);
         if (distance > binding.interactionRange()) {

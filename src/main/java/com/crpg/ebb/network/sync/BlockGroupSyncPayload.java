@@ -2,6 +2,7 @@ package com.crpg.ebb.network.sync;
 
 import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.interaction.BlockGroupDefinition;
+import com.crpg.ebb.interaction.InteractionSyncLimits;
 import io.netty.handler.codec.DecoderException;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -19,8 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 public record BlockGroupSyncPayload(List<BlockGroupDefinition> definitions) implements CustomPacketPayload {
-    public static final int MAX_GROUPS = 2048;
-    public static final int MAX_BLOCKS_PER_GROUP = 512;
+    public static final int MAX_GROUPS = InteractionSyncLimits.MAX_BLOCK_GROUPS;
+    public static final int MAX_BLOCKS_PER_GROUP = InteractionSyncLimits.MAX_BLOCKS_PER_GROUP;
     public static final Type<BlockGroupSyncPayload> TYPE = new Type<>(EbbMod.id("sync/block_groups"));
     public static final StreamCodec<RegistryFriendlyByteBuf, BlockGroupSyncPayload> CODEC = StreamCodec.ofMember(
             BlockGroupSyncPayload::write,
@@ -28,13 +29,22 @@ public record BlockGroupSyncPayload(List<BlockGroupDefinition> definitions) impl
     );
 
     public BlockGroupSyncPayload {
-        definitions = List.copyOf(definitions.stream().limit(MAX_GROUPS).toList());
+        definitions = List.copyOf(definitions);
+        if (definitions.size() > MAX_GROUPS) {
+            throw new IllegalArgumentException("Cannot sync " + definitions.size() + " block groups; max is " + MAX_GROUPS);
+        }
+        for (BlockGroupDefinition definition : definitions) {
+            if (definition.blocks().size() > MAX_BLOCKS_PER_GROUP) {
+                throw new IllegalArgumentException("Cannot sync block group " + definition.id() + " with "
+                        + definition.blocks().size() + " blocks; max is " + MAX_BLOCKS_PER_GROUP);
+            }
+        }
     }
 
     private void write(RegistryFriendlyByteBuf buffer) {
-        buffer.writeVarInt(Math.min(definitions.size(), MAX_GROUPS));
-        for (int i = 0; i < Math.min(definitions.size(), MAX_GROUPS); i++) {
-            writeDefinition(buffer, definitions.get(i));
+        buffer.writeVarInt(definitions.size());
+        for (BlockGroupDefinition definition : definitions) {
+            writeDefinition(buffer, definition);
         }
     }
 
@@ -45,7 +55,11 @@ public record BlockGroupSyncPayload(List<BlockGroupDefinition> definitions) impl
         buffer.writeDouble(definition.interactionPoint().x);
         buffer.writeDouble(definition.interactionPoint().y);
         buffer.writeDouble(definition.interactionPoint().z);
-        int blockCount = Math.min(definition.blocks().size(), MAX_BLOCKS_PER_GROUP);
+        int blockCount = definition.blocks().size();
+        if (blockCount > MAX_BLOCKS_PER_GROUP) {
+            throw new IllegalArgumentException("Cannot write block group " + definition.id() + " with "
+                    + blockCount + " blocks; max is " + MAX_BLOCKS_PER_GROUP);
+        }
         buffer.writeVarInt(blockCount);
         for (int i = 0; i < blockCount; i++) {
             BlockPos blockPos = definition.blocks().get(i);

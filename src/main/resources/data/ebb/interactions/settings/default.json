@@ -1,0 +1,7 @@
+{
+  "enable_debug_entity_fallback": false,
+  "debug_entity_fallback_dialogue": "ebb:debug/entity",
+  "debug_entity_fallback_interaction_range": 2.0,
+  "debug_entity_fallback_highlight_range": 10.0,
+  "max_blocks_per_group": 512
+}

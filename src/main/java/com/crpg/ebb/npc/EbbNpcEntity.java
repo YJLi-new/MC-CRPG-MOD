@@ -23,6 +23,8 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
     private static final String ROUTINE_TAG = "EbbRoutine";
     private final AnimatableInstanceCache geckoCache = GeckoLibUtil.createInstanceCache(this);
     private Optional<Identifier> routineId = Optional.of(EbbMod.id("demo/innkeeper_day"));
+    private String routinePathKey = "";
+    private int routinePathIndex;
 
     public EbbNpcEntity(EntityType<? extends PathfinderMob> entityType, Level level) {
         super(entityType, level);
@@ -41,7 +43,39 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
     }
 
     public void setRoutineId(Identifier routineId) {
+        if (!this.routineId.equals(Optional.of(routineId))) {
+            resetRoutinePath();
+        }
         this.routineId = Optional.of(routineId);
+    }
+
+    public int routinePathIndex(String key, int pathSize) {
+        if (!routinePathKey.equals(key)) {
+            routinePathKey = key;
+            routinePathIndex = 0;
+        }
+        if (pathSize <= 0) {
+            return 0;
+        }
+        routinePathIndex = Math.floorMod(routinePathIndex, pathSize);
+        return routinePathIndex;
+    }
+
+    public void advanceRoutinePath(String key, int pathSize) {
+        if (pathSize <= 0) {
+            return;
+        }
+        if (!routinePathKey.equals(key)) {
+            routinePathKey = key;
+            routinePathIndex = 0;
+            return;
+        }
+        routinePathIndex = Math.floorMod(routinePathIndex + 1, pathSize);
+    }
+
+    private void resetRoutinePath() {
+        routinePathKey = "";
+        routinePathIndex = 0;
     }
 
     @Override
@@ -60,6 +94,7 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
         routineId = input.getString(ROUTINE_TAG).map(Identifier::parse).or(() -> Optional.of(EbbMod.id("demo/innkeeper_day")));
+        resetRoutinePath();
     }
 
     @Override

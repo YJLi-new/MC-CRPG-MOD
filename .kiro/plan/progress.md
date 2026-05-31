@@ -433,3 +433,75 @@
   - Refreshed playable PCL profile via `scripts/configure_pcl_test_client.sh`; build jar and installed test-client jar both hash to `6ffae3ba4a80e4a1ce20dfbc0f26963ff570b41871f7b8a8cd576f1f04963000`.
   - `git diff --check` returned no whitespace/error output.
 
+### Registered Entity Target Filtering
+- **Status:** complete
+- **Time:** 2026-05-30 Asia/Shanghai
+- Trigger:
+  - User requested that entity outline highlighting appears only for entities players/content have actively registered, not for every entity looked at.
+- Root cause / implementation notes:
+  - `EntityBindingRegistry.resolve(entity)` previously returned a fallback debug binding for any unmatched entity, and `ClientTargetDetector` considered every pickable non-spectator entity as a candidate. This made ordinary animals/villagers/etc. eligible for Ebb highlight/prompt.
+  - Removed the implicit fallback behavior from entity binding resolution. The client raycast predicate now filters entity candidates through `EntityBindingRegistry.isRegisteredTarget(entity)` before creating an `EntityTarget`, and the server denies stale/malicious unbound entity requests with `unbound_entity`.
+  - Updated manual verification docs: unregistered entities should now remain inert; tagged/bound entities such as villagers tagged `ebb.npc.innkeeper` or `/ebb summon_npc ebb:demo/innkeeper_day` should still highlight and interact.
+  - Client prompt/near-highlight now uses the matched entity binding's `interaction_range` instead of the global default for registered entity targets.
+- Verification:
+  - Initial compile after code change: `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 2m 6s`.
+  - Final rebuild after preserving entity/UUID target ids and using binding-specific interaction range: `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 37s`.
+  - `ReviewSmoke` → `ReviewSmoke passed: dialogues=3, attributes=8, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - `AttributePointsSmoke` → `AttributePointsSmoke passed: attributes=8, points=8`.
+  - Refreshed playable PCL profile via `scripts/configure_pcl_test_client.sh`; build jar and installed test-client jar both hash to `88f63c0377880a70d2ab349c7ce46d77340b5e1954af0ee620a27df49d045249`.
+  - `git diff --check` returned no whitespace/error output.
+
+### Second Review Remediation
+- **Status:** code/docs complete; manual Windows GUI client test pending human operation
+- **Time:** 2026-05-30 Asia/Shanghai
+- Source:
+  - Read `C:\Users\lanla\Downloads\ebb_project_review_2026-05-30_second.md` (225 lines).
+- Actions taken:
+  - Added data-driven `InteractionSettings` under `data/*/interactions/settings/*.json`; bundled demo sets `enable_debug_entity_fallback=false`, while datapacks can enable it for development.
+  - Restored debug fallback as an explicit setting instead of an implicit always-on fallback; unbound entities are denied as `unbound_entity` when fallback is disabled.
+  - Added `EntityBindingSyncPayload` and sync lifecycle wiring so dedicated-server clients receive entity bindings and interaction settings for highlight/prompt prediction.
+  - Added shared sync limits and made oversized block groups hard-invalid before sync; `BlockGroupSyncPayload` now throws instead of silently truncating oversized groups/blocks.
+  - Added routine waypoint progression: multi-point routine `path` steps now advance sequentially and loop while active.
+  - Updated `/ebb dev`/data summaries to include interaction settings and debug fallback status.
+  - Added `docs/second_review_remediation_2026-05-30.md`, `docs/json_authoring_guide.md`, and `docs/manual_client_test_result_2026-05-30_second.md`; updated MVP/review/audit docs.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 51s` after settings/sync/limit/waypoint implementation.
+  - `ReviewSmoke` → `ReviewSmoke passed: dialogues=3, attributes=8, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - `AttributePointsSmoke` → `AttributePointsSmoke passed: attributes=8, points=8`.
+  - `SecondReviewSmoke` → passed; verified fallback off by default, fallback can be enabled by data config, entity binding sync payload construction, and oversized block-group invalidation.
+  - Refreshed playable PCL profile after second-review build; build jar and installed test-client jar both hash to `510cb69490d4b855a084ab433d0d0db06b150ad8aa253b76dd2fa94fdf9d432b`.
+  - Final `git diff --check` returned no whitespace/error output.
+  - `scripts/gradle-local.sh --no-daemon runServer --args nogui` → `BUILD SUCCESSFUL in 1m 29s`; Fabric loaded Minecraft/Fabric API/GeckoLib/Ebb and stopped at the normal EULA gate, not an Ebb initialization crash.
+- Pending:
+  - Full GUI hand-test requires launching and operating the Windows `26.1.2-Fabric-Ebb-Test` Minecraft client. A checklist/status file was added at `docs/manual_client_test_result_2026-05-30_second.md`.
+
+### Second Review Completion Audit
+- **Status:** complete as an audit; overall goal remains active due missing Windows GUI hand-test evidence.
+- **Time:** 2026-05-30 Asia/Shanghai
+- Actions taken:
+  - Added `docs/second_review_completion_audit_2026-05-30.md` mapping every explicit second-review/user requirement to current worktree evidence.
+  - Confirmed code/data/docs/build/smoke/server-smoke/test-client-refresh requirements have evidence.
+  - Confirmed the only unproven item is the review P0 full player-driven Windows GUI client test; result remains pending in `docs/manual_client_test_result_2026-05-30_second.md`.
+
+
+### Registered Entity Target UUID Sync Hotfix
+- **Status:** code/build/profile complete; Windows GUI retest pending
+- **Time:** 2026-05-31 Asia/Shanghai
+- Trigger:
+  - User's GUI screenshot showed `/ebb data` loaded `interaction_settings(debug_entity_fallback=false)` and `entity_bindings(valid=2)`. The nearest `ebb:npc` had tags (`ebb.npc`, `ebb.npc.ebb`, `ebb_npc`) after `/tag`/`/reload`, but there was still no cyan outline or interaction prompt.
+- Root cause / implementation notes:
+  - `EntityBindingSyncPayload` synced binding definitions/settings, but tag-based client prediction still depended on the client being able to read server-side entity tags. That is unreliable for dedicated-server-style clients and reproduced in the GUI test.
+  - Added `SyncedEntityTarget`, `EntityTargetSyncPayload`, and `ClientEntityTargetIndex`.
+  - The server now sends per-player snapshots of nearby server-matched registered entity UUIDs every 20 ticks and on data sync/reload. Debug fallback mode intentionally sends an empty target list because fallback prediction already permits any pickable entity when explicitly enabled.
+  - `ClientTargetDetector` now allows entity raycast targets when either the UUID is in the server-synced registered target index or the entity can be resolved locally by synced binding definitions/fallback settings.
+  - Server-side `InteractionService.validateEntity` remains authoritative for UUID existence, binding match, range, and line of sight.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 48s`.
+  - `ReviewSmoke` → `ReviewSmoke passed: dialogues=3, attributes=8, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - `AttributePointsSmoke` → `AttributePointsSmoke passed: attributes=8, points=8`.
+  - `SecondReviewSmoke` → passed and now covers `EntityTargetSyncPayload` construction.
+  - Refreshed playable PCL profile via `scripts/configure_pcl_test_client.sh`; build jar and installed test-client jar both hash to `22a1a4ad8de44f8dc673c3f65474c456f27480f0ecbbb38fb6d7cbbfb438d1ae`.
+  - `git diff --check` returned no whitespace/error output.
+  - `scripts/gradle-local.sh --no-daemon runServer --args nogui` → `BUILD SUCCESSFUL in 1m 21s`; Ebb initialized and the server stopped at the normal EULA gate.
+- Pending:
+  - Human must restart/relaunch `26.1.2-Fabric-Ebb-Test` to load the refreshed jar, then retest the tagged/summoned NPC highlight and `X` interaction.

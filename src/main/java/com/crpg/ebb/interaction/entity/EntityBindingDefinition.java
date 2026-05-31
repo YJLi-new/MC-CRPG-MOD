@@ -1,6 +1,5 @@
 package com.crpg.ebb.interaction.entity;
 
-import com.crpg.ebb.EbbMod;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -25,7 +24,6 @@ public record EntityBindingDefinition(
         double highlightRange,
         int priority
 ) {
-    public static final Identifier DEBUG_DIALOGUE = EbbMod.id("debug/entity");
     public static final double DEFAULT_INTERACTION_RANGE = 2.0D;
     public static final double DEFAULT_HIGHLIGHT_RANGE = 10.0D;
 
@@ -34,20 +32,6 @@ public record EntityBindingDefinition(
         tags = tags == null ? List.of() : List.copyOf(tags);
         name = name == null ? Optional.empty() : name;
         entityTypes = entityTypes == null ? List.of() : List.copyOf(entityTypes);
-    }
-
-    public static Optional<EntityBindingDefinition> fallback(Entity entity) {
-        return Optional.of(new EntityBindingDefinition(
-                EbbMod.id("fallback/debug_entity"),
-                Optional.empty(),
-                List.of(),
-                Optional.empty(),
-                List.of(),
-                DEBUG_DIALOGUE,
-                DEFAULT_INTERACTION_RANGE,
-                DEFAULT_HIGHLIGHT_RANGE,
-                Integer.MIN_VALUE
-        ));
     }
 
     public static Optional<EntityBindingDefinition> parse(Identifier id, JsonObject json, List<String> messages) {

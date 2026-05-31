@@ -6,6 +6,7 @@ import com.crpg.ebb.interaction.BlockGroupTarget;
 import com.crpg.ebb.interaction.EntityTarget;
 import com.crpg.ebb.interaction.InteractionTarget;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
+import com.crpg.ebb.interaction.entity.SyncedEntityTarget;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -66,19 +67,36 @@ public final class ClientTargetDetector {
 
         InteractionTarget target = null;
         double distance = Double.NaN;
+        double interactionRange = INTERACTION_RANGE;
         String reason = "no_target";
 
         if (entityHit != null && entityDistanceSqr <= blockDistanceSqr) {
             Entity entity = entityHit.getEntity();
+            Optional<SyncedEntityTarget> syncedTarget = ClientEntityTargetIndex.byUuid(entity.getUUID());
+            net.minecraft.resources.Identifier dialogueId;
+            if (syncedTarget.isPresent()) {
+                SyncedEntityTarget targetData = syncedTarget.get();
+                dialogueId = targetData.dialogueId();
+                interactionRange = targetData.interactionRange();
+                reason = "entity_target_sync_hit:" + targetData.bindingId();
+            } else {
+                var binding = EntityBindingRegistry.resolve(entity).orElse(null);
+                if (binding == null) {
+                    ClientInteractionState.clear();
+                    return ClientInteractionState.Snapshot.empty();
+                }
+                dialogueId = binding.dialogueId();
+                interactionRange = binding.interactionRange();
+                reason = "entity_binding_hit:" + binding.id();
+            }
             target = new EntityTarget(
                     EbbMod.id("entity/" + entity.getUUID()),
                     entity.getUUID(),
                     entity.getBoundingBox().getCenter(),
                     entity.getBoundingBox(),
-                    EntityBindingRegistry.resolve(entity).map(binding -> binding.dialogueId()).orElse(EbbMod.id("debug/entity"))
+                    dialogueId
             );
             distance = eye.distanceTo(target.interactionPoint());
-            reason = "entity_hit";
         } else if (blockGroupTarget.isPresent()) {
             target = blockGroupTarget.get();
             distance = target.bounds().distanceToSqr(player.position()) == 0.0D
@@ -92,7 +110,7 @@ public final class ClientTargetDetector {
             return ClientInteractionState.Snapshot.empty();
         }
 
-        boolean withinInteractionRange = distance <= INTERACTION_RANGE;
+        boolean withinInteractionRange = distance <= interactionRange;
         return new ClientInteractionState.Snapshot(Optional.of(target), distance, withinInteractionRange, true, reason);
     }
 
@@ -111,7 +129,10 @@ public final class ClientTargetDetector {
                 eye,
                 end,
                 searchBox,
-                entity -> entity != player && entity.isPickable() && !entity.isSpectator(),
+                entity -> entity != player
+                        && entity.isPickable()
+                        && !entity.isSpectator()
+                        && (ClientEntityTargetIndex.contains(entity.getUUID()) || EntityBindingRegistry.isRegisteredTarget(entity)),
                 HIGHLIGHT_RANGE * HIGHLIGHT_RANGE
         );
     }

@@ -6,6 +6,7 @@ import com.crpg.ebb.data.NarrativeDataRegistries;
 import com.crpg.ebb.dialogue.DialogueRegistry;
 import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.InteractionSettings;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
 import com.crpg.ebb.state.NarrativeSavedData;
@@ -35,6 +36,7 @@ public final class DevSnapshotService {
         lines.add("Typed registries:");
         lines.add("- " + DialogueRegistry.summaryLine());
         lines.add("- " + AttributeRegistry.summaryLine());
+        lines.add("- " + InteractionSettings.summaryLine());
         lines.add("- " + BlockGroupIndex.summaryLine());
         lines.add("- " + EntityBindingRegistry.summaryLine());
         lines.add("- " + NpcRoutineRegistry.summaryLine());
@@ -47,6 +49,7 @@ public final class DevSnapshotService {
                 .toList());
         appendMessages(lines, "Dialogue validation", DialogueRegistry.validationMessages());
         appendMessages(lines, "Attribute validation", AttributeRegistry.validationMessages());
+        appendMessages(lines, "Interaction settings validation", InteractionSettings.validationMessages());
         appendMessages(lines, "Block group validation", BlockGroupIndex.messages());
         appendMessages(lines, "Entity binding validation", EntityBindingRegistry.validationMessages());
         appendMessages(lines, "NPC routine validation", NpcRoutineRegistry.validationMessages());

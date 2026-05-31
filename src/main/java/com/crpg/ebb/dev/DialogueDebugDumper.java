@@ -4,6 +4,7 @@ import com.crpg.ebb.dialogue.DialogueChoice;
 import com.crpg.ebb.dialogue.DialogueDefinition;
 import com.crpg.ebb.dialogue.DialogueNode;
 import com.crpg.ebb.dialogue.DialogueRegistry;
+import com.crpg.ebb.interaction.InteractionSettings;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.routine.NpcRoutineDefinition;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
@@ -30,8 +31,10 @@ public final class DialogueDebugDumper {
     public static void appendEntityBindings(List<String> lines) {
         lines.add("");
         lines.add("Entity bindings (" + EntityBindingRegistry.size() + "):");
+        lines.add("- debug fallback enabled: " + InteractionSettings.enableDebugEntityFallback()
+                + " -> " + InteractionSettings.snapshot().debugEntityFallbackDialogue());
         if (EntityBindingRegistry.definitions().isEmpty()) {
-            lines.add("- none; fallback debug entity dialogue remains active");
+            lines.add("- none");
             return;
         }
         EntityBindingRegistry.definitions().values().stream()

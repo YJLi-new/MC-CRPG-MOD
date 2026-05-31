@@ -62,6 +62,13 @@ public record BlockGroupDefinition(
                 messages.add("Block group " + id + " has no blocks.");
                 return Optional.empty();
             }
+            int maxBlocks = InteractionSettings.maxBlocksPerGroup();
+            if (parsedBlocks.blocks().size() > maxBlocks) {
+                messages.add("Block group " + id + " has " + parsedBlocks.blocks().size()
+                        + " blocks, exceeding max_blocks_per_group=" + maxBlocks
+                        + "; split it into smaller groups instead of relying on sync truncation.");
+                return Optional.empty();
+            }
 
             AABB bounds = computeBounds(parsedBlocks.blocks());
             Vec3 interactionPoint = json.has("interaction_point")

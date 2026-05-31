@@ -13,8 +13,12 @@ import com.crpg.ebb.network.dialogue.CloseDialogueRequestPayload;
 import com.crpg.ebb.network.dialogue.DialogueClosePayload;
 import com.crpg.ebb.network.dialogue.DialogueUpdatePayload;
 import com.crpg.ebb.network.sync.BlockGroupSyncPayload;
+import com.crpg.ebb.network.sync.EntityBindingSyncPayload;
+import com.crpg.ebb.network.sync.EntityTargetSyncPayload;
 import com.crpg.ebb.client.interaction.ClientBlockGroupIndex;
+import com.crpg.ebb.client.interaction.ClientEntityTargetIndex;
 import com.crpg.ebb.network.dev.DevSnapshotPayload;
+import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -46,7 +50,17 @@ public final class ClientInteractionNetworking {
         ClientPlayNetworking.registerGlobalReceiver(BlockGroupSyncPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> ClientBlockGroupIndex.rebuild(payload.definitions()))
         );
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientBlockGroupIndex.clear());
+        ClientPlayNetworking.registerGlobalReceiver(EntityBindingSyncPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> EntityBindingRegistry.syncFromServer(payload.definitions(), payload.settings()))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(EntityTargetSyncPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> ClientEntityTargetIndex.rebuild(payload.targets()))
+        );
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            ClientBlockGroupIndex.clear();
+            ClientEntityTargetIndex.clear();
+            EntityBindingRegistry.clearSynced();
+        });
     }
 
     public static void sendCurrentTargetInteraction(Minecraft minecraft) {

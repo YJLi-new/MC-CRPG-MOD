@@ -33,6 +33,11 @@ public final class BlockGroupIndex {
             }
 
             BlockGroupDefinition definition = parsed.get();
+            if (byId.size() >= InteractionSyncLimits.MAX_BLOCK_GROUPS) {
+                messages.add("Block group " + definition.id() + " skipped: registry exceeds sync group limit "
+                        + InteractionSyncLimits.MAX_BLOCK_GROUPS + "; split content across fewer active groups.");
+                continue;
+            }
             byId.put(definition.id(), definition);
             for (BlockPos block : definition.blocks()) {
                 DimensionBlockKey blockKey = new DimensionBlockKey(definition.dimension(), block.immutable());

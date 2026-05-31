@@ -31,15 +31,23 @@ public final class NpcRoutineController {
 
     private static void applyMovement(EbbNpcEntity npc, ServerLevel level, NpcRoutineDefinition routine) {
         routine.stepForTime(level.getOverworldClockTime()).ifPresent(step -> {
-            Vec3 destination = step.destination();
+            String pathKey = routine.id() + ":" + step.startTime() + "-" + step.endTime() + ":" + step.action();
+            int pathIndex = npc.routinePathIndex(pathKey, step.path().size());
+            Vec3 destination = step.destinationAt(pathIndex);
             if (destination == null) {
                 return;
             }
-            if ("stand".equalsIgnoreCase(step.action()) && npc.position().distanceToSqr(destination) < 0.75D) {
+            double distanceSqr = npc.position().distanceToSqr(destination);
+            if (step.hasWaypointPath() && distanceSqr < 0.75D) {
+                npc.advanceRoutinePath(pathKey, step.path().size());
+                destination = step.destinationAt(npc.routinePathIndex(pathKey, step.path().size()));
+                distanceSqr = npc.position().distanceToSqr(destination);
+            }
+            if ("stand".equalsIgnoreCase(step.action()) && !step.hasWaypointPath() && distanceSqr < 0.75D) {
                 npc.getNavigation().stop();
                 return;
             }
-            if (npc.position().distanceToSqr(destination) > 0.75D) {
+            if (distanceSqr > 0.75D) {
                 npc.getNavigation().moveTo(destination.x, destination.y, destination.z, "walk".equalsIgnoreCase(step.action()) ? 0.65D : 0.45D);
             } else {
                 npc.getNavigation().stop();

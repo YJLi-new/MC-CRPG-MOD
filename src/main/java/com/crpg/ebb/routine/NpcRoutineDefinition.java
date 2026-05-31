@@ -98,10 +98,18 @@ public record NpcRoutineDefinition(
         }
 
         public Vec3 destination() {
+            return destinationAt(0);
+        }
+
+        public Vec3 destinationAt(int pathIndex) {
             if (!path.isEmpty()) {
-                return path.getFirst();
+                return path.get(Math.floorMod(pathIndex, path.size()));
             }
             return pos.orElse(null);
+        }
+
+        public boolean hasWaypointPath() {
+            return path.size() > 1;
         }
 
         public String debugSummary() {

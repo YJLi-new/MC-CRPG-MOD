@@ -8,8 +8,11 @@ Source review: `C:\Users\lanla\Downloads\ebb_project_review.md`.
   - Added `BlockGroupSyncPayload` and server lifecycle sync on join/data-pack sync/reload.
   - Added client-only `ClientBlockGroupIndex` and changed crosshair block-group detection to use the synced client index rather than server-data reload state.
 - Entity bindings:
-  - Added typed `EntityBindingDefinition` / `EntityBindingRegistry` with matching by UUID, scoreboard tag, custom/name, entity type, priority, and fallback debug binding.
-  - Server entity validation now resolves dialogue/range from entity bindings instead of always opening `ebb:debug/entity`.
+  - Added typed `EntityBindingDefinition` / `EntityBindingRegistry` with matching by UUID, scoreboard tag, custom/name, entity type, and priority.
+  - Added data-driven `InteractionSettings`; debug entity fallback is configurable and disabled by the bundled demo setting.
+  - Added `EntityBindingSyncPayload` so dedicated-server clients receive binding/settings data for highlight/prompt prediction.
+  - Server entity validation resolves dialogue/range from explicit entity bindings, or from the debug fallback only when explicitly enabled.
+  - Unbound entities are denied server-side and filtered client-side when fallback is disabled.
   - Added sample bindings for tagged villagers and `ebb:npc`.
 - Developer tree browser:
   - Extended `/ebb dev` output with complete dialogue trees: dialogue id, start node, node text/text_key, node enter effects, choices, conditions, effects, checks, and check outcome effects.
@@ -35,7 +38,7 @@ Source review: `C:\Users\lanla\Downloads\ebb_project_review.md`.
   - Added GeckoLib `GeoEntity` integration, renderer registration, model/animation/texture assets, and generic idle/walk animation controller.
   - Added `/ebb summon_npc <routine>` OP command.
   - Invalid routine identifiers fail gracefully instead of throwing a command exception.
-  - Added typed NPC routine parser/registry and basic routine controller for stand/walk destination and `look_at_player` behavior.
+  - Added typed NPC routine parser/registry and basic routine controller for stand/walk destination, waypoint path progression, and `look_at_player` behavior.
   - Routine dialogue effect can set an interacted `EbbNpcEntity` routine id.
 
 ## Verification performed
