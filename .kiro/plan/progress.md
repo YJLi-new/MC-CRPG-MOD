@@ -505,3 +505,28 @@
   - `scripts/gradle-local.sh --no-daemon runServer --args nogui` → `BUILD SUCCESSFUL in 1m 21s`; Ebb initialized and the server stopped at the normal EULA gate.
 - Pending:
   - Human must restart/relaunch `26.1.2-Fabric-Ebb-Test` to load the refreshed jar, then retest the tagged/summoned NPC highlight and `X` interaction.
+
+
+### Third Review Runtime Wiring Reconciliation
+- **Status:** code/docs/build/source-audit complete; Windows GUI retest pending
+- **Time:** 2026-05-31 Asia/Shanghai
+- Source:
+  - Read `C:\Users\lanla\Downloads\ebb_project_review_2026-05-31_third.md`. The review flagged that a Drive source sample appeared to lack runtime wiring for entity/block sync, payload receivers, entrypoints, commands, and dialogue effects/lifecycle despite documents claiming completion.
+- Actions taken:
+  - Re-audited the active checkout and confirmed the P0/P1 wiring is present in current source: `ClientBlockGroupIndex`, `ClientEntityTargetIndex`, sync payload registration/receivers, `InteractionSyncService`, `EbbMod`/`EbbClient` entrypoints, attributes/summon commands, dialogue enter/outcome effects, and session lifecycle.
+  - Tightened `ClientTargetDetector` to respect matched `highlightRange` for synced/bound entity predictions.
+  - Updated `ClientInteractionNetworking` to clear synced block/entity/binding/settings state on client JOIN as well as DISCONNECT.
+  - Added tracked `scripts/third_review_static_audit.py` to fail on the stale patterns described by the review and assert all required wiring points.
+  - Added `docs/third_review_reconciliation_2026-05-31.md` and `docs/third_review_completion_audit_2026-05-31.md`; updated manual/MVP/audit docs to separate source/build completion from pending GUI retest.
+- Verification:
+  - `scripts/third_review_static_audit.py` → `ThirdReviewStaticAudit passed: runtime wiring and documented command/effect surfaces are present.`
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 46s`.
+  - `ReviewSmoke` → `ReviewSmoke passed: dialogues=3, attributes=8, block_groups=1, entity_bindings=2, npc_routines=1, messages=1`.
+  - `AttributePointsSmoke` → `AttributePointsSmoke passed: attributes=8, points=8`.
+  - `SecondReviewSmoke` → passed, including entity target sync payload construction.
+  - Refreshed playable PCL profile; build jar and installed test-client jar both hash to `01d880f0e424e0b6ff3592e9bf89189199254167ebb891baffa18330231758b0`.
+  - Jar inspection confirmed `EntityTargetSyncPayload`, `ClientTargetDetector`, and `ClientInteractionNetworking` are packaged.
+  - `scripts/gradle-local.sh --no-daemon runServer --args nogui` → `BUILD SUCCESSFUL in 1m 44s`; Ebb initialized and stopped at the normal EULA gate.
+  - `git diff --check` returned no whitespace/error output.
+- Pending:
+  - Human must fully relaunch `26.1.2-Fabric-Ebb-Test` and retest the entity highlight/prompt/X-dialogue path.

@@ -12,11 +12,12 @@ scripts/gradle-local.sh --no-daemon build
 
 Expected/current result: `BUILD SUCCESSFUL` and jar output in `build/libs/`.
 
-Additional smoke checks run from `build/tmp/verify` / `build/tmp/verify-src`:
+Additional smoke checks run from `build/tmp/verify` / `build/tmp/verify-src` and scripts:
 
 - `DialogueParserSmoke`: validates sample dialogue parsing and invalid-dialogue validation messages.
 - `Phase5Smoke`: validates attribute registry, locked-door check/effect/condition parsing, condition state changes, and `NarrativeSavedData` codec round trip.
 - `ReviewSmoke`: validates review-remediation registries: dialogues, attributes, block groups, entity bindings, NPC routines, check outcome effects, and hard-invalid missing dialogue references.
+- `scripts/third_review_static_audit.py`: checks third-review P0/P1 runtime wiring in source: sync payload registration/receivers, client prediction indexes, entrypoints, commands, dialogue lifecycle, and effects.
 
 ## Generated jars
 
@@ -50,4 +51,5 @@ Suggested checks in a single-player test world or LAN/server with the mod instal
 - The sample block group is deliberately small and coordinate-based for deterministic testing; content authors can replace it with real inn-corridor coordinates later. Optional block predicates are supported with `{ "pos": [x,y,z], "block": "minecraft:block_id" }`. Groups over `max_blocks_per_group` are invalid and should be split.
 - Debug entity fallback can be re-enabled for development by a datapack under `data/<namespace>/interactions/settings/*.json` with `"enable_debug_entity_fallback": true`; keep it disabled for formal demo content.
 - Tag-based entity bindings do not depend on clients seeing scoreboard/entity tags directly: the server periodically syncs matched nearby registered entity UUIDs to modded clients, while interaction validation remains server-authoritative.
-- See `docs/manual_client_test_result_2026-05-30_second.md` for the second-review GUI hand-test checklist/status.
+- See `docs/manual_client_test_result_2026-05-30_second.md` for the GUI hand-test checklist/status.
+- See `docs/third_review_reconciliation_2026-05-31.md` and `docs/third_review_completion_audit_2026-05-31.md` for the third-review runtime wiring reconciliation and requirement audit.

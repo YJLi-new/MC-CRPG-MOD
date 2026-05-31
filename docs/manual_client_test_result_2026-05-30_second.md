@@ -28,3 +28,5 @@ Record screenshots/log snippets below after human execution.
 ## Result log
 
 - 2026-05-31: Human GUI test showed `/ebb data` loaded `debug_entity_fallback=false`, `entity_bindings(valid=2)`, and the nearest `ebb:npc` had tags `ebb.npc`, `ebb.npc.ebb`, and `ebb_npc`, but no entity highlight/prompt appeared. Root cause: client-side tag matching could not be trusted for dedicated-style clients because entity tags are not available for local prediction. Fixed by adding server-authoritative registered entity target UUID sync (`EntityTargetSyncPayload`) and refreshing the test profile. Retest pending.
+
+- 2026-05-31 third-review reconciliation: added/ran `scripts/third_review_static_audit.py`, rebuilt, refreshed the test profile, and installed Ebb jar hash `01d880f0e424e0b6ff3592e9bf89189199254167ebb891baffa18330231758b0`. Post-reconciliation GUI retest is still pending; fully relaunch Minecraft before testing.

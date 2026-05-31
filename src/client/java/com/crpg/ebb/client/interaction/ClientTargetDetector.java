@@ -68,16 +68,20 @@ public final class ClientTargetDetector {
         InteractionTarget target = null;
         double distance = Double.NaN;
         double interactionRange = INTERACTION_RANGE;
+        double highlightRange = HIGHLIGHT_RANGE;
+        boolean entityTargetCandidate = false;
         String reason = "no_target";
 
         if (entityHit != null && entityDistanceSqr <= blockDistanceSqr) {
             Entity entity = entityHit.getEntity();
             Optional<SyncedEntityTarget> syncedTarget = ClientEntityTargetIndex.byUuid(entity.getUUID());
             net.minecraft.resources.Identifier dialogueId;
+            entityTargetCandidate = true;
             if (syncedTarget.isPresent()) {
                 SyncedEntityTarget targetData = syncedTarget.get();
                 dialogueId = targetData.dialogueId();
                 interactionRange = targetData.interactionRange();
+                highlightRange = targetData.highlightRange();
                 reason = "entity_target_sync_hit:" + targetData.bindingId();
             } else {
                 var binding = EntityBindingRegistry.resolve(entity).orElse(null);
@@ -87,6 +91,7 @@ public final class ClientTargetDetector {
                 }
                 dialogueId = binding.dialogueId();
                 interactionRange = binding.interactionRange();
+                highlightRange = binding.highlightRange();
                 reason = "entity_binding_hit:" + binding.id();
             }
             target = new EntityTarget(
@@ -106,6 +111,10 @@ public final class ClientTargetDetector {
         }
 
         if (target == null) {
+            ClientInteractionState.clear();
+            return ClientInteractionState.Snapshot.empty();
+        }
+        if (entityTargetCandidate && distance > highlightRange) {
             ClientInteractionState.clear();
             return ClientInteractionState.Snapshot.empty();
         }

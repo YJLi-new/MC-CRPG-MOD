@@ -244,3 +244,9 @@ Still needs explicit or implicit confirmation:
 - **Date:** 2026-05-31
 - **Context:** Human GUI testing showed an `ebb:npc` with server-side tags (`ebb.npc`, `ebb.npc.ebb`, `ebb_npc`) and loaded bindings/settings, but the client still displayed no Ebb highlight/prompt.
 - **Decision:** Do not rely on remote clients seeing scoreboard/entity tags for prediction. Keep server validation authoritative, and add periodic `EntityTargetSyncPayload` snapshots that sync nearby entity UUIDs already matched by the server-side entity binding registry. Client raycast prediction now accepts either a synced registered entity UUID or a locally resolvable binding/debug fallback.
+
+
+## Finding: Third review Drive-source/runtime-wiring divergence
+- **Date:** 2026-05-31
+- **Context:** `ebb_project_review_2026-05-31_third.md` reported that a Drive source sample appeared stale: docs claimed sync/runtime fixes but sampled files looked like pre-wiring code.
+- **Decision:** Treat this as a governance/source-audit risk, not just a code feature request. Re-audit the active checkout, add `scripts/third_review_static_audit.py` to make the critical wiring machine-checkable, keep docs explicit that GUI retest is pending, and refresh the PCL profile after each runtime wiring patch.

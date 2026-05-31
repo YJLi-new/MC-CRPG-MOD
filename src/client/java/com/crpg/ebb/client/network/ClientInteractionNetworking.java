@@ -56,11 +56,14 @@ public final class ClientInteractionNetworking {
         ClientPlayNetworking.registerGlobalReceiver(EntityTargetSyncPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> ClientEntityTargetIndex.rebuild(payload.targets()))
         );
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            ClientBlockGroupIndex.clear();
-            ClientEntityTargetIndex.clear();
-            EntityBindingRegistry.clearSynced();
-        });
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> clearSyncedInteractionData());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clearSyncedInteractionData());
+    }
+
+    private static void clearSyncedInteractionData() {
+        ClientBlockGroupIndex.clear();
+        ClientEntityTargetIndex.clear();
+        EntityBindingRegistry.clearSynced();
     }
 
     public static void sendCurrentTargetInteraction(Minecraft minecraft) {

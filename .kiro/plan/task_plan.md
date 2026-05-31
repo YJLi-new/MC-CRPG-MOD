@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Second review remediation plus registered-entity target sync implemented; build/smoke/profile refresh complete; Windows GUI retest pending human execution
+Third review runtime wiring reconciliation implemented; build/static-audit/smoke/profile refresh complete; Windows GUI retest pending human execution
 
 ## Phases
 
@@ -123,6 +123,16 @@ Second review remediation plus registered-entity target sync implemented; build/
 - [x] Re-run build and smoke checks.
 - [ ] Execute full Windows GUI manual client retest from `26.1.2-Fabric-Ebb-Test`; pending human GUI operation.
 - **Status:** code/docs complete; manual GUI retest pending
+
+### Phase 15: Third Review Runtime Wiring Reconciliation
+- [x] Read `ebb_project_review_2026-05-31_third.md` and map stale/wiring concerns.
+- [x] Re-audit P0 runtime wiring for client target prediction, sync payload registration, receivers, server sync, and entrypoints.
+- [x] Tighten entity prediction to respect matched highlight range and clear client sync state on join/disconnect.
+- [x] Add tracked static audit script for third-review wiring requirements.
+- [x] Add requirement-by-requirement completion audit for third-review items.
+- [x] Re-run static audit, Gradle build, smoke checks, server smoke, jar inspection, and test-profile refresh.
+- [ ] Execute full Windows GUI manual retest from `26.1.2-Fabric-Ebb-Test`; pending human GUI operation.
+- **Status:** code/docs/build/source-audit complete; manual GUI retest pending
 
 ## Key Questions
 1. Version pins? Resolved: Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, Loom `1.17.0-alpha.13`, GeckoLib `5.5.1`; no Yarn dependency line for 26.1+.
