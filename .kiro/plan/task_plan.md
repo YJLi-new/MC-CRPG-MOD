@@ -130,6 +130,7 @@ Third review runtime wiring reconciliation implemented; build/static-audit/smoke
 - [x] Tighten entity prediction to respect matched highlight range and clear client sync state on join/disconnect.
 - [x] Add tracked static audit script for third-review wiring requirements.
 - [x] Add requirement-by-requirement completion audit for third-review items.
+- [x] Verify Google Drive mirrored source tree against third-review static audit and critical-file hashes.
 - [x] Re-run static audit, Gradle build, smoke checks, server smoke, jar inspection, and test-profile refresh.
 - [ ] Execute full Windows GUI manual retest from `26.1.2-Fabric-Ebb-Test`; pending human GUI operation.
 - **Status:** code/docs/build/source-audit complete; manual GUI retest pending

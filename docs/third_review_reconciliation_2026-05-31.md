@@ -41,6 +41,7 @@ This document intentionally separates **code/build/source-audit complete** from 
 - Jar inspection confirms `EntityTargetSyncPayload`, `ClientTargetDetector`, and `ClientInteractionNetworking` classes are packaged.
 - `scripts/gradle-local.sh --no-daemon runServer --args nogui` → `BUILD SUCCESSFUL in 1m 44s`; Ebb initialized and the server stopped at the normal EULA gate.
 - `git diff --check` → no whitespace/path errors.
+- Drive mirror verification after push/sync: pulled Google Drive folder `1cGZxWHdCeYYI3ttzL6ilXEGjkOlCz2nt` into `build/tmp/drive-third-audit`, ran the same static audit from the Drive copy successfully, and matched SHA-256 for critical runtime wiring files against local commit `4085b5fbe5f515fa1966d583e8c5ce66298f7aed`.
 
 ## Remaining manual retest
 

@@ -530,3 +530,19 @@
   - `git diff --check` returned no whitespace/error output.
 - Pending:
   - Human must fully relaunch `26.1.2-Fabric-Ebb-Test` and retest the entity highlight/prompt/X-dialogue path.
+
+
+### Third Review Drive Mirror Verification
+- **Status:** complete for source-tree consistency; Windows GUI retest still pending
+- **Time:** 2026-05-31 Asia/Shanghai
+- Actions taken:
+  - Pulled the current Google Drive repo folder `1cGZxWHdCeYYI3ttzL6ilXEGjkOlCz2nt` back into `build/tmp/drive-third-audit` after pushing/syncing commit `4085b5fbe5f515fa1966d583e8c5ce66298f7aed`.
+  - Ran the third-review static audit from the Drive mirror, not only from the local checkout.
+  - Compared SHA-256 hashes for critical runtime wiring files between local checkout and Drive mirror.
+- Verification:
+  - Drive pull contained `129` files.
+  - `python3 build/tmp/drive-third-audit/scripts/third_review_static_audit.py` → `ThirdReviewStaticAudit passed: runtime wiring and documented command/effect surfaces are present.`
+  - Local-vs-Drive hashes matched for `ClientTargetDetector.java`, `ClientInteractionNetworking.java`, `ModPackets.java`, `InteractionSyncService.java`, `EbbMod.java`, `EbbClient.java`, `ModCommands.java`, `third_review_static_audit.py`, `third_review_completion_audit_2026-05-31.md`, and `third_review_reconciliation_2026-05-31.md`.
+  - The stale `EbbMod.id("debug/entity")` hardcoded entity target pattern is absent from the Drive mirror detector.
+- Pending:
+  - Human GUI retest remains the only unproven item.

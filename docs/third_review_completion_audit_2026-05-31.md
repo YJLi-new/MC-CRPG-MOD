@@ -43,6 +43,17 @@ The post-reconciliation source also needs to be pushed/synced so a later Drive s
 - `scripts/gradle-local.sh --no-daemon runServer --args nogui` → `BUILD SUCCESSFUL in 1m 44s`; Ebb initialized and the server stopped at the normal EULA gate.
 - `git diff --check` → no errors.
 
+## Google Drive source-tree verification
+
+After pushing commit `4085b5fbe5f515fa1966d583e8c5ce66298f7aed`, I synced the tracked repo tree to Google Drive folder `1cGZxWHdCeYYI3ttzL6ilXEGjkOlCz2nt`, then pulled that Drive folder back into `build/tmp/drive-third-audit` and verified the Drive copy directly:
+
+- Drive pull file count: `129` files.
+- `python3 build/tmp/drive-third-audit/scripts/third_review_static_audit.py` → `ThirdReviewStaticAudit passed: runtime wiring and documented command/effect surfaces are present.`
+- Critical file SHA-256 comparisons between local checkout and Drive mirror all matched: `ClientTargetDetector.java`, `ClientInteractionNetworking.java`, `ModPackets.java`, `InteractionSyncService.java`, `EbbMod.java`, `EbbClient.java`, `ModCommands.java`, `third_review_static_audit.py`, and the third-review audit/reconciliation docs.
+- The Drive mirror's `ClientTargetDetector.java` was explicitly checked for the stale hardcoded `EbbMod.id("debug/entity")` pattern; it is absent.
+
+This directly addresses the third review's Drive/source divergence concern for the currently synced Drive tree.
+
 ## Completion decision
 
 All third-review P0/P1 code, wiring, documentation-consistency, and command-line verification requirements are satisfied in the current checkout. The only remaining evidence gap is the full Windows/PCL GUI retest, which must be performed by a human GUI operator. Until that retest is recorded, the broader thread goal remains active rather than marked complete.
