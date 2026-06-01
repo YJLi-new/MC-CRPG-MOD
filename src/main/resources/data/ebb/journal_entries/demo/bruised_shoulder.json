@@ -1,0 +1,7 @@
+{
+  "title": "The Door Keeps Its Own Rhythm",
+  "category": "scene_note",
+  "quest": "ebb:demo/tavern_quiet",
+  "text": "Forcing the door did not open it, but the failure gave you timing: the latch is real, the silence behind it is staged.",
+  "tags": ["fail_forward", "locked_door"]
+}

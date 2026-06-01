@@ -1,0 +1,7 @@
+{
+  "title": "Fresh Scratches Inside the Doorframe",
+  "category": "clue",
+  "quest": "ebb:demo/tavern_quiet",
+  "text": "The marks are on the inside edge, as if the door was tested from within before anyone outside noticed.",
+  "tags": ["locked_door", "inn_corridor"]
+}

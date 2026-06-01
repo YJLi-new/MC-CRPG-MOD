@@ -1,0 +1,132 @@
+id: harbor_clerk_intro
+version: 1
+entry: start
+tags: [npc, city_office, deep_research_example]
+
+nodes:
+  start:
+    type: line
+    speaker: harbor_clerk
+    text: "你又来问同一件事了。"
+    effects:
+      - type: set_flag
+        scope: player
+        key: noticed_tired_face
+    next: choices_main
+
+  choices_main:
+    type: choice
+    speaker: harbor_clerk
+    text: "书记员把笔尖悬在登记册上方，等你把问题说完。"
+    choices:
+      - id: ask_politely
+        kind: DIALOGUE
+        label: "我只是想确认登记记录。"
+        next: ask_reply
+
+      - id: bluff_badge
+        kind: ACTION
+        label: "（亮出伪造证件）"
+        roll:
+          mode: ONE_SHOT
+          ability: charisma
+          dc: 14
+          modifiers:
+            - from: trait.forger
+              value: 2
+          success: bluff_success
+          failure: bluff_failure
+          critical_success: bluff_crit
+          critical_failure: bluff_disaster
+          success_effects:
+            - type: set_var
+              scope: player
+              key: clerk_attitude
+              value: intimidated
+          failure_effects:
+            - type: set_flag
+              scope: player
+              key: clerk_thinks_player_is_suspicious
+            - type: unlock_retry
+              key: office_backdoor_check
+
+      - id: inner_read
+        kind: THOUGHT
+        label: "【他不是警惕，他只是累。】"
+        conditions:
+          - type: has_flag
+            key: noticed_tired_face
+        effects:
+          - type: add_thought
+            key: tired_clerk
+        next: inner_reply
+
+  ask_reply:
+    type: line
+    speaker: harbor_clerk
+    text: "“确认记录的人通常会先说出记录编号。”"
+    next: choices_main
+
+  inner_reply:
+    type: line
+    speaker: inner_voice
+    text: "疲惫不是锁，但它能让钥匙的位置变得明显。"
+    next: choices_main
+
+  bluff_success:
+    type: line
+    speaker: harbor_clerk
+    text: "他吞下了反驳，翻开登记册。"
+    choices:
+      - id: continue_after_success
+        kind: DIALOGUE
+        label: "继续。"
+        next: choices_main
+
+  bluff_crit:
+    type: line
+    speaker: harbor_clerk
+    text: "他不仅翻开登记册，还把一张夹页推到了你这边。"
+    effects:
+      - type: set_flag
+        scope: player
+        key: clerk_revealed_hidden_page
+    next: choices_main
+
+  bluff_failure:
+    type: effect
+    effects:
+      - type: set_flag
+        scope: player
+        key: clerk_thinks_player_is_suspicious
+      - type: unlock_retry
+        key: office_backdoor_check
+    next: failure_line
+
+  bluff_disaster:
+    type: line
+    speaker: harbor_clerk
+    text: "他低头看了一眼证件，像看一张错印的菜单。"
+    effects:
+      - type: set_var
+        scope: player
+        key: clerk_attitude
+        value: hostile
+    choices:
+      - id: retreat
+        kind: ACTION
+        label: "把证件收起来。"
+        next: choices_main
+
+  failure_line:
+    type: line
+    speaker: harbor_clerk
+    text: "“你可以明天再试，或者今天换个更诚实的问题。”"
+    choices:
+      - id: back
+        kind: DIALOGUE
+        label: "换个问题。"
+        next: choices_main
+      - id: leave
+        kind: ACTION
+        label: "结束交谈。"

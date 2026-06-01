@@ -1,0 +1,6 @@
+{
+  "display_name": "Hallway Guard",
+  "narrative_key": "ebb:demo/guard",
+  "default_score": 0,
+  "tags": ["core_npc", "authority"]
+}

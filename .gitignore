@@ -9,3 +9,5 @@ out/
 .tools/
 run/
 logs/
+run-gametest/
+__pycache__/

@@ -1,0 +1,8 @@
+{
+  "title": "Hallway Confrontation",
+  "scene": "ebb:demo/locked_room",
+  "stress_limit": 3,
+  "resolve_goal": 2,
+  "failure_state": "failed_forward",
+  "success_state": "resolved"
+}

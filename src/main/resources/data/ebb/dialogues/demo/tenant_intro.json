@@ -1,0 +1,100 @@
+{
+  "id": "ebb:demo/tenant_intro",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "tenant",
+      "text": "住客的外套太合身，借口却太宽。每一句话都像是提前排练过。",
+      "choices": [
+        {
+          "id": "ask_room",
+          "type": "dialogue",
+          "text": "你住在哪个房间？",
+          "next": "room_line",
+          "effects": [
+            {
+              "type": "set_npc_state",
+              "npc": "ebb:demo/tenant",
+              "tag": "asked_room"
+            }
+          ]
+        },
+        {
+          "id": "read_lie",
+          "type": "thought",
+          "text": "他不是不记得房号；他在决定你配不配知道假答案。",
+          "next": "lie_line",
+          "conditions": [
+            {
+              "type": "attribute_at_least",
+              "attribute": "perception",
+              "min": 1
+            }
+          ],
+          "effects": [
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/tenant_false_window"
+            }
+          ]
+        },
+        {
+          "id": "quiet_route_echo",
+          "type": "dialogue",
+          "text": "有人想私下解决这件事。你是不是其中之一？",
+          "next": "quiet_echo",
+          "conditions": [
+            {
+              "type": "story_var",
+              "scope": "player",
+              "layer": "branch",
+              "id": "tavern_route",
+              "value": "quiet"
+            }
+          ]
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "离开住客。"
+        }
+      ]
+    },
+    "room_line": {
+      "speaker": "tenant",
+      "text": "“二楼，靠窗。” 他没有说是哪一扇窗。旅馆里一半的窗都在看你。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续。",
+          "next": "start"
+        }
+      ]
+    },
+    "lie_line": {
+      "speaker": "inner voice",
+      "text": "他说谎的时候没有眨眼。也许他练过；也许他根本不是为你练的。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这个怀疑带回对话。",
+          "next": "start"
+        }
+      ]
+    },
+    "quiet_echo": {
+      "speaker": "tenant",
+      "text": "“私下解决是文明的说法。另一个说法是：让有钥匙的人继续有钥匙。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到当前。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

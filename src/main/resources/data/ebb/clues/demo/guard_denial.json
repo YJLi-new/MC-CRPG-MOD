@@ -1,0 +1,6 @@
+{
+  "title": "The Guard Denies the Lock, Not the Door",
+  "scene": "ebb:demo/locked_room",
+  "text": "The guard is careful: he denies locking the door, not guarding the fact that it remains closed.",
+  "check_modifiers": { "charisma": 1, "luck": 1 }
+}

@@ -120,6 +120,20 @@ def main() -> int:
         'Commands.literal("set")',
         'Commands.literal("reset")',
         'Commands.literal("summon_npc")',
+        'Commands.literal("dev")',
+        'Commands.literal("on")',
+        'Commands.literal("off")',
+        'Commands.literal("dialogue")',
+        'Commands.literal("inspect")',
+        'Commands.literal("tree")',
+        'Commands.literal("vars")',
+        'Commands.literal("reload")',
+        'Commands.literal("routine")',
+        'Commands.literal("save-debug")',
+        "DialogueDebugDumper.appendDialogueTree",
+        "DialogueService.currentSessionForPlayer",
+        "exportSaveDebug",
+        "detectServerFocus",
         "ModEntityTypes.NPC.spawn",
         'npc.addTag("ebb.npc")',
     )
@@ -156,6 +170,122 @@ def main() -> int:
         "applyEffects(choice.get().effects()",
         "applyEffects(resolution.outcomeEffects()",
         "applyEffects(next.get().enterEffects()",
+        "activeConversationPlayerForEntity",
+    )
+
+    screen = read("src/client/java/com/crpg/ebb/client/gui/dialogue/DialogueScreen.java")
+    require(
+        "DialogueScreen dialogue log",
+        screen,
+        "List<HistoryEntry> history",
+        "appendHistoryEntry",
+        "lastHistoryKey",
+        "entry.speaker() + \": \"",
+        "textScroll",
+    )
+
+    routine_controller = read("src/main/java/com/crpg/ebb/routine/NpcRoutineController.java")
+    require(
+        "NPC routine conversation focus",
+        routine_controller,
+        "applyConversationFocus",
+        "DialogueService.activeConversationPlayerForEntity",
+        "npc.getNavigation().stop()",
+        "npc.getLookControl().setLookAt",
+        "!config.requiresLineOfSight() || npc.hasLineOfSight(player)",
+    )
+
+    routine_definition = read("src/main/java/com/crpg/ebb/routine/NpcRoutineDefinition.java")
+    require(
+        "NPC routine look policy",
+        routine_definition,
+        "requires_line_of_sight",
+        "requiresLineOfSight",
+        "record LookAtPlayer(boolean enabled, double range, float maxYawSpeed, boolean requiresLineOfSight)",
+    )
+
+    saved_data = read("src/main/java/com/crpg/ebb/state/NarrativeSavedData.java")
+    require(
+        "Narrative saved-data schema version",
+        saved_data,
+        "CURRENT_SCHEMA_VERSION",
+        'optionalFieldOf("version"',
+        "schemaVersion()",
+        'root.addProperty("version", version)',
+    )
+
+    authoring = read("scripts/compile_authoring_sources.py")
+    require(
+        "Authoring compiler",
+        authoring,
+        "compile_dialogues",
+        "compile_interactables",
+        "compile_npc",
+        "fail forward",
+        "build/generated/ebb_authoring/data/ebb",
+        "requires_line_of_sight",
+    )
+
+    smoke = read("scripts/smoke/DeepResearchSmoke.java")
+    require(
+        "Deep research smoke",
+        smoke,
+        "DeepResearchSmoke passed",
+        "RollMode.ONE_SHOT",
+        "failureEffects().size()",
+        "set_var effect writes player variable",
+        "compiled YAML preserves node type",
+    )
+
+    junit = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
+    require(
+        "JUnit deep research coverage",
+        junit,
+        "bundledRegistriesLoadWithoutValidationMessages",
+        "checkedChoicesMustFailForward",
+        "variablesTraitsThoughtsAndUnlockEffectsPersistInNarrativeState",
+        "narrativeVariablesRoundTripThroughSavedDataCodec",
+        "authoringCompilerOutputLoadsAsRuntimeData",
+        "RollMode.ONE_SHOT",
+        "DialogueNodeType.LINE",
+    )
+
+    gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
+    require(
+        "Fabric GameTest coverage",
+        gametest,
+        "@GameTest",
+        "bundledDataRegistriesAreValid",
+        "ebbNpcSpawnsWithRoutineState",
+        "taggedEbbNpcResolvesConfiguredBinding",
+        "EntityBindingRegistry.resolve",
+        'npc.addTag("ebb.npc")',
+    )
+
+    mod_json = read("src/main/resources/fabric.mod.json")
+    require("Fabric GameTest entrypoint", mod_json, '"fabric-gametest"', "com.crpg.ebb.test.EbbGameTests")
+
+    build_gradle = read("build.gradle")
+    require(
+        "Gradle verification tasks",
+        build_gradle,
+        "testImplementation platform('org.junit:junit-bom",
+        "useJUnitPlatform()",
+        "compileEbbAuthoring",
+        "validateEbbData",
+        "gametestServer",
+        "-Dfabric-api.gametest.report-file",
+    )
+
+    workflow = read(".github/workflows/build.yml")
+    require(
+        "GitHub Actions validation",
+        workflow,
+        "java-version: '25'",
+        "Compile authoring sources",
+        "Validate data and run unit tests",
+        "Run Fabric game tests",
+        "Build mod jar",
     )
 
     print("ThirdReviewStaticAudit passed: runtime wiring and documented command/effect surfaces are present.")

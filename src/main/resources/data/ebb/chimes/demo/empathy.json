@@ -1,0 +1,9 @@
+{
+  "name": "Empathy",
+  "source_attribute": "wisdom",
+  "min_score": 1,
+  "trigger_tags": ["innkeeper.read"],
+  "speaker_style": "soft",
+  "cooldown_ticks": 200,
+  "lines": ["他不是在拒绝你。他在保护自己免于再次说出同一句真话。"]
+}

@@ -1,0 +1,6 @@
+{
+  "display_name": "Innkeeper",
+  "narrative_key": "ebb:demo/innkeeper",
+  "default_score": 0,
+  "tags": ["core_npc", "tavern"]
+}

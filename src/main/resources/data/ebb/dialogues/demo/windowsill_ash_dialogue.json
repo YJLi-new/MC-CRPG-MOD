@@ -1,0 +1,80 @@
+{
+  "id": "ebb:demo/windowsill_ash_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "窗台上有一圈灰，像有人把夜晚掐灭在这里。",
+      "choices": [
+        {
+          "id": "inspect",
+          "type": "dialogue",
+          "text": "分辨灰烬和泥点。",
+          "next": "inspect_line",
+          "effects": [
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/tenant_false_window"
+            }
+          ]
+        },
+        {
+          "id": "collect",
+          "type": "action",
+          "text": "把一点灰抹到纸角上。",
+          "next": "collect_line",
+          "effects": [
+            {
+              "type": "set_story_var",
+              "layer": "minor",
+              "id": "ash_sample",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "thought",
+          "type": "thought",
+          "text": "窗户不是出口，是借口的展示柜。",
+          "next": "thought_line"
+        }
+      ]
+    },
+    "inspect_line": {
+      "speaker": "narrator",
+      "text": "灰烬很细，不像壁炉，更像有人在等一个信号时烧完了耐心。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "collect_line": {
+      "speaker": "inner voice",
+      "text": "你获得的不是物品，而是一种之后让谎话变慢的凭据。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "thought_line": {
+      "speaker": "inner voice",
+      "text": "所有窗户都通向外面；只有这扇通向住客的句子。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

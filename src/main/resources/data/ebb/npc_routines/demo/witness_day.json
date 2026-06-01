@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "time": [0, 12000],
+      "action": "wait",
+      "pos": [-1.5, 64.0, 4.5],
+      "pose": "leaning",
+      "animation": "idle",
+      "look": "stairs"
+    },
+    {
+      "time": [12000, 24000],
+      "action": "walk_path",
+      "path": [[-1.5, 64.0, 4.5], [1.5, 64.0, 5.5], [3.5, 64.0, 4.5]],
+      "pose": "pacing",
+      "animation": "walk",
+      "look": "hall"
+    }
+  ],
+  "look_at_player": {
+    "enabled": true,
+    "range": 4.5,
+    "max_yaw_speed": 8.0,
+    "requires_line_of_sight": true
+  }
+}

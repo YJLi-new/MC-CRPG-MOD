@@ -72,14 +72,24 @@ public record NpcRoutineDefinition(
             }
         }
         Optional<String> look = json.has("look") && !json.get("look").isJsonNull() ? Optional.of(GsonHelper.getAsString(json, "look")) : Optional.empty();
-        return Optional.of(new Step(start, end, action, pos, List.copyOf(path), look));
+        Optional<String> animation = optionalString(json, "animation").or(() -> optionalString(json, "play_animation"));
+        Optional<String> pose = optionalString(json, "pose").or(() -> optionalString(json, "set_pose"));
+        double teleportDistance = optionalDouble(json, "teleport_distance")
+                .or(() -> optionalDouble(json, "teleportFallbackDistance"))
+                .orElse(16.0D);
+        return Optional.of(new Step(start, end, action, pos, List.copyOf(path), look, animation, pose, teleportDistance));
     }
 
     private static LookAtPlayer parseLookAtPlayer(JsonObject json) {
         boolean enabled = GsonHelper.getAsBoolean(json, "enabled", false);
         double range = GsonHelper.getAsDouble(json, "range", 4.0D);
         float maxYawSpeed = GsonHelper.getAsFloat(json, "max_yaw_speed", 8.0F);
-        return new LookAtPlayer(enabled, range, maxYawSpeed);
+        boolean requiresLineOfSight = GsonHelper.getAsBoolean(
+                json,
+                "requires_line_of_sight",
+                GsonHelper.getAsBoolean(json, "requiresLineOfSight", true)
+        );
+        return new LookAtPlayer(enabled, range, maxYawSpeed, requiresLineOfSight);
     }
 
     private static Vec3 parseVec3(JsonArray array) {
@@ -89,7 +99,31 @@ public record NpcRoutineDefinition(
         return new Vec3(array.get(0).getAsDouble(), array.get(1).getAsDouble(), array.get(2).getAsDouble());
     }
 
-    public record Step(int startTime, int endTime, String action, Optional<Vec3> pos, List<Vec3> path, Optional<String> look) {
+    private static Optional<String> optionalString(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull()
+                ? Optional.of(GsonHelper.getAsString(json, key))
+                : Optional.empty();
+    }
+
+    private static Optional<Double> optionalDouble(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull()
+                && json.get(key).isJsonPrimitive()
+                && json.get(key).getAsJsonPrimitive().isNumber()
+                ? Optional.of(GsonHelper.getAsDouble(json, key))
+                : Optional.empty();
+    }
+
+    public record Step(
+            int startTime,
+            int endTime,
+            String action,
+            Optional<Vec3> pos,
+            List<Vec3> path,
+            Optional<String> look,
+            Optional<String> animation,
+            Optional<String> pose,
+            double teleportDistance
+    ) {
         public boolean contains(long time) {
             if (startTime <= endTime) {
                 return time >= startTime && time < endTime;
@@ -116,13 +150,19 @@ public record NpcRoutineDefinition(
             return "time=[" + startTime + "," + endTime + "] action=" + action
                     + " pos=" + pos.map(Vec3::toString).orElse("-")
                     + " path=" + path.size()
-                    + " look=" + look.orElse("-");
+                    + " look=" + look.orElse("-")
+                    + " animation=" + animation.orElse("-")
+                    + " pose=" + pose.orElse("-")
+                    + " teleport_distance=" + teleportDistance;
         }
     }
 
-    public record LookAtPlayer(boolean enabled, double range, float maxYawSpeed) {
+    public record LookAtPlayer(boolean enabled, double range, float maxYawSpeed, boolean requiresLineOfSight) {
         public String debugSummary() {
-            return "look_at_player(enabled=" + enabled + ", range=" + range + ", max_yaw_speed=" + maxYawSpeed + ")";
+            return "look_at_player(enabled=" + enabled
+                    + ", range=" + range
+                    + ", max_yaw_speed=" + maxYawSpeed
+                    + ", requires_line_of_sight=" + requiresLineOfSight + ")";
         }
     }
 }

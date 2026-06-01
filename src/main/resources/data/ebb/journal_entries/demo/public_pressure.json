@@ -1,0 +1,7 @@
+{
+  "title": "Public Pressure Route",
+  "category": "lead",
+  "quest": "ebb:demo/tavern_public",
+  "text": "If the room hears the accusation, silence becomes a choice everyone must make in public.",
+  "tags": ["major_branch", "public"]
+}

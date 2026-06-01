@@ -1,0 +1,10 @@
+{
+  "display_name": "Cheap Empathy",
+  "description": "你不一定理解别人，但你知道一句便宜的体谅什么时候能让话题继续。",
+  "permanent_passive": false,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "wisdom": 1,
+    "charisma": 1
+  }
+}

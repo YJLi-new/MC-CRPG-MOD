@@ -1,0 +1,131 @@
+{
+  "id": "ebb:demo/back_door_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "后门通向一条窄巷。结局暂时站在那里，像一个还没写完但已经会记账的人。",
+      "choices": [
+        {
+          "id": "public_end",
+          "type": "action",
+          "text": "以公开揭露路线离开。",
+          "next": "public_end",
+          "conditions": [
+            {
+              "type": "story_var",
+              "layer": "branch",
+              "id": "tavern_route",
+              "value": "public"
+            }
+          ],
+          "effects": [
+            {
+              "type": "set_story_var",
+              "layer": "branch",
+              "id": "ending_placeholder",
+              "value": "public"
+            }
+          ]
+        },
+        {
+          "id": "quiet_end",
+          "type": "action",
+          "text": "以安静处理路线离开。",
+          "next": "quiet_end",
+          "conditions": [
+            {
+              "type": "story_var",
+              "layer": "branch",
+              "id": "tavern_route",
+              "value": "quiet"
+            }
+          ],
+          "effects": [
+            {
+              "type": "set_story_var",
+              "layer": "branch",
+              "id": "ending_placeholder",
+              "value": "quiet"
+            }
+          ]
+        },
+        {
+          "id": "messy_end",
+          "type": "dialogue",
+          "text": "带着失败前进的走廊后果离开。",
+          "next": "messy_end",
+          "conditions": [
+            {
+              "type": "scene_phase",
+              "id": "ebb:demo/locked_room",
+              "phase": "messy"
+            }
+          ],
+          "effects": [
+            {
+              "type": "set_story_var",
+              "layer": "branch",
+              "id": "ending_placeholder",
+              "value": "messy"
+            }
+          ]
+        },
+        {
+          "id": "thought",
+          "type": "thought",
+          "text": "还没有结局。只有证据在排队。",
+          "next": "thought_line"
+        }
+      ]
+    },
+    "public_end": {
+      "speaker": "narrator",
+      "text": "【结尾占位：公开揭露】大厅会记住你把事实钉上墙的方式。下个版本将在这里结算公共证词路线。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "quiet_end": {
+      "speaker": "narrator",
+      "text": "【结尾占位：安静处理】真相被折进少数人的口袋。下个版本将在这里结算私下交易路线。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "messy_end": {
+      "speaker": "narrator",
+      "text": "【结尾占位：失败前进】你没有优雅地解决问题，但问题也无法回到原状。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "thought_line": {
+      "speaker": "inner voice",
+      "text": "垂直切片的边缘不是墙，是一张写着“待续”的收据。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

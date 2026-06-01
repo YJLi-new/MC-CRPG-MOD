@@ -1,0 +1,7 @@
+{
+  "title": "Quiet Compromise Route",
+  "category": "lead",
+  "quest": "ebb:demo/tavern_quiet",
+  "text": "A private bargain may preserve access to the truth, but it also preserves someone else's control over how the truth is told.",
+  "tags": ["major_branch", "quiet"]
+}

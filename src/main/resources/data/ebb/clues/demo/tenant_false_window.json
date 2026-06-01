@@ -1,0 +1,6 @@
+{
+  "title": "The Tenant's Window Is Too Convenient",
+  "scene": "ebb:demo/locked_room",
+  "text": "The tenant says 'the room by the window' as if all windows point to the same alibi.",
+  "check_modifiers": { "intelligence": 1, "perception": 1 }
+}

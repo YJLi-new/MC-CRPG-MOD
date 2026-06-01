@@ -10,6 +10,8 @@ import com.crpg.ebb.network.dialogue.CloseDialogueRequestPayload;
 import com.crpg.ebb.network.dialogue.DialogueClosePayload;
 import com.crpg.ebb.network.dialogue.DialogueUpdatePayload;
 import com.crpg.ebb.network.dev.DevSnapshotPayload;
+import com.crpg.ebb.network.journal.JournalPayload;
+import com.crpg.ebb.network.quest.QuestTreePayload;
 import com.crpg.ebb.network.sync.BlockGroupSyncPayload;
 import com.crpg.ebb.network.sync.EntityBindingSyncPayload;
 import com.crpg.ebb.network.sync.EntityTargetSyncPayload;
@@ -35,6 +37,8 @@ public final class ModPackets {
         PayloadTypeRegistry.clientboundPlay().register(DialogueUpdatePayload.TYPE, DialogueUpdatePayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(DialogueClosePayload.TYPE, DialogueClosePayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(DevSnapshotPayload.TYPE, DevSnapshotPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(JournalPayload.TYPE, JournalPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(QuestTreePayload.TYPE, QuestTreePayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(BlockGroupSyncPayload.TYPE, BlockGroupSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EntityBindingSyncPayload.TYPE, EntityBindingSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EntityTargetSyncPayload.TYPE, EntityTargetSyncPayload.CODEC);

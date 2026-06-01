@@ -1,0 +1,13 @@
+{
+  "title": "安静处理",
+  "kind": "major",
+  "description": "用交易、遮掩和私下判断结束这件事，不把所有人拖到灯光下面。",
+  "take_root_text": "安静路线扎根：你学会了在没有证词的地方读出动机，也学会了让门继续像门一样沉默。",
+  "grant_feats": [
+    "ebb:demo/paranoid_pattern_reader",
+    "ebb:demo/door_theology"
+  ],
+  "take_root_effects": [
+    { "type": "set_story_var", "scope": "player", "layer": "major", "id": "quiet_compromise", "value": 1 }
+  ]
+}

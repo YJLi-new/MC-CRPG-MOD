@@ -11,6 +11,9 @@ public record DialogueCheck(
         String attribute,
         int dc,
         String die,
+        RollMode mode,
+        boolean advantage,
+        int staticModifier,
         Optional<String> success,
         Optional<String> failure,
         Optional<String> criticalSuccess,
@@ -25,6 +28,7 @@ public record DialogueCheck(
         failure = failure == null ? Optional.empty() : failure;
         criticalSuccess = criticalSuccess == null ? Optional.empty() : criticalSuccess;
         criticalFailure = criticalFailure == null ? Optional.empty() : criticalFailure;
+        mode = mode == null ? RollMode.ONE_SHOT : mode;
         successEffects = successEffects == null ? List.of() : List.copyOf(successEffects);
         failureEffects = failureEffects == null ? List.of() : List.copyOf(failureEffects);
         criticalSuccessEffects = criticalSuccessEffects == null ? List.of() : List.copyOf(criticalSuccessEffects);
@@ -36,8 +40,14 @@ public record DialogueCheck(
             return Optional.empty();
         }
         String attribute = optionalString(json, "attribute").orElse("logic");
+        attribute = optionalString(json, "ability").orElse(attribute);
         int dc = optionalInt(json, "dc").orElse(10);
         String die = optionalString(json, "die").orElse("d20");
+        RollMode mode = optionalString(json, "mode")
+                .flatMap(RollMode::parse)
+                .orElse(RollMode.ONE_SHOT);
+        boolean advantage = optionalBoolean(json, "advantage").orElse(false);
+        int staticModifier = parseStaticModifier(json);
         if (!"d20".equalsIgnoreCase(die)) {
             messages.add(path + ": only die=\"d20\" is currently supported; got " + die);
         }
@@ -48,6 +58,9 @@ public record DialogueCheck(
                 attribute,
                 dc,
                 die,
+                mode,
+                advantage,
+                staticModifier,
                 optionalString(json, "success"),
                 optionalString(json, "failure"),
                 optionalString(json, "critical_success"),
@@ -70,7 +83,10 @@ public record DialogueCheck(
     }
 
     public String debugSummary() {
-        StringBuilder builder = new StringBuilder(attribute + " DC " + dc + " " + die);
+        StringBuilder builder = new StringBuilder(attribute + " DC " + dc + " " + die
+                + " mode=" + mode.serializedName()
+                + (advantage ? " advantage" : "")
+                + (staticModifier == 0 ? "" : " mod=" + staticModifier));
         success.ifPresent(value -> builder.append(" success=").append(value));
         failure.ifPresent(value -> builder.append(" failure=").append(value));
         criticalSuccess.ifPresent(value -> builder.append(" crit_success=").append(value));
@@ -96,7 +112,30 @@ public record DialogueCheck(
 
     private static Optional<Integer> optionalInt(JsonObject json, String key) {
         return json.has(key) && !json.get(key).isJsonNull()
+                && json.get(key).isJsonPrimitive()
+                && json.get(key).getAsJsonPrimitive().isNumber()
                 ? Optional.of(GsonHelper.getAsInt(json, key))
                 : Optional.empty();
+    }
+
+    private static Optional<Boolean> optionalBoolean(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull()
+                ? Optional.of(GsonHelper.getAsBoolean(json, key))
+                : Optional.empty();
+    }
+
+    private static int parseStaticModifier(JsonObject json) {
+        int total = optionalInt(json, "modifier").or(() -> optionalInt(json, "static_modifier")).orElse(0);
+        if (json.has("modifiers") && json.get("modifiers").isJsonArray()) {
+            for (var element : json.getAsJsonArray("modifiers")) {
+                if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber()) {
+                    total += element.getAsInt();
+                } else if (element.isJsonObject()) {
+                    JsonObject object = element.getAsJsonObject();
+                    total += optionalInt(object, "value").orElse(0);
+                }
+            }
+        }
+        return total;
     }
 }

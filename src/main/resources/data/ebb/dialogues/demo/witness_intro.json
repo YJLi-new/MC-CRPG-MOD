@@ -1,0 +1,197 @@
+{
+  "id": "ebb:demo/witness_intro",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "witness",
+      "text": "旁观者把杯子举到嘴边，但没有喝。她一直在等别人先承认自己也听见了楼上的声音。",
+      "chime_tags": [
+        "witness.read",
+        "innkeeper.read"
+      ],
+      "choices": [
+        {
+          "id": "ask_seen",
+          "type": "dialogue",
+          "text": "你看见谁靠近过那扇门？",
+          "next": "seen_line",
+          "effects": [
+            {
+              "type": "add_relation",
+              "relation": "ebb:demo/witness",
+              "amount": 1
+            },
+            {
+              "type": "set_npc_state",
+              "npc": "ebb:demo/witness",
+              "tag": "asked_about_door"
+            },
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/witness_knock_pattern"
+            }
+          ]
+        },
+        {
+          "id": "pressure",
+          "type": "action",
+          "text": "把问题问得足够大声，让她不能装作没听见。",
+          "check": {
+            "attribute": "charisma",
+            "dc": 11,
+            "success": "pressure_success",
+            "failure": "pressure_failure",
+            "success_effects": [
+              {
+                "type": "add_relation",
+                "relation": "ebb:demo/witness",
+                "amount": 2
+              },
+              {
+                "type": "set_npc_state",
+                "npc": "ebb:demo/witness",
+                "tag": "publicly_committed"
+              },
+              {
+                "type": "reveal_clue",
+                "id": "ebb:demo/witness_knock_pattern"
+              }
+            ],
+            "failure_effects": [
+              {
+                "type": "add_relation",
+                "relation": "ebb:demo/witness",
+                "amount": -1
+              },
+              {
+                "type": "set_npc_state",
+                "npc": "ebb:demo/witness",
+                "tag": "shut_down"
+              },
+              {
+                "type": "add_journal_entry",
+                "id": "ebb:demo/public_pressure"
+              }
+            ]
+          }
+        },
+        {
+          "id": "memory_followup",
+          "type": "dialogue",
+          "text": "你已经承认听见过楼上的声音。继续。",
+          "next": "memory_line",
+          "conditions": [
+            {
+              "type": "npc_state",
+              "npc": "ebb:demo/witness",
+              "tag": "asked_about_door"
+            }
+          ]
+        },
+        {
+          "id": "trusted_followup",
+          "type": "dialogue",
+          "text": "你知道我不会把你的名字放进第一句话里。",
+          "next": "trusted_line",
+          "conditions": [
+            {
+              "type": "relation_at_least",
+              "relation": "ebb:demo/witness",
+              "min": 2
+            }
+          ]
+        },
+        {
+          "id": "night_comment",
+          "type": "thought",
+          "text": "入夜以后，她比白天更愿意说真话。",
+          "next": "night_line",
+          "conditions": [
+            {
+              "type": "time_window",
+              "start": 12000,
+              "end": 24000
+            }
+          ]
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "离开旁观者。"
+        }
+      ]
+    },
+    "seen_line": {
+      "speaker": "witness",
+      "text": "“我只看见老板把手放到柜台下面。不是拿钥匙，是摸确认钥匙还在。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续问。",
+          "next": "start"
+        }
+      ]
+    },
+    "pressure_success": {
+      "speaker": "witness",
+      "text": "她没有看你，而是看向楼梯：“好吧。有人从里面敲了三下。不是求救，是暗号。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "把暗号记住。",
+          "next": "start"
+        }
+      ]
+    },
+    "pressure_failure": {
+      "speaker": "witness",
+      "text": "她笑了，声音足够让别人听见：“侦探，你先学会小声说话，再学会问问题。” 失败没有关门，但让她更谨慎。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "承认这个失败继续推进了局面。",
+          "next": "start"
+        }
+      ]
+    },
+    "memory_line": {
+      "speaker": "witness",
+      "text": "“三下。停一拍。再两下。别问我为什么记得节奏。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到当前问题。",
+          "next": "start"
+        }
+      ]
+    },
+    "trusted_line": {
+      "speaker": "witness",
+      "text": "“如果你一定要说我的名字，就把它放在最后。那样他们先忙着否认事实。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "把这个保护她的顺序记住。",
+          "next": "start"
+        }
+      ]
+    },
+    "night_line": {
+      "speaker": "inner voice",
+      "text": "夜晚把大厅变小了。小房间里，旁观者更容易把旁观误认为责任。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "回到她面前。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

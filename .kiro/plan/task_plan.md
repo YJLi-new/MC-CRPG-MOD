@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Third review runtime wiring reconciliation implemented; build/static-audit/smoke/profile refresh complete; Windows GUI retest pending human execution
+GOAL.md implementation: P2 Story Variables through P8 Playable Tavern Vertical Slice are code/data/docs/tests complete with final automated build, smoke, validation, static-audit, GameTest, jar-hash, and jar-inspection evidence recorded. Full Windows GUI retest remains human-driven when requested.
 
 ## Phases
 
@@ -134,6 +134,31 @@ Third review runtime wiring reconciliation implemented; build/static-audit/smoke
 - [x] Re-run static audit, Gradle build, smoke checks, server smoke, jar inspection, and test-profile refresh.
 - [ ] Execute full Windows GUI manual retest from `26.1.2-Fabric-Ebb-Test`; pending human GUI operation.
 - **Status:** code/docs/build/source-audit complete; manual GUI retest pending
+
+
+### Phase 16: Deep Research Report Implementation
+- [x] Read `C:\Users\lanla\Downloads\deep-research-report (2).md` and map actionable items to the existing Fabric 26.1.2/JDK25 project instead of migrating to the report's suggested 1.21.1/JDK21 mainline.
+- [x] Add stable architecture contracts under `com.crpg.ebb.api` for interactable targets, dialogue runtime/repository, roll service, validation, and reload reports.
+- [x] Extend dialogue schema/runtime for node types, node `next`, authoring aliases, retryable/one-shot roll modes, advantage/static modifiers, failure-forward validation, single-use checks, richer conditions/effects, variables, traits, thoughts, and unlock tags.
+- [x] Extend block/entity authoring compatibility with `boxes`, `anchor`, namespace defaults, and Minecraft-default entity type parsing.
+- [x] Implement OP developer commands for dev on/off, dialogue inspect/tree/vars/reload, routine inspect, and save-debug export.
+- [x] Add author-friendly YAML/JSON examples, compiler script, Gradle validation entrypoint, smoke runner, and GitHub Actions build baseline.
+- [x] Add tracked JUnit and Fabric GameTest coverage for the report's automated-test strategy, including bundled data, failure-forward validation, narrative effects, generated authoring data, NPC spawn/routine state, and tagged NPC binding resolution.
+- [x] Close continuation-audit gaps: scrollable dialogue history log, conversation-focus routine pause, line-of-sight-aware NPC look policy, and saved-data schema versioning.
+- [x] Repeatedly review changed code, fix discovered parsing/validation bugs, and verify with Gradle build, authoring compile, smoke checks, static audits, JUnit, Fabric GameTest, and jar inspection.
+- **Status:** complete
+
+### Phase 17: GOAL.md Playable Vertical Slice Expansion
+- [x] Read `C:\Users\lanla\Downloads\GOAL.md` and adopt it as the active execution target while preserving Fabric 26.1.2 / Java 25 / GeckoLib 5.5.1 and existing data-driven architecture.
+- [x] Re-establish P0/P1 baseline with build, smoke, data validation, static audits, and GameTest verification.
+- [x] Implement P2 Story Variables: Branch/Major/Minor layered persistence, dialogue effects, dialogue conditions, developer inspection, JSON authoring docs, demo innkeeper content, smoke/JUnit/static audit coverage.
+- [x] Implement P3 Quest Branch / Take Root / Feat definitions, state, dialogue effects/conditions, basic Quest Tree UI, dev views, docs, demo content, and tests.
+- [x] Implement P4 Chime / Inner Voice / Passive Inserts registry, resolver, dialogue passive insert hook, UI styling, demo content, docs, and tests.
+- [x] Implement P5 Journal / Quest Tree UX.
+- [x] Implement P6 relationship/memory/routine expansion.
+- [x] Implement P7 investigation and dialogue-set-piece conflict systems.
+- [x] Implement P8 playable tavern vertical slice with 4 NPCs, 8 interactable points, 2 major branches, 4 feats, 4 chimes, 1 conflict scene, and ending placeholder evidence.
+- **Status:** code/data/docs/automated verification complete for P2-P8; full Windows GUI retest pending human operation
 
 ## Key Questions
 1. Version pins? Resolved: Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, Loom `1.17.0-alpha.13`, GeckoLib `5.5.1`; no Yarn dependency line for 26.1+.

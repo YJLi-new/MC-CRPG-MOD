@@ -21,8 +21,14 @@ import java.util.Optional;
 
 public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
     private static final String ROUTINE_TAG = "EbbRoutine";
+    private static final String NARRATIVE_KEY_TAG = "EbbNarrativeKey";
+    private static final String POSE_TAG = "EbbPose";
+    private static final String ANIMATION_TAG = "EbbAnimation";
     private final AnimatableInstanceCache geckoCache = GeckoLibUtil.createInstanceCache(this);
     private Optional<Identifier> routineId = Optional.of(EbbMod.id("demo/innkeeper_day"));
+    private String narrativeStateKey = "ebb:demo/innkeeper";
+    private String narrativePose = "standing";
+    private String narrativeAnimation = "idle";
     private String routinePathKey = "";
     private int routinePathIndex;
 
@@ -49,6 +55,36 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
         this.routineId = Optional.of(routineId);
     }
 
+    public String narrativeStateKey() {
+        return narrativeStateKey;
+    }
+
+    public void setNarrativeStateKey(String narrativeStateKey) {
+        if (narrativeStateKey != null && !narrativeStateKey.isBlank()) {
+            this.narrativeStateKey = narrativeStateKey.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    public String narrativePose() {
+        return narrativePose;
+    }
+
+    public void setNarrativePose(String narrativePose) {
+        if (narrativePose != null && !narrativePose.isBlank()) {
+            this.narrativePose = narrativePose.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    public String narrativeAnimation() {
+        return narrativeAnimation;
+    }
+
+    public void setNarrativeAnimation(String narrativeAnimation) {
+        if (narrativeAnimation != null && !narrativeAnimation.isBlank()) {
+            this.narrativeAnimation = narrativeAnimation.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
     public int routinePathIndex(String key, int pathSize) {
         if (!routinePathKey.equals(key)) {
             routinePathKey = key;
@@ -73,6 +109,14 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
         routinePathIndex = Math.floorMod(routinePathIndex + 1, pathSize);
     }
 
+    public String routinePathKey() {
+        return routinePathKey;
+    }
+
+    public int routinePathIndex() {
+        return routinePathIndex;
+    }
+
     private void resetRoutinePath() {
         routinePathKey = "";
         routinePathIndex = 0;
@@ -88,12 +132,18 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
     protected void addAdditionalSaveData(ValueOutput output) {
         super.addAdditionalSaveData(output);
         routineId.ifPresent(id -> output.putString(ROUTINE_TAG, id.toString()));
+        output.putString(NARRATIVE_KEY_TAG, narrativeStateKey);
+        output.putString(POSE_TAG, narrativePose);
+        output.putString(ANIMATION_TAG, narrativeAnimation);
     }
 
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
         routineId = input.getString(ROUTINE_TAG).map(Identifier::parse).or(() -> Optional.of(EbbMod.id("demo/innkeeper_day")));
+        narrativeStateKey = input.getString(NARRATIVE_KEY_TAG).orElse("ebb:demo/innkeeper");
+        narrativePose = input.getString(POSE_TAG).orElse("standing");
+        narrativeAnimation = input.getString(ANIMATION_TAG).orElse("idle");
         resetRoutinePath();
     }
 

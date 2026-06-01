@@ -18,6 +18,16 @@ loom {
             sourceSet sourceSets.client
         }
     }
+
+    runs {
+        gametestServer {
+            server()
+            name = 'Ebb GameTest Server'
+            runDir = 'run-gametest'
+            vmArg '-Dfabric-api.gametest'
+            vmArg "-Dfabric-api.gametest.report-file=${layout.buildDirectory.file('test-results/gametest/TEST-ebb-gametest.xml').get().asFile.absolutePath}"
+        }
+    }
 }
 
 repositories {
@@ -31,6 +41,10 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
     implementation "com.geckolib:geckolib-fabric-26.1.2:${geckolib_version}"
+
+    testImplementation platform('org.junit:junit-bom:5.13.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 processResources {
@@ -61,6 +75,25 @@ java {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 25
+}
+
+tasks.register('compileEbbAuthoring', Exec) {
+    group = 'verification'
+    description = 'Compile authoring YAML/JSON examples into generated Ebb runtime datapack JSON.'
+    commandLine 'python3', 'scripts/compile_authoring_sources.py', '--clean',
+            '--source', 'authoring',
+            '--out', layout.buildDirectory.dir('generated/ebb_authoring/data/ebb').get().asFile.absolutePath
+}
+
+tasks.named('test') {
+    dependsOn 'compileEbbAuthoring'
+    useJUnitPlatform()
+}
+
+tasks.register('validateEbbData') {
+    group = 'verification'
+    description = 'Validate Ebb bundled data and authoring-source compilation entrypoints.'
+    dependsOn 'compileEbbAuthoring', 'build'
 }
 
 publishing {

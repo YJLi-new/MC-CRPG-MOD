@@ -1,0 +1,9 @@
+{
+  "name": "Rhetoric",
+  "source_attribute": "charisma",
+  "min_score": 1,
+  "trigger_tags": ["innkeeper.read"],
+  "speaker_style": "argument",
+  "cooldown_ticks": 200,
+  "lines": ["别问钥匙。问谁会因为钥匙被交出来而失去叙事控制。"]
+}

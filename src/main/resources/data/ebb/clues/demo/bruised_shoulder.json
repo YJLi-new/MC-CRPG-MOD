@@ -1,0 +1,7 @@
+{
+  "title": "The Latch Is Real",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/bruised_shoulder",
+  "text": "The failed shove proves the latch exists and the silence is staged; failure turned into timing information.",
+  "check_modifiers": { "strength": 1 }
+}

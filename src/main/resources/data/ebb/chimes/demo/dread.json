@@ -1,0 +1,9 @@
+{
+  "name": "Dread",
+  "source_attribute": "luck",
+  "min_score": 1,
+  "trigger_tags": ["innkeeper.read"],
+  "speaker_style": "warning",
+  "cooldown_ticks": 200,
+  "lines": ["空气像一块湿布盖在这句话上。你已经听见了后果，只是还没发生。"]
+}

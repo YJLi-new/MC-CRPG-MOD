@@ -3,6 +3,8 @@ package com.crpg.ebb.client.network;
 import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.client.gui.dev.DevSnapshotScreen;
 import com.crpg.ebb.client.gui.dialogue.DialogueScreen;
+import com.crpg.ebb.client.gui.journal.JournalScreen;
+import com.crpg.ebb.client.gui.quest.QuestTreeScreen;
 import com.crpg.ebb.client.interaction.ClientInteractionState;
 import com.crpg.ebb.interaction.InteractionTarget;
 import com.crpg.ebb.network.InteractionDeniedPayload;
@@ -15,6 +17,8 @@ import com.crpg.ebb.network.dialogue.DialogueUpdatePayload;
 import com.crpg.ebb.network.sync.BlockGroupSyncPayload;
 import com.crpg.ebb.network.sync.EntityBindingSyncPayload;
 import com.crpg.ebb.network.sync.EntityTargetSyncPayload;
+import com.crpg.ebb.network.journal.JournalPayload;
+import com.crpg.ebb.network.quest.QuestTreePayload;
 import com.crpg.ebb.client.interaction.ClientBlockGroupIndex;
 import com.crpg.ebb.client.interaction.ClientEntityTargetIndex;
 import com.crpg.ebb.network.dev.DevSnapshotPayload;
@@ -46,6 +50,12 @@ public final class ClientInteractionNetworking {
         );
         ClientPlayNetworking.registerGlobalReceiver(DevSnapshotPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> context.client().setScreen(new DevSnapshotScreen(payload)))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(JournalPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> context.client().setScreen(new JournalScreen(payload)))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(QuestTreePayload.TYPE, (payload, context) ->
+                context.client().execute(() -> context.client().setScreen(new QuestTreeScreen(payload)))
         );
         ClientPlayNetworking.registerGlobalReceiver(BlockGroupSyncPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> ClientBlockGroupIndex.rebuild(payload.definitions()))

@@ -16,6 +16,14 @@
               "type": "set_flag",
               "scope": "player",
               "id": "demo.knocked_locked_door"
+            },
+            {
+              "type": "add_journal_entry",
+              "id": "ebb:demo/door_scratches"
+            },
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/door_scratches"
             }
           ]
         },
@@ -41,6 +49,14 @@
                 "type": "set_flag",
                 "scope": "world",
                 "id": "demo.door_forced_failure"
+              },
+              {
+                "type": "add_journal_entry",
+                "id": "ebb:demo/bruised_shoulder"
+              },
+              {
+                "type": "reveal_clue",
+                "id": "ebb:demo/bruised_shoulder"
               }
             ]
           },

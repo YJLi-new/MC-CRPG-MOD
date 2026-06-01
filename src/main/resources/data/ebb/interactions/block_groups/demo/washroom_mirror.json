@@ -1,0 +1,16 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/washroom_mirror_dialogue",
+  "blocks": [
+    [
+      -2,
+      64,
+      6
+    ]
+  ],
+  "interaction_point": [
+    -1.5,
+    64.9,
+    6.5
+  ]
+}

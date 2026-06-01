@@ -1,0 +1,9 @@
+{
+  "display_name": "Door Theology",
+  "description": "门、锁和沉默开始在你的脑子里形成一种不健康的宗教。",
+  "permanent_passive": false,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "intelligence": 1
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/back_door_dialogue",
+  "blocks": [
+    [
+      10,
+      64,
+      5
+    ],
+    [
+      10,
+      65,
+      5
+    ]
+  ],
+  "interaction_point": [
+    9.75,
+    64.9,
+    5.5
+  ]
+}

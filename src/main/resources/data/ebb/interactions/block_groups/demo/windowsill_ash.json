@@ -1,0 +1,16 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/windowsill_ash_dialogue",
+  "blocks": [
+    [
+      4,
+      65,
+      6
+    ]
+  ],
+  "interaction_point": [
+    4.5,
+    65.2,
+    6.5
+  ]
+}

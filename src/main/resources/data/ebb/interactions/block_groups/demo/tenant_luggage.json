@@ -1,0 +1,16 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/tenant_luggage_dialogue",
+  "blocks": [
+    [
+      8,
+      64,
+      3
+    ]
+  ],
+  "interaction_point": [
+    8.5,
+    64.7,
+    3.5
+  ]
+}

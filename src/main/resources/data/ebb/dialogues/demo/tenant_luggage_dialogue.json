@@ -1,0 +1,110 @@
+{
+  "id": "ebb:demo/tenant_luggage_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "住客行李锁得很认真，认真到像在证明里面没有重要东西。",
+      "choices": [
+        {
+          "id": "ask_lock",
+          "type": "dialogue",
+          "text": "观察锁扣的磨损。",
+          "next": "lock_line",
+          "effects": [
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/tenant_false_window"
+            }
+          ]
+        },
+        {
+          "id": "open",
+          "type": "action",
+          "text": "试着不留下痕迹地拨动锁扣。",
+          "check": {
+            "attribute": "dexterity",
+            "dc": 14,
+            "success": "open_success",
+            "failure": "open_failure",
+            "success_effects": [
+              {
+                "type": "set_story_var",
+                "layer": "minor",
+                "id": "luggage_touched",
+                "value": "clean"
+              }
+            ],
+            "failure_effects": [
+              {
+                "type": "set_story_var",
+                "layer": "minor",
+                "id": "luggage_touched",
+                "value": "obvious"
+              },
+              {
+                "type": "add_relation",
+                "relation": "ebb:demo/tenant",
+                "amount": -1
+              }
+            ]
+          }
+        },
+        {
+          "id": "thought",
+          "type": "thought",
+          "text": "不要打开箱子。打开他说箱子时的表情。",
+          "next": "thought_line"
+        }
+      ]
+    },
+    "lock_line": {
+      "speaker": "narrator",
+      "text": "锁扣外侧新，内侧旧。箱子换过主人，或者主人换过故事。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "open_success": {
+      "speaker": "narrator",
+      "text": "锁扣让步了一毫米。足够你知道它近期被急着关上过。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "open_failure": {
+      "speaker": "narrator",
+      "text": "你没有打开箱子。你打开了一个更麻烦的问题：谁会发现你试过？",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "thought_line": {
+      "speaker": "inner voice",
+      "text": "行李最擅长的动作，是让人相信重量等于真相。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

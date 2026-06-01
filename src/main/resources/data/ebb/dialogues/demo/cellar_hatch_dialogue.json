@@ -1,0 +1,103 @@
+{
+  "id": "ebb:demo/cellar_hatch_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "地下室入口像一个被旅馆吞下又后悔吐出的句子。",
+      "choices": [
+        {
+          "id": "listen",
+          "type": "dialogue",
+          "text": "贴近木板听。",
+          "next": "listen_line"
+        },
+        {
+          "id": "lift",
+          "type": "action",
+          "text": "试着抬起木板。",
+          "check": {
+            "attribute": "strength",
+            "dc": 13,
+            "success": "lift_success",
+            "failure": "lift_failure",
+            "success_effects": [
+              {
+                "type": "set_scene_phase",
+                "scene": "ebb:demo/locked_room",
+                "phase": "cellar_route"
+              }
+            ],
+            "failure_effects": [
+              {
+                "type": "add_story_int",
+                "layer": "minor",
+                "id": "cellar_noise",
+                "amount": 1
+              },
+              {
+                "type": "set_scene_phase",
+                "scene": "ebb:demo/locked_room",
+                "phase": "messy"
+              }
+            ]
+          }
+        },
+        {
+          "id": "thought",
+          "type": "thought",
+          "text": "向下的路通常比向前的路诚实。",
+          "next": "thought_line"
+        }
+      ]
+    },
+    "listen_line": {
+      "speaker": "narrator",
+      "text": "你听见水管、木头，还有某种太规律的等待。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "lift_success": {
+      "speaker": "narrator",
+      "text": "木板抬起一条缝。不是入口，暂时只是可能性。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "lift_failure": {
+      "speaker": "narrator",
+      "text": "木板响得像控诉。失败没有关路，只是让这条路以后带着噪音。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "thought_line": {
+      "speaker": "inner voice",
+      "text": "地下室不一定藏真相，但很适合藏不想被叫作真相的东西。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

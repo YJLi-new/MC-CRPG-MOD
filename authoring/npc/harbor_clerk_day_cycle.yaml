@@ -1,0 +1,50 @@
+id: harbor_clerk
+baseEntity: ebb:npc
+dialogueBindings:
+  default: harbor_clerk_intro
+  tags: [ebb.npc.harbor_clerk]
+
+lookPolicy:
+  trackPlayerWhenNear:
+    enabled: true
+    radius: 6.0
+    requiresLineOfSight: true
+    maxYawDelta: 45
+    maxPitchDelta: 20
+
+routine:
+  id: harbor_clerk_day_cycle
+  schedule:
+    - from: 1000
+      to: 6000
+      state: WALK_TO_COUNTER
+      action: walk
+      path:
+        - [125.5, 64.0, -35.5]
+        - [128.5, 64.0, -31.5]
+      look: counter
+    - from: 6000
+      to: 12000
+      state: WORK_AT_COUNTER
+      action: stand
+      pos: [128.5, 64.0, -31.5]
+      look: counter
+    - from: 12000
+      to: 13000
+      state: TALKING_BREAK
+      action: stand
+      pos: [128.5, 64.0, -31.5]
+      look: player
+    - from: 13000
+      to: 18000
+      state: RETURN_HOME
+      action: walk
+      path:
+        - [128.5, 64.0, -31.5]
+        - [125.5, 64.0, -35.5]
+      look: home
+  interrupts:
+    - when: player_dialogue_started
+      pushState: CONVERSATION_FOCUS
+    - when: player_dialogue_ended
+      resumePrevious: true

@@ -546,3 +546,229 @@
   - The stale `EbbMod.id("debug/entity")` hardcoded entity target pattern is absent from the Drive mirror detector.
 - Pending:
   - Human GUI retest remains the only unproven item.
+
+### Deep Research Report Phase 1 Contract/Dev Command Foundation
+- **Status:** in_progress
+- **Time:** 2026-05-31 Asia/Shanghai
+- Actions taken:
+  - Restored planning context and re-read `deep-research-report (2).md` from `C:\Users\lanla\Downloads`.
+  - Verified existing in-progress architecture/schema changes compile with `scripts/gradle-local.sh --no-daemon build`.
+  - Added public dev-dump helpers for single dialogue/routine inspection.
+  - Added current dialogue session lookup and NPC routine path getters for OP tooling.
+  - Expanded `/ebb dev` with `on/off`, and added OP command surfaces for dialogue inspect/tree/vars/reload, routine inspect, and save-debug export.
+- Verification so far:
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL after command expansion.
+
+### Phase 16: Deep Research Report Implementation
+- **Status:** complete
+- **Time:** 2026-05-31 Asia/Shanghai
+- Actions taken:
+  - Implemented report-driven API contracts, dialogue schema/runtime extensions, narrative variables, richer conditions/effects, and failure-forward validation.
+  - Implemented OP command surfaces for dev mode, dialogue inspection/tree/variables/reload, routine inspection, and save-debug export.
+  - Added author-friendly examples under `authoring/`, compiler `scripts/compile_authoring_sources.py`, Gradle tasks `compileEbbAuthoring`/`validateEbbData`, tracked smoke runner, and CI workflow.
+  - Re-reviewed changes and fixed bugs found by smoke/static checks: string `value` parsing for `set_var`, clearer attribute condition matching, shortcut effect id parsing, no-namespace entity type defaults, and known custom `ebb:npc` validation.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → BUILD SUCCESSFUL + DeepResearchSmoke/ReviewSmoke/AttributePointsSmoke/SecondReviewSmoke + ThirdReviewStaticAudit all passed.
+  - Final rerun `scripts/run_smoke_checks.sh` → Gradle build successful; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, and ThirdReviewStaticAudit all passed with zero registry validation messages.
+  - Final jar hashes: `build/libs/ebb-0.1.0-dev.jar` SHA-256 `42fe00c49b6a7f5dde80521075354c7a56c05196f11b9af10b7f138d865efadb`; sources jar SHA-256 `e6fc48d6edbeb164bd02e6c5bde7cd471f786a7d22869dbc41b8f88759450bf5`.
+  - Jar inspection via `.tools/jdk-25/bin/jar tf` confirmed packaged `com/crpg/ebb/api/*`, `DialogueNodeType`, `RollMode`, expanded dialogue/interaction/dev command classes, and bundled runtime data resources.
+  - `git diff --check` and `scripts/third_review_static_audit.py` passed after final edits.
+
+
+### Phase 16 Deep Research Final Test/Audit Hardening
+- **Status:** complete
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added formal JUnit coverage in `src/test/java/com/crpg/ebb/DeepResearchDataTest.java` for bundled registry cleanliness, fail-forward validation, narrative effect persistence, saved-data codec round-trip for variables/flags, and generated authoring output loading.
+  - Added Fabric GameTest coverage in `src/main/java/com/crpg/ebb/test/EbbGameTests.java` and registered it through the `fabric-gametest` entrypoint.
+  - Fixed the GameTest run configuration by removing the over-narrow `fabric-api.gametest.filter=ebb`; the unfiltered headless server discovers and runs the Ebb tests reliably.
+  - Extended `scripts/third_review_static_audit.py` and `.github/workflows/build.yml` to assert/run JUnit, authoring validation, Fabric GameTest, and jar build coverage.
+  - Added `docs/deep_research_report_completion_audit_2026-06-01.md` and updated authoring/implementation docs with final automated-test evidence.
+- Verification:
+  - `scripts/run_smoke_checks.sh` → BUILD SUCCESSFUL; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, and ThirdReviewStaticAudit all passed.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL in 54s.
+  - JUnit XML `build/test-results/test/TEST-com.crpg.ebb.DeepResearchDataTest.xml` → tests=5, failures=0, errors=0, skipped=0.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required game tests passed.
+  - Final jar SHA-256 `98130df556aa021dc1928736943e839d7dc049e6a83d1deb918b0d697b6e2cf3`; sources jar SHA-256 `9d4c2108c6821f86174429161dbeb54e006045add300d3bd272474b540bc22bb`.
+
+
+### Phase 16 Continuation Audit Hardening
+- **Status:** complete
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Treated completion as unproven and re-read the deep research report against current source evidence.
+  - Found and closed weak report-alignment points: `DialogueScreen` now keeps a scrollable dialogue history log; `NpcRoutineController` pauses movement and focuses look-at during active NPC conversations; routine look policies now carry `requires_line_of_sight`; `NarrativeSavedData` now persists a schema version.
+  - Extended the tracked static audit to assert these newly closed requirements.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon test` → BUILD SUCCESSFUL; JUnit tests passed.
+  - `scripts/run_smoke_checks.sh` → BUILD SUCCESSFUL; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, and DeepResearchStaticAudit passed.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL in 49s.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required game tests passed.
+  - `git diff --check`, `python3 scripts/third_review_static_audit.py`, and `python3 scripts/deep_research_static_audit.py` passed.
+  - Final jar SHA-256 `98130df556aa021dc1928736943e839d7dc049e6a83d1deb918b0d697b6e2cf3`; sources jar SHA-256 `9d4c2108c6821f86174429161dbeb54e006045add300d3bd272474b540bc22bb`.
+
+### Phase 17 / GOAL.md P2 Story Variables
+- **Status:** complete for code/data/docs/tests; Windows GUI retest remains human-operated.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Source:
+  - Read `C:\Users\lanla\Downloads\GOAL.md` and treated it as the active execution target over older generic planning, while preserving the existing Fabric 26.1.2 / Java 25 / GeckoLib 5.5.1 stack.
+- Actions taken:
+  - Added `com.crpg.ebb.story.StoryVarLayer` and `StoryVarValue`.
+  - Extended `PlayerNarrativeState` and `NarrativeSavedData` codecs with Branch/Major/Minor story-variable maps for player and world scope.
+  - Added story-variable dialogue effects: `set_story_var`, `clear_story_var` / `remove_story_var`, and `add_story_int` / `increment_story_var`.
+  - Added `story_var` dialogue conditions with scalar equality and integer `min` / `at_least` checks.
+  - Exposed story vars in `/ebb dialogue vars`, `/ebb dev`, saved-data debug snapshots, and authoring docs.
+  - Extended the authoring compiler shortcuts for `setStoryVar`, `clearStoryVar`, and `addStoryInt`.
+  - Updated `ebb:demo/innkeeper_intro` so it writes/reads all three layers: Minor `met_innkeeper` / `innkeeper_annoyance`, Major `innkeeper_trust`, and Branch `tavern_route=public`.
+  - Added `scripts/goal_static_audit.py` and wired it into `scripts/run_smoke_checks.sh`.
+  - Added JUnit/smoke coverage for Branch/Major/Minor story-var effects, conditions, and saved-data codec round trips.
+  - Added `docs/goal_p2_story_variables_2026-06-01.md` and updated `docs/json_authoring_guide.md` / `docs/mvp_verification_steps.md`.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 3m 39s`.
+  - `scripts/run_smoke_checks.sh` → build successful; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
+  - `scripts/goal_static_audit.py` → passed.
+  - `scripts/deep_research_static_audit.py` → passed.
+  - `scripts/third_review_static_audit.py` → passed.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 55s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
+  - `git diff --check` → no whitespace errors.
+- Next:
+  - Implement GOAL.md P3 Quest Branch / Take Root / Feat definitions, state, dialogue effects/conditions, dev views, docs, demo content, and tests.
+
+### Phase 17 / GOAL.md P3 Quest Branch, Take Root, and Feat MVP
+- **Status:** complete for code/data/docs/tests; Windows GUI retest remains human-operated.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added `quest/` package with `QuestBranchDefinition`, `QuestBranchRegistry`, `QuestBranchKind`, `TakeRootService`, and `QuestTreeService`.
+  - Added `feat/` package with `FeatDefinition` and `FeatRegistry`.
+  - Added raw JSON registries for `quest_branches` and `feats` through `NarrativeDataRegistries`.
+  - Extended `PlayerNarrativeState` / `NarrativeSavedData` with quest states, unlocked feats, active feats, and 4 active feat slots.
+  - Added dialogue effects for `start_quest_branch`, `complete_quest_branch`, `unlock_feat`, and `activate_feat`.
+  - Added dialogue conditions for `quest_state` and `has_feat`.
+  - Added feat check modifiers to server-authoritative d20 rolls through `FeatRegistry.totalCheckModifier`.
+  - Added basic Quest Tree UX: `QuestTreePayload`, `QuestTreeScreen`, and `/ebb quest` / `/ebb quest tree`.
+  - Extended `/ebb dev` with quest/feat registry summaries and per-player quest/feat state.
+  - Added bundled quest branches `ebb:demo/tavern_public` and `ebb:demo/tavern_quiet` plus 4 feats: `Tavern Authority`, `Paranoid Pattern Reader`, `Cheap Empathy`, and `Door Theology`.
+  - Updated `ebb:demo/innkeeper_intro` so public/quiet choices complete major branches and a feat-gated authority follow-up appears after `Tavern Authority`.
+  - Extended `scripts/goal_static_audit.py`, JUnit, smoke tests, authoring guide, and MVP verification docs for P3.
+  - Added `docs/goal_p3_quest_feat_2026-06-01.md`.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 3m 28s`.
+  - `scripts/run_smoke_checks.sh` → build successful; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
+  - `scripts/goal_static_audit.py` → passed for P2 and P3.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 54s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
+  - `git diff --check` → no whitespace errors.
+  - Jar SHA-256 `643740159d9f61a2e7f699d898edbdfdcfdea9d01d6e7b78e46b780064f4932b`; sources jar SHA-256 `70ba1356a89e0fb9e56196a5f8d2a1b3a551fc8baedf804beec2de327b397232`.
+- Next:
+  - Implement GOAL.md P4 Chime / Inner Voice / Passive Inserts MVP.
+
+### Phase 17 / GOAL.md P4 Chime and Inner Voice MVP
+- **Status:** complete for code/data/docs/tests; Windows GUI retest remains human-operated.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added `chime/` package with `ChimeDefinition`, `ChimeRegistry`, and `ChimeResolver`.
+  - Added raw JSON registry for `chimes` through `NarrativeDataRegistries`.
+  - Extended `DialogueNode` with `tags` / `chime_tags` parsing.
+  - Hooked `ChimeResolver` into `DialogueService` open/update payload creation so passive inserts are still server-authoritative.
+  - Added cyan chime status styling in `DialogueScreen` for `[Chime: ...]` passive inserts.
+  - Added four bundled chimes: Instinct, Rhetoric, Dread, and Empathy.
+  - Tagged the innkeeper start node with `innkeeper.read`; different attribute builds can now trigger different chime inserts on the same scene.
+  - Added the `rhetoric_insight` thought path gated by the passive `chime:ebb:demo/rhetoric` flag.
+  - Extended `scripts/goal_static_audit.py`, JUnit, smoke tests, authoring docs, MVP verification docs, and dev snapshot validation with chime coverage.
+  - Added `docs/goal_p4_chime_2026-06-01.md`.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 3m 13s`.
+  - `scripts/run_smoke_checks.sh` → build successful; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
+  - `scripts/goal_static_audit.py` → passed for P2, P3, and P4.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 57s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
+  - `git diff --check` → no whitespace errors.
+  - Jar SHA-256 `cd2cd304d9e3f12da49ab0b79ac90c7ce656e013898d73cfb459b96f919f36d7`; sources jar SHA-256 `2586f2849bdfa16bfd05dc0ed09c4a1b7e6cb598c1375843ff5e183261a5365b`.
+- Next:
+  - Implement GOAL.md P5 UI rhythm and Journal / Quest Tree maturation.
+
+
+### Phase 17 / GOAL.md P5 Journal and UI Rhythm MVP
+- **Status:** complete for code/data/docs/tests; Windows GUI retest remains human-operated.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added journal entries registry/service, persisted player journal IDs, JournalPayload/JournalScreen, and `/ebb journal`.
+  - Added `add_journal_entry` / `reveal_clue` effects and `has_journal_entry` / `clue_found` conditions.
+  - Added four bundled clue/lead entries and wired locked-door / innkeeper demo routes to produce visible journal consequences.
+  - Strengthened DialogueScreen status echoes with typed labels/colors for clue/journal, quest/take-root, feat, chime, story-var, and future relation feedback.
+  - Updated authoring docs, MVP verification docs, smoke/JUnit coverage, and `scripts/goal_static_audit.py`; added `docs/goal_p5_journal_ui_2026-06-01.md`.
+- Verification:
+  - `scripts/run_smoke_checks.sh` passed; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
+  - `scripts/goal_static_audit.py` passed for P2, P3, P4, and P5.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 58s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
+  - `git diff --check` → no whitespace errors.
+  - Jar SHA-256 `6f3e3b345b8d5c457dbc291fa927fbf32d0c7793eb30911d028b696bef2b25fa`; sources jar SHA-256 `cfb59f1f4b1f228d850e9bf6dd77d43996d158e36453421556e779edc5f64bd2`.
+- Next:
+  - Implement GOAL.md P6 relationship, NPC memory/state tags, time/state-dependent dialogue, and routine expansion.
+
+
+### Phase 17 / GOAL.md P6 Relationship, NPC Memory, and Routine Expansion
+- **Status:** complete for code/data/docs/tests; Windows GUI retest remains human-operated.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added relationship registry/data, relationship score persistence, player/world NPC state tags, debug snapshots, and dev browser lines.
+  - Added dialogue effects/conditions for relation score changes, NPC memory tags, time-window visibility, and real NPC routine switching.
+  - Expanded Ebb NPC routine skeleton with narrative key, pose, animation, wait/walk_path/look_at/play_animation/set_pose/teleport_fallback action handling.
+  - Added witness/tenant/guard role bindings, dialogues, routines, and innkeeper relationship/routine consequences.
+  - Updated JSON authoring docs, MVP verification docs, P6 completion audit, smoke/JUnit coverage, and GoalStaticAudit.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 2m 39s`.
+  - `scripts/run_smoke_checks.sh` passed; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
+  - `scripts/goal_static_audit.py` passed for P2-P6.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 54s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
+  - `git diff --check` → no whitespace errors.
+  - Jar SHA-256 `b64e744f4a6c115757ecefee2098fb22061f9a44c1438ae80877e96d87f96c92`; sources jar SHA-256 `b08b1fdd6abee405fe901d7e0f98619d813143f9bf369ca4f30b86c9068e7698`.
+- Next:
+  - Implement GOAL.md P7 investigation scenes, clue-to-DC hooks, and one set-piece conflict prototype.
+
+
+### Phase 17 / GOAL.md P7 Investigation and Set-piece Conflict
+- **Status:** complete for code/data/docs/tests; Windows GUI retest remains human-operated.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added investigation and conflict packages, registries, clue definitions, investigation scene definitions, conflict definitions, and services.
+  - Added discovered clue persistence, scene/conflict narrative state, conflict stress/resolve scores, dev snapshot lines, and saved-data debug output.
+  - Added `reveal_clue`, conflict, and scene-phase dialogue effects/conditions; hooked discovered clue modifiers into server-authoritative d20 rolls.
+  - Added 1 investigation scene, 5 clues, 1 hallway confrontation set-piece, and demo wiring in locked-door/witness/tenant/guard dialogue.
+  - Updated docs, smoke/JUnit coverage, and `scripts/goal_static_audit.py`.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 2m 56s`.
+  - `scripts/run_smoke_checks.sh` passed; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
+  - `scripts/goal_static_audit.py` passed for P2-P7.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 58s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
+  - `git diff --check` → no whitespace errors.
+  - Jar SHA-256 `d511e37ae5451cf5797ebd22ccf8aca12c11976091b15625275ce3c161d2d14c`; sources jar SHA-256 `f9de175da9917b8abf790da05e27e88e59f0b96a7d66c9469e9e928e44ca306d`.
+- Next:
+  - Implement GOAL.md P8 playable tavern vertical slice completion and final evidence.
+
+### Phase 17 / GOAL.md P8 Playable Tavern Vertical Slice
+- **Status:** complete for code/data/docs/tests and automated verification; Windows GUI retest remains human-operated.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Completed the P8 tavern/side-door vertical slice content inventory: 4 role NPCs (innkeeper, witness, tenant, guard), 8 block-group interactable points, 2 major quest branches, 4 feats, 4 chimes, 5 clues, 1 investigation scene, 1 set-piece conflict, and public/quiet/messy ending placeholders.
+  - Added seven new block-group targets and seven matching block dialogues around the existing locked-door scene: counter ledger, washroom mirror, windowsill ash, tenant luggage, notice board, cellar hatch, and back door.
+  - Extended role NPC content and route consequences so public, quiet, and fail-forward paths all write server-authoritative story/quest/clue/conflict/journal state and surface visible UI feedback.
+  - Updated `docs/goal_p8_vertical_slice_2026-06-01.md`, `docs/json_authoring_guide.md`, `docs/mvp_verification_steps.md`, JUnit coverage, smoke checks, and `scripts/goal_static_audit.py` for P8.
+  - Re-reviewed the changed runtime/data surface after P8 and confirmed the new content stays data-driven instead of adding one-off Java scene code.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 2m 48s`.
+  - `scripts/run_smoke_checks.sh` → build successful; `DeepResearchSmoke`, `AttributePointsSmoke`, `ReviewSmoke`, `SecondReviewSmoke`, `ThirdReviewStaticAudit`, `DeepResearchStaticAudit`, and `GoalStaticAudit` all passed.
+  - `python3 scripts/goal_static_audit.py` → passed for P2-P8.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 59s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed; `BUILD SUCCESSFUL in 3m 30s`.
+  - `git diff --check` → no whitespace errors.
+  - Jar SHA-256 `47d3e8ac42c28c9e0d6dc437e90656c03404694677677d4e0212220c28c29d59`; sources jar SHA-256 `a4c89f3076519c8570f092c0b6f5e0006c53cac52cb64b6acde1f95310977bd5`.
+  - Jar inspection confirmed P7/P8 packages and data resources: conflict, investigation, relationship classes plus clues, conflict, investigation scene, and all eight P8 block-group JSON files.
+  - Post-bookkeeping recheck: fixed trailing-blank markdown whitespace, then `git diff --check`, `python3 scripts/goal_static_audit.py`, `python3 scripts/deep_research_static_audit.py`, `python3 scripts/third_review_static_audit.py`, and `scripts/gradle-local.sh --no-daemon validateEbbData` all passed; latest `validateEbbData` finished `BUILD SUCCESSFUL in 57s`.
+- Remaining manual step:
+  - Optional/full GUI retest from the separate `26.1.2-Fabric-Ebb-Test` Windows profile: spawn role NPCs, visit all eight interactable points, play public/quiet/fail-forward routes, and verify the back-door ending placeholder changes.

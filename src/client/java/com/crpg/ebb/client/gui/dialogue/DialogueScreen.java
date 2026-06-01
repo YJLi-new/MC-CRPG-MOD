@@ -15,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +25,11 @@ public final class DialogueScreen extends Screen {
     private static final int TITLE_COLOR = 0xFF64E6FF;
     private static final int TEXT_COLOR = 0xFFE8E8E8;
     private static final int STATUS_COLOR = 0xFFFFD166;
+    private static final int CHIME_STATUS_COLOR = 0xFF64E6FF;
+    private static final int QUEST_STATUS_COLOR = 0xFFFFC857;
+    private static final int FEAT_STATUS_COLOR = 0xFFB197FC;
+    private static final int CLUE_STATUS_COLOR = 0xFF86EFAC;
+    private static final int RELATION_STATUS_COLOR = 0xFFFF9F9F;
     private static final int MUTED_COLOR = 0xFFAAAAAA;
     private static final int VISIBLE_CHOICES = 5;
     private static final int PANEL_MAX_WIDTH = 560;
@@ -40,6 +46,8 @@ public final class DialogueScreen extends Screen {
     private List<VisibleDialogueChoice> choices;
     private Optional<RollResultPayload> rollResult;
     private Optional<String> statusMessage;
+    private final List<HistoryEntry> history = new ArrayList<>();
+    private String lastHistoryKey = "";
     private boolean closingFromServer;
     private boolean waitingForServer;
     private int choicePage;
@@ -56,6 +64,7 @@ public final class DialogueScreen extends Screen {
         this.choices = List.copyOf(payload.choices());
         this.rollResult = Optional.empty();
         this.statusMessage = payload.statusMessage();
+        appendHistoryEntry(nodeId, speaker, text, textKey);
     }
 
     public UUID conversationId() {
@@ -70,6 +79,7 @@ public final class DialogueScreen extends Screen {
         this.choices = List.copyOf(payload.choices());
         this.rollResult = payload.rollResult();
         this.statusMessage = payload.statusMessage();
+        appendHistoryEntry(nodeId, speaker, text, textKey);
         this.waitingForServer = false;
         this.choicePage = Math.min(choicePage, maxChoicePage());
         this.textScroll = 0;
@@ -245,7 +255,7 @@ public final class DialogueScreen extends Screen {
             lineY = renderWrapped(graphics, Component.literal(rollResult.get().summary()), x, lineY, width, bottom, STATUS_COLOR);
         }
         if (statusMessage.isPresent()) {
-            lineY = renderWrapped(graphics, Component.literal(statusMessage.get()), x, lineY, width, bottom, STATUS_COLOR);
+            lineY = renderStatusEchoes(graphics, statusMessage.get(), x, lineY, width, bottom);
         }
         if (waitingForServer && lineY + LINE_HEIGHT <= bottom) {
             graphics.text(this.font, Component.translatable("screen.ebb.dialogue.waiting"), x, lineY, MUTED_COLOR);
@@ -263,6 +273,49 @@ public final class DialogueScreen extends Screen {
             y += LINE_HEIGHT;
         }
         return y + 2;
+    }
+
+    private int renderStatusEchoes(GuiGraphicsExtractor graphics, String status, int x, int y, int width, int bottom) {
+        for (String rawPart : status.split(";")) {
+            String part = rawPart.trim();
+            if (part.isEmpty()) {
+                continue;
+            }
+            y = renderWrapped(graphics, Component.literal(statusLabel(part)), x, y, width, bottom, statusColor(part));
+            if (y + LINE_HEIGHT > bottom) {
+                break;
+            }
+        }
+        return y;
+    }
+
+    private static String statusLabel(String status) {
+        if (status.startsWith("clue_gained:")) return "线索获得： " + status.substring("clue_gained:".length());
+        if (status.startsWith("clue_found:")) return "调查线索： " + status.substring("clue_found:".length());
+        if (status.startsWith("clue_already_found:")) return "已知线索： " + status.substring("clue_already_found:".length());
+        if (status.startsWith("journal_entry_added:")) return "日志更新： " + status.substring("journal_entry_added:".length());
+        if (status.startsWith("quest_completed:")) return "任务推进： " + status.substring("quest_completed:".length());
+        if (status.startsWith("quest_started:")) return "任务开始： " + status.substring("quest_started:".length());
+        if (status.startsWith("take_root:")) return "扎根结算： " + status.substring("take_root:".length()).trim();
+        if (status.startsWith("feat_unlocked:")) return "专长解锁： " + status.substring("feat_unlocked:".length());
+        if (status.startsWith("feat_activate:")) return "专长槽位： " + status.substring("feat_activate:".length());
+        if (status.startsWith("story_var_")) return "状态写回： " + status;
+        if (status.startsWith("relation_")) return "关系变化： " + status;
+        if (status.startsWith("npc_state_")) return "NPC记忆： " + status;
+        if (status.startsWith("npc_routine_")) return "NPC行动： " + status;
+        if (status.startsWith("conflict_")) return "冲突推进： " + status;
+        if (status.startsWith("scene_phase:")) return "场景阶段： " + status.substring("scene_phase:".length());
+        return status;
+    }
+
+    private static int statusColor(String status) {
+        if (status.contains("[Chime:")) return CHIME_STATUS_COLOR;
+        if (status.startsWith("clue_gained:") || status.startsWith("clue_") || status.startsWith("journal_entry_")) return CLUE_STATUS_COLOR;
+        if (status.startsWith("quest_") || status.startsWith("take_root:")) return QUEST_STATUS_COLOR;
+        if (status.startsWith("feat_")) return FEAT_STATUS_COLOR;
+        if (status.startsWith("relation_") || status.startsWith("npc_state_") || status.startsWith("npc_routine_")
+                || status.startsWith("conflict_") || status.startsWith("scene_phase:")) return RELATION_STATUS_COLOR;
+        return STATUS_COLOR;
     }
 
     private int panelWidth() {
@@ -317,7 +370,29 @@ public final class DialogueScreen extends Screen {
     }
 
     private Component bodyComponent() {
-        return textKey.map(Component::translatable).orElseGet(() -> Component.literal(text));
+        if (history.isEmpty()) {
+            return textKey.map(Component::translatable).orElseGet(() -> Component.literal(text));
+        }
+        Component body = Component.empty();
+        for (int i = 0; i < history.size(); i++) {
+            HistoryEntry entry = history.get(i);
+            if (i > 0) {
+                body = body.copy().append(Component.literal("\n\n"));
+            }
+            body = body.copy()
+                    .append(Component.literal(entry.speaker() + ": ").withStyle(ChatFormatting.BOLD))
+                    .append(entry.textKey().map(Component::translatable).orElseGet(() -> Component.literal(entry.text())));
+        }
+        return body;
+    }
+
+    private void appendHistoryEntry(String nodeId, String speaker, String text, Optional<String> textKey) {
+        String key = nodeId + "\u0000" + speaker + "\u0000" + text + "\u0000" + textKey.orElse("");
+        if (key.equals(lastHistoryKey)) {
+            return;
+        }
+        history.add(new HistoryEntry(nodeId, speaker, text, textKey));
+        lastHistoryKey = key;
     }
 
     private static Component choiceText(VisibleDialogueChoice choice) {
@@ -332,5 +407,11 @@ public final class DialogueScreen extends Screen {
             case ACTION -> Component.empty().append(Component.literal("(")).append(inner).append(Component.literal(")" + suffix)).withStyle(ChatFormatting.GOLD);
             case THOUGHT -> Component.empty().append(Component.literal("\u3010")).append(inner).append(Component.literal("\u3011" + suffix)).withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC);
         };
+    }
+
+    private record HistoryEntry(String nodeId, String speaker, String text, Optional<String> textKey) {
+        private HistoryEntry {
+            textKey = textKey == null ? Optional.empty() : textKey;
+        }
     }
 }

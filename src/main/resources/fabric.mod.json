@@ -16,6 +16,9 @@
     ],
     "client": [
       "com.crpg.ebb.client.EbbClient"
+    ],
+    "fabric-gametest": [
+      "com.crpg.ebb.test.EbbGameTests"
     ]
   },
   "depends": {

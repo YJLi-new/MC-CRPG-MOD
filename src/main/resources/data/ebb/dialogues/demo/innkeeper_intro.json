@@ -5,8 +5,22 @@
     "start": {
       "speaker": "innkeeper",
       "text": "旅馆老板抬起眼，像是早已知道你会在这个时刻站到这里。",
+      "chime_tags": [
+        "innkeeper.read"
+      ],
       "enter_effects": [
-        { "type": "set_flag", "scope": "player", "id": "demo.met_innkeeper" }
+        {
+          "type": "set_flag",
+          "scope": "player",
+          "id": "demo.met_innkeeper"
+        },
+        {
+          "type": "set_story_var",
+          "scope": "player",
+          "layer": "minor",
+          "id": "met_innkeeper",
+          "value": true
+        }
       ],
       "choices": [
         {
@@ -32,12 +46,223 @@
             "success": "push_success",
             "failure": "push_failure",
             "success_effects": [
-              { "type": "set_flag", "scope": "player", "id": "demo.innkeeper_helped" }
+              {
+                "type": "set_flag",
+                "scope": "player",
+                "id": "demo.innkeeper_helped"
+              },
+              {
+                "type": "add_story_int",
+                "scope": "player",
+                "layer": "major",
+                "id": "innkeeper_trust",
+                "amount": 1
+              },
+              {
+                "type": "add_relation",
+                "relation": "ebb:demo/innkeeper",
+                "amount": 2
+              },
+              {
+                "type": "set_npc_state",
+                "npc": "ebb:demo/innkeeper",
+                "tag": "helpful"
+              }
             ],
             "failure_effects": [
-              { "type": "set_flag", "scope": "player", "id": "demo.innkeeper_annoyed" }
+              {
+                "type": "set_flag",
+                "scope": "player",
+                "id": "demo.innkeeper_annoyed"
+              },
+              {
+                "type": "add_story_int",
+                "scope": "player",
+                "layer": "minor",
+                "id": "innkeeper_annoyance",
+                "amount": 1
+              },
+              {
+                "type": "add_relation",
+                "relation": "ebb:demo/innkeeper",
+                "amount": -1
+              },
+              {
+                "type": "set_npc_state",
+                "npc": "ebb:demo/innkeeper",
+                "tag": "guarded"
+              }
             ]
           }
+        },
+        {
+          "id": "public_route",
+          "type": "action",
+          "text": "告诉他：我会把这扇门的事公开。",
+          "next": "public_ending_placeholder",
+          "effects": [
+            {
+              "type": "set_story_var",
+              "scope": "player",
+              "layer": "branch",
+              "id": "tavern_route",
+              "value": "public"
+            },
+            {
+              "type": "complete_quest_branch",
+              "id": "ebb:demo/tavern_public"
+            },
+            {
+              "type": "add_journal_entry",
+              "id": "ebb:demo/public_pressure"
+            },
+            {
+              "type": "add_relation",
+              "relation": "ebb:demo/innkeeper",
+              "amount": -2
+            },
+            {
+              "type": "set_npc_state",
+              "npc": "ebb:demo/innkeeper",
+              "tag": "publicly_exposed"
+            },
+            {
+              "type": "set_npc_routine",
+              "id": "ebb:demo/innkeeper_backroom"
+            }
+          ]
+        },
+        {
+          "id": "quiet_route",
+          "type": "action",
+          "text": "压低声音：我们可以私下解决。",
+          "next": "quiet_ending_placeholder",
+          "effects": [
+            {
+              "type": "set_story_var",
+              "scope": "player",
+              "layer": "branch",
+              "id": "tavern_route",
+              "value": "quiet"
+            },
+            {
+              "type": "complete_quest_branch",
+              "id": "ebb:demo/tavern_quiet"
+            },
+            {
+              "type": "add_journal_entry",
+              "id": "ebb:demo/quiet_compromise"
+            },
+            {
+              "type": "add_relation",
+              "relation": "ebb:demo/innkeeper",
+              "amount": 1
+            },
+            {
+              "type": "set_npc_state",
+              "npc": "ebb:demo/innkeeper",
+              "tag": "private_bargain"
+            },
+            {
+              "type": "set_npc_routine",
+              "id": "ebb:demo/innkeeper_backroom"
+            }
+          ]
+        },
+        {
+          "id": "trusted_followup",
+          "type": "dialogue",
+          "text": "你刚才确实帮了我。现在能说真话了吗？",
+          "next": "trusted_line",
+          "conditions": [
+            {
+              "type": "story_var",
+              "scope": "player",
+              "layer": "major",
+              "id": "innkeeper_trust",
+              "min": 1
+            }
+          ]
+        },
+        {
+          "id": "authority_followup",
+          "type": "dialogue",
+          "text": "你知道我现在能让整间旅馆听见这句话。",
+          "next": "authority_line",
+          "conditions": [
+            {
+              "type": "has_feat",
+              "id": "ebb:demo/tavern_authority"
+            }
+          ]
+        },
+        {
+          "id": "rhetoric_insight",
+          "type": "thought",
+          "text": "换个问法：钥匙会让谁失去控制权？",
+          "next": "rhetoric_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/rhetoric",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "public_echo",
+          "type": "thought",
+          "text": "公开路线已经扎根；这场旅馆事件会以证词而不是钥匙结尾。",
+          "next": "public_echo",
+          "conditions": [
+            {
+              "type": "story_var",
+              "scope": "player",
+              "layer": "branch",
+              "id": "tavern_route",
+              "value": "public"
+            }
+          ]
+        },
+        {
+          "id": "guarded_memory",
+          "type": "dialogue",
+          "text": "你刚才退了一步。现在他会把每个问题都当成破门。",
+          "next": "guarded_memory_line",
+          "conditions": [
+            {
+              "type": "npc_state",
+              "npc": "ebb:demo/innkeeper",
+              "tag": "guarded"
+            }
+          ]
+        },
+        {
+          "id": "trusted_relation",
+          "type": "dialogue",
+          "text": "你已经欠了我一分信任。把它用在真话上。",
+          "next": "trusted_relation_line",
+          "conditions": [
+            {
+              "type": "relation_at_least",
+              "relation": "ebb:demo/innkeeper",
+              "min": 2
+            }
+          ]
+        },
+        {
+          "id": "night_counter",
+          "type": "thought",
+          "text": "夜里，柜台后面的沉默更像供词。",
+          "next": "night_counter_line",
+          "conditions": [
+            {
+              "type": "time_window",
+              "start": 12000,
+              "end": 24000
+            }
+          ]
         },
         {
           "id": "leave",
@@ -50,29 +275,161 @@
       "speaker": "innkeeper",
       "text": "“门会告诉你它愿意告诉你的东西。先别用肩膀，年轻人。”",
       "choices": [
-        { "id": "back", "type": "dialogue", "text": "换个问题。", "next": "start" },
-        { "id": "leave", "type": "action", "text": "离开" }
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "换个问题。",
+          "next": "start"
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "离开"
+        }
       ]
     },
     "expression": {
       "speaker": "inner voice",
       "text": "这不是恐惧，是一种职业性的疲惫。每天都有人问那扇门。",
       "choices": [
-        { "id": "back", "type": "thought", "text": "回到谈话。", "next": "start" }
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "回到谈话。",
+          "next": "start"
+        }
       ]
     },
     "push_success": {
       "speaker": "innkeeper",
       "text": "他叹了口气，把一枚不存在于物品栏里的钥匙推向你。至少，现在状态记住了这件事。",
       "choices": [
-        { "id": "back", "type": "dialogue", "text": "继续。", "next": "start" }
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续。",
+          "next": "start"
+        }
       ]
     },
     "push_failure": {
       "speaker": "innkeeper",
       "text": "“你把威胁说得像是在背菜单。” 他把钥匙收得更远。",
       "choices": [
-        { "id": "back", "type": "dialogue", "text": "重新组织语言。", "next": "start" }
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "重新组织语言。",
+          "next": "start"
+        }
+      ]
+    },
+    "trusted_line": {
+      "speaker": "innkeeper",
+      "text": "他压低声音：“你要的不是钥匙。你要知道谁把门锁上，又为什么所有人都装作没听见。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "把这句话记住。",
+          "next": "start"
+        }
+      ]
+    },
+    "public_ending_placeholder": {
+      "speaker": "narrator",
+      "text": "【Branch 占位】你选择把门的秘密推到公共视野里。真正的垂直切片结局会读取 Branch.tavern_route=public。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "暂时回到柜台。",
+          "next": "start"
+        }
+      ]
+    },
+    "quiet_ending_placeholder": {
+      "speaker": "narrator",
+      "text": "【Branch 占位】你选择安静处理，把事实留在少数人的口袋里。真正的垂直切片结局会读取 Branch.tavern_route=quiet。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "暂时回到柜台。",
+          "next": "start"
+        }
+      ]
+    },
+    "authority_line": {
+      "speaker": "innkeeper",
+      "text": "他看了一眼楼梯，又看你：“现在你说话会留下痕迹。别浪费这个坏习惯。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "把权威感收好。",
+          "next": "start"
+        }
+      ]
+    },
+    "rhetoric_line": {
+      "speaker": "inner voice",
+      "text": "这不是钥匙问题，是叙事控制问题。把问题改成“谁需要这扇门继续保持神秘”。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这个角度带回谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "public_echo": {
+      "speaker": "inner voice",
+      "text": "公开不是善良，它是一种把责任分摊给房间里每个人的技术。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "回到谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "guarded_memory_line": {
+      "speaker": "innkeeper",
+      "text": "“门的问题已经让一个肩膀受伤。我不想看见第二个。” 他把钥匙说成伤口，而不是工具。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到柜台。",
+          "next": "start"
+        }
+      ]
+    },
+    "trusted_relation_line": {
+      "speaker": "innkeeper",
+      "text": "他用指节敲了敲柜台：“真话不是钥匙。真话是钥匙丢失以后，人们还假装门锁着。”",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "让这句话留下来。",
+          "next": "start"
+        }
+      ]
+    },
+    "night_counter_line": {
+      "speaker": "inner voice",
+      "text": "白天他守着生意；夜里他守着版本。两个 routine，共用同一个人。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "回到谈话。",
+          "next": "start"
+        }
       ]
     }
   }

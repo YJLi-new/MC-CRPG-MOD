@@ -1,0 +1,9 @@
+{
+  "name": "Instinct",
+  "source_attribute": "perception",
+  "min_score": 1,
+  "trigger_tags": ["innkeeper.read"],
+  "speaker_style": "gut",
+  "cooldown_ticks": 200,
+  "lines": ["他的手离柜台下方太近了。那不是害怕，是准备。"]
+}

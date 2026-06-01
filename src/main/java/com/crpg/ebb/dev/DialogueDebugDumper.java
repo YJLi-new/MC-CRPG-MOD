@@ -8,6 +8,7 @@ import com.crpg.ebb.interaction.InteractionSettings;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.routine.NpcRoutineDefinition;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
+import net.minecraft.resources.Identifier;
 
 import java.util.Comparator;
 import java.util.List;
@@ -26,6 +27,16 @@ public final class DialogueDebugDumper {
         DialogueRegistry.definitions().values().stream()
                 .sorted(Comparator.comparing(definition -> definition.id().toString()))
                 .forEach(definition -> appendDialogue(lines, definition));
+    }
+
+    public static boolean appendDialogueTree(List<String> lines, Identifier dialogueId) {
+        DialogueDefinition definition = DialogueRegistry.byId(dialogueId).orElse(null);
+        if (definition == null) {
+            lines.add("Dialogue " + dialogueId + " is not loaded.");
+            return false;
+        }
+        appendDialogue(lines, definition);
+        return true;
     }
 
     public static void appendEntityBindings(List<String> lines) {
@@ -52,6 +63,16 @@ public final class DialogueDebugDumper {
         NpcRoutineRegistry.definitions().values().stream()
                 .sorted(Comparator.comparing(definition -> definition.id().toString()))
                 .forEach(definition -> appendRoutine(lines, definition));
+    }
+
+    public static boolean appendRoutine(List<String> lines, Identifier routineId) {
+        NpcRoutineDefinition definition = NpcRoutineRegistry.byId(routineId).orElse(null);
+        if (definition == null) {
+            lines.add("Routine " + routineId + " is not loaded.");
+            return false;
+        }
+        appendRoutine(lines, definition);
+        return true;
     }
 
     private static void appendDialogue(List<String> lines, DialogueDefinition definition) {

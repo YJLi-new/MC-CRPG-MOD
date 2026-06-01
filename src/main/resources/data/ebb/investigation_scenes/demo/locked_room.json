@@ -1,0 +1,12 @@
+{
+  "title": "The Locked Room in the Upper Hall",
+  "description": "A compact tavern investigation built from door marks, failed force, witness rhythm, tenant alibi, and guard denial.",
+  "clues": [
+    "ebb:demo/door_scratches",
+    "ebb:demo/bruised_shoulder",
+    "ebb:demo/witness_knock_pattern",
+    "ebb:demo/tenant_false_window",
+    "ebb:demo/guard_denial"
+  ],
+  "completion_threshold": 3
+}

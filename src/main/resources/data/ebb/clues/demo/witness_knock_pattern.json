@@ -1,0 +1,6 @@
+{
+  "title": "Three Knocks, One Pause, Two Knocks",
+  "scene": "ebb:demo/locked_room",
+  "text": "The witness remembers a pattern that sounds less like panic and more like a prearranged signal.",
+  "check_modifiers": { "charisma": 1, "wisdom": 1 }
+}

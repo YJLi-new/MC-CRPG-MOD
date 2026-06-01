@@ -250,3 +250,61 @@ Still needs explicit or implicit confirmation:
 - **Date:** 2026-05-31
 - **Context:** `ebb_project_review_2026-05-31_third.md` reported that a Drive source sample appeared stale: docs claimed sync/runtime fixes but sampled files looked like pre-wiring code.
 - **Decision:** Treat this as a governance/source-audit risk, not just a code feature request. Re-audit the active checkout, add `scripts/third_review_static_audit.py` to make the critical wiring machine-checkable, keep docs explicit that GUI retest is pending, and refresh the PCL profile after each runtime wiring patch.
+
+### 2026-05-31 Deep Research Report Implementation Mapping
+- The requested deep research report is broader than the current 26.1.2 codebase and recommends a stable 1.21.1 mainline, but project/user constraints require keeping the existing Fabric 26.1.2/JDK25 stack. Implementation therefore adapts architecture/schema/tooling recommendations without migrating Minecraft versions.
+- Existing in-progress changes already cover several report items: API contracts under `com.crpg.ebb.api`, dialogue node/check/condition/effect schema extensions, player/world variables, failure-forward validation, and block/entity JSON authoring aliases.
+- Remaining report-derived gaps to close in this pass: verified smoke/static audit after schema changes, author-friendly source examples/compiler pipeline, OP developer command tree (`dev on/off`, dialogue tree/vars/reload/inspect, routine inspect, save-debug export), and updated planning/docs with concrete evidence.
+
+### 2026-05-31 Deep Research Implementation Review Findings
+- The report's stable 1.21.1/JDK21 recommendation conflicts with this session's standing 26.1.2/JDK25 constraint, so the safe implementation path is additive adaptation, not version migration.
+- Smoke testing exposed a real parser bug: `DialogueEffect.optionalInt("value")` attempted to parse string variable values as integers before `SET_VARIABLE` could consume them. Fixed by making integer option parsing type-safe across effect/check/condition helpers.
+- Review also found authoring shortcut gaps (`addTrait`, `removeTrait`, `addThought`, `removeThought`) and entity-type namespace ambiguity. Fixed by accepting shortcut ids and defaulting un-namespaced entity types to `minecraft` while preserving `ebb` defaults for dialogue ids.
+- The new authoring compiler intentionally writes generated data under `build/generated/ebb_authoring/data/ebb` by default; it does not mutate bundled runtime resources unless `--apply` is explicitly used.
+
+
+## Finding: Deep research automated tests need both JVM and real server coverage
+- **Date:** 2026-06-01
+- **Context:** The deep research report explicitly separates unit tests from Minecraft GameTest coverage. The initial implementation had smoke/static checks but lacked a tracked GameTest/JUnit baseline.
+- **Decision:** Add JUnit tests for schema/runtime/authoring invariants and Fabric GameTests for bundled data, NPC spawn/routine state, and tagged NPC binding resolution. Use the unfiltered `runGametestServer --args nogui` run because the Fabric GameTest filter is exact/narrow enough that `fabric-api.gametest.filter=ebb` matched no tests.
+
+
+## Finding: Deep research second audit revealed weak UI/routine evidence
+- **Date:** 2026-06-01
+- **Context:** Goal continuation required treating prior completion as unproven. Re-reading the report showed that the current code proved current-node dialogue rendering, basic look-at-player, and saved-data persistence, but did not strongly prove a dialogue log/rhythm surface, conversation-focus routine pause/resume, look-at line-of-sight policy, or saved-state schema versioning.
+- **Decision:** Implement lightweight but real code paths for these: client-side dialogue session history, active conversation focus in `NpcRoutineController`, `requires_line_of_sight` parsing/authoring, and a persisted `NarrativeSavedData` version field.
+
+## Finding: GOAL.md Story Variables should be layered state, not flags with prefixes
+- **Date:** 2026-06-01
+- **Context:** GOAL.md explicitly requires Branch / Major / Minor variables as a core product-model layer for route commitments, quest/NPC pivots, and local beats.
+- **Decision:** Add a dedicated `story/` package and persist separate player/world maps for Branch, Major, and Minor variables in `NarrativeSavedData`, instead of encoding the layer into flat flag names. Dialogue JSON now reads/writes these variables through explicit `set_story_var`, `add_story_int`, `clear_story_var`, and `story_var` condition syntax. `/ebb dialogue vars`, `/ebb dev`, saved debug export, static audit, JUnit, and smoke checks expose/validate the same layer.
+
+## Finding: Take-root should be a service boundary between quest completion and growth rewards
+- **Date:** 2026-06-01
+- **Context:** GOAL.md P3 requires major quest completion to produce take-root settlement text and grant growth outcomes, rather than merely setting a flag.
+- **Decision:** Add `TakeRootService` as the server-authoritative transition point. Dialogue effects complete a quest branch; major branches then apply take-root effects, unlock/activate up to four feat slots, and record `take_rooted` state. Feat modifiers are resolved server-side during d20 checks, and `/ebb quest` / `/ebb dev` expose the state.
+
+## Finding: Passive chimes need server-side state writes to change paths safely
+- **Date:** 2026-06-01
+- **Context:** GOAL.md P4 requires passive inner-voice inserts to do more than display flavor; at least one passive insight should alter the player's judgment path.
+- **Decision:** Resolve chimes on the server when opening/updating dialogue nodes. A triggered chime writes `chime:<id>` and one-shot seen flags into `NarrativeSavedData`, then the normal dialogue condition system can reveal follow-up thought choices such as `rhetoric_insight`. The client only renders the `[Chime:]` status with distinct cyan styling.
+
+
+## 2026-06-01 — GOAL P5 Journal/UI rhythm review
+- Finding: P5 should not rely on command/debug text for player comprehension; the visible DialogueScreen status area and Journal screen are now the primary feedback loop for clues/leads and fail-forward consequences.
+- Finding: P5 smoke coverage must include journal persistence/effects/conditions because adding clue effects to existing checks can legitimately change old fixture counts. `ReviewSmoke` now accepts fail-forward multi-effect checks.
+
+
+## 2026-06-01 — GOAL P6 relationship/routine review
+- Finding: role-specific Ebb NPC bindings must outrank the generic `ebb.npc` binding; P6 uses higher-priority tags such as `ebb.npc.demo.witness` generated by `/ebb summon_npc demo/witness_day`.
+- Finding: routine expansion can stay MVP-safe by persisting requested pose/animation metadata on `EbbNpcEntity` while retaining GeckoLib idle/walk rendering until bespoke animations are authored.
+
+
+## 2026-06-01 — GOAL P7 investigation/conflict review
+- Finding: clues should remain server-authoritative gameplay objects, not only journal text; P7 stores discovered clue IDs and feeds clue modifiers into d20 resolution.
+- Finding: the first conflict should be a dialogue set-piece with stress/resolve/fail-forward state, not a generalized combat loop. Guard dialogue now embodies that constraint.
+
+## 2026-06-01 — GOAL P8 playable vertical slice review
+- Finding: P8 is best completed as a content/data vertical slice on top of the existing server-authoritative systems, not by hard-coding a tavern controller. The final slice uses block groups, entity bindings, dialogue JSON, chimes, feats, journal/clue effects, relationship/routine effects, and conflict state as the integration surface.
+- Finding: The minimum playable evidence should count concrete authoring assets, not just code features. Final automated checks assert 13 dialogues, 8 block groups, 6 entity bindings, 5 routines, 4 feats, 4 chimes, 5 clues, one conflict, and public/quiet/messy ending placeholders.
+- Finding: Remaining uncertainty is only experiential/GUI pacing, so it is explicitly separated as a human Windows client retest item; automated build/data/GameTest/static/jar evidence is complete.

@@ -1,0 +1,9 @@
+{
+  "display_name": "Paranoid Pattern Reader",
+  "description": "你把不相关的划痕、烟灰和借口连成线；有时这恰好是真的。",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "perception": 1
+  }
+}

@@ -56,8 +56,13 @@ public record BlockGroupDefinition(
     public static Optional<BlockGroupDefinition> parse(Identifier id, JsonObject json, List<String> messages) {
         try {
             ResourceKey<Level> dimension = parseDimension(GsonHelper.getAsString(json, "dimension", "minecraft:overworld"));
-            Identifier dialogueId = Identifier.parse(GsonHelper.getAsString(json, "dialogue"));
-            ParsedBlocks parsedBlocks = parseBlocks(GsonHelper.getAsJsonArray(json, "blocks"), messages, id);
+            optionalString(json, "id").ifPresent(declaredId -> {
+                if (!declaredId.equals(id.toString()) && !declaredId.equals(id.getPath())) {
+                    messages.add("Block group " + id + " declares mismatched id=" + declaredId);
+                }
+            });
+            Identifier dialogueId = parseIdentifier(GsonHelper.getAsString(json, "dialogue"));
+            ParsedBlocks parsedBlocks = parseBlocksOrBoxes(json, messages, id);
             if (parsedBlocks.blocks().isEmpty()) {
                 messages.add("Block group " + id + " has no blocks.");
                 return Optional.empty();
@@ -73,6 +78,8 @@ public record BlockGroupDefinition(
             AABB bounds = computeBounds(parsedBlocks.blocks());
             Vec3 interactionPoint = json.has("interaction_point")
                     ? parseVec3(GsonHelper.getAsJsonArray(json, "interaction_point"), "interaction_point")
+                    : json.has("anchor")
+                    ? parseVec3(GsonHelper.getAsJsonArray(json, "anchor"), "anchor")
                     : bounds.getCenter();
 
             return Optional.of(new BlockGroupDefinition(id, dimension, parsedBlocks.blocks(), parsedBlocks.expectedBlocks(), interactionPoint, dialogueId, bounds));
@@ -125,6 +132,44 @@ public record BlockGroupDefinition(
         return new ParsedBlocks(List.copyOf(blocks), Map.copyOf(expectedBlocks));
     }
 
+    private static ParsedBlocks parseBlocksOrBoxes(JsonObject json, List<String> messages, Identifier groupId) {
+        if (json.has("blocks") && json.get("blocks").isJsonArray()) {
+            return parseBlocks(GsonHelper.getAsJsonArray(json, "blocks"), messages, groupId);
+        }
+        if (json.has("boxes") && json.get("boxes").isJsonArray()) {
+            return parseBoxes(GsonHelper.getAsJsonArray(json, "boxes"));
+        }
+        throw new JsonParseException("missing blocks array or boxes array");
+    }
+
+    private static ParsedBlocks parseBoxes(JsonArray boxesArray) {
+        List<BlockPos> blocks = new ArrayList<>();
+        int index = 0;
+        for (JsonElement element : boxesArray) {
+            if (!element.isJsonObject()) {
+                throw new JsonParseException("boxes[" + index + "] must be an object");
+            }
+            JsonObject object = element.getAsJsonObject();
+            JsonArray min = requireArraySize(object.get("min"), "boxes[" + index + "].min", 3);
+            JsonArray max = requireArraySize(object.get("max"), "boxes[" + index + "].max", 3);
+            int minX = (int) Math.floor(Math.min(min.get(0).getAsDouble(), max.get(0).getAsDouble()));
+            int minY = (int) Math.floor(Math.min(min.get(1).getAsDouble(), max.get(1).getAsDouble()));
+            int minZ = (int) Math.floor(Math.min(min.get(2).getAsDouble(), max.get(2).getAsDouble()));
+            int maxX = (int) Math.floor(Math.max(min.get(0).getAsDouble(), max.get(0).getAsDouble()));
+            int maxY = (int) Math.floor(Math.max(min.get(1).getAsDouble(), max.get(1).getAsDouble()));
+            int maxZ = (int) Math.floor(Math.max(min.get(2).getAsDouble(), max.get(2).getAsDouble()));
+            for (int x = minX; x <= maxX; x++) {
+                for (int y = minY; y <= maxY; y++) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        blocks.add(new BlockPos(x, y, z));
+                    }
+                }
+            }
+            index++;
+        }
+        return new ParsedBlocks(List.copyOf(blocks), Map.of());
+    }
+
     private static Vec3 parseVec3(JsonArray coords, String name) {
         if (coords.size() != 3) {
             throw new JsonParseException(name + " must contain exactly 3 numbers");
@@ -151,6 +196,16 @@ public record BlockGroupDefinition(
             max = BlockPos.max(max, block);
         }
         return AABB.encapsulatingFullBlocks(min, max);
+    }
+
+    private static Identifier parseIdentifier(String value) {
+        return value.contains(":") ? Identifier.parse(value) : Identifier.fromNamespaceAndPath("ebb", value);
+    }
+
+    private static Optional<String> optionalString(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull()
+                ? Optional.of(GsonHelper.getAsString(json, key))
+                : Optional.empty();
     }
 
     private record ParsedBlocks(List<BlockPos> blocks, Map<BlockPos, Identifier> expectedBlocks) {

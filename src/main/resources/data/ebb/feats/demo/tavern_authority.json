@@ -1,0 +1,9 @@
+{
+  "display_name": "Tavern Authority",
+  "description": "你在拥挤房间里说话时，别人更容易把它当成事实而不是意见。",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "charisma": 1
+  }
+}

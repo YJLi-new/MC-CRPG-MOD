@@ -1,6 +1,9 @@
 package com.crpg.ebb.dialogue;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.chime.ChimeResolver;
+import com.crpg.ebb.feat.FeatRegistry;
+import com.crpg.ebb.investigation.InvestigationRegistry;
 import com.crpg.ebb.interaction.EntityTarget;
 import com.crpg.ebb.interaction.InteractionService;
 import com.crpg.ebb.interaction.InteractionTarget;
@@ -36,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class DialogueService {
+    private static final String SYNTHETIC_NEXT_CHOICE_ID = "__ebb_continue";
     private static final Map<UUID, DialogueSession> SESSIONS = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> PLAYER_TO_SESSION = new ConcurrentHashMap<>();
     private static final long SESSION_TIMEOUT_TICKS = 20L * 60L * 5L;
@@ -84,7 +88,7 @@ public final class DialogueService {
         PLAYER_TO_SESSION.put(player.getUUID(), conversationId);
         NarrativeSavedData state = NarrativeSavedData.get((ServerLevel) player.level());
         Optional<String> enterStatus = applyEffects(startNode.get().enterEffects(), state, player, session);
-        responseSender.sendPacket(toOpenPayload(session, definition.get(), startNode.get(), state, enterStatus));
+        responseSender.sendPacket(toOpenPayload(session, definition.get(), startNode.get(), state, enterStatus, currentDayTime(player)));
     }
 
     public static void choose(ServerPlayer player, ChooseDialogueOptionPayload payload, PacketSender responseSender) {
@@ -111,16 +115,34 @@ public final class DialogueService {
         }
         Optional<DialogueChoice> choice = node.get().choice(payload.choiceId());
         NarrativeSavedData state = NarrativeSavedData.get((ServerLevel) player.level());
+        if (choice.isEmpty() && SYNTHETIC_NEXT_CHOICE_ID.equals(payload.choiceId()) && node.get().next().isPresent()) {
+            Optional<DialogueNode> next = definition.get().node(node.get().next().get());
+            if (next.isEmpty()) {
+                close(session, responseSender, "next_node_missing:" + node.get().next().get());
+                return;
+            }
+            DialogueSession updated = session.withNode(node.get().next().get(), gameTime);
+            SESSIONS.put(updated.conversationId(), updated);
+            Optional<String> enterStatus = applyEffects(next.get().enterEffects(), state, player, updated);
+            sendUpdate(responseSender, updated, definition.get(), next.get(), state, Optional.empty(), enterStatus, currentDayTime(player));
+            return;
+        }
         if (choice.isEmpty()) {
             DialogueSession touched = session.touch(gameTime);
             SESSIONS.put(touched.conversationId(), touched);
-            sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("invalid_choice:" + payload.choiceId()));
+            sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("invalid_choice:" + payload.choiceId()), currentDayTime(player));
             return;
         }
-        if (!conditionsMet(choice.get(), state, player.getUUID())) {
+        if (choice.get().singleUse() && state.hasPlayerFlag(player.getUUID(), singleUseFlag(session.dialogueId(), choice.get().id()))) {
             DialogueSession touched = session.touch(gameTime);
             SESSIONS.put(touched.conversationId(), touched);
-            sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("choice_unavailable:" + payload.choiceId()));
+            sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("choice_already_used:" + payload.choiceId()), currentDayTime(player));
+            return;
+        }
+        if (!conditionsMet(choice.get(), state, player.getUUID(), currentDayTime(player))) {
+            DialogueSession touched = session.touch(gameTime);
+            SESSIONS.put(touched.conversationId(), touched);
+            sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("choice_unavailable:" + payload.choiceId()), currentDayTime(player));
             return;
         }
         if (choice.get().type() == ChoiceType.ACTION && choice.get().revalidateTarget()) {
@@ -128,7 +150,7 @@ public final class DialogueService {
             if (!validation.allowed()) {
                 DialogueSession touched = session.touch(gameTime);
                 SESSIONS.put(touched.conversationId(), touched);
-                sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("action_target_invalid:" + validation.reason()));
+                sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("action_target_invalid:" + validation.reason()), currentDayTime(player));
                 return;
             }
         }
@@ -136,6 +158,9 @@ public final class DialogueService {
         Optional<String> preEffectStatus = applyEffects(choice.get().effects(), state, player, session);
         ChoiceResolution resolution = resolveChoice(player, state, choice.get());
         Optional<String> outcomeEffectStatus = applyEffects(resolution.outcomeEffects(), state, player, session);
+        if (choice.get().singleUse()) {
+            state.setPlayerFlag(player.getUUID(), singleUseFlag(session.dialogueId(), choice.get().id()), true);
+        }
         Optional<String> status = combineStatus(preEffectStatus, combineStatus(outcomeEffectStatus, resolution.statusMessage()));
 
         if (resolution.nextNode().isEmpty()) {
@@ -151,7 +176,7 @@ public final class DialogueService {
         DialogueSession updated = session.withNode(resolution.nextNode().get(), gameTime);
         SESSIONS.put(updated.conversationId(), updated);
         Optional<String> enterStatus = applyEffects(next.get().enterEffects(), state, player, updated);
-        sendUpdate(responseSender, updated, definition.get(), next.get(), state, resolution.rollResult(), combineStatus(status, enterStatus));
+        sendUpdate(responseSender, updated, definition.get(), next.get(), state, resolution.rollResult(), combineStatus(status, enterStatus), currentDayTime(player));
     }
 
     public static void closeFromClient(ServerPlayer player, CloseDialogueRequestPayload payload) {
@@ -186,6 +211,18 @@ public final class DialogueService {
         return SESSIONS.size();
     }
 
+    public static Optional<DialogueSession> currentSessionForPlayer(UUID playerUuid) {
+        UUID conversationId = PLAYER_TO_SESSION.get(playerUuid);
+        return conversationId == null ? Optional.empty() : Optional.ofNullable(SESSIONS.get(conversationId));
+    }
+
+    public static Optional<UUID> activeConversationPlayerForEntity(UUID entityUuid) {
+        return SESSIONS.values().stream()
+                .filter(session -> session.entityUuid().filter(entityUuid::equals).isPresent())
+                .map(DialogueSession::playerUuid)
+                .findFirst();
+    }
+
     private static void onServerTick(MinecraftServer server) {
         tickCounter++;
         if (tickCounter % 200 != 0) {
@@ -209,8 +246,14 @@ public final class DialogueService {
         }
 
         DialogueCheck check = choice.check().get();
-        int attributeScore = state.getAttribute(player.getUUID(), check.attribute());
-        int dieRoll = player.getRandom().nextInt(20) + 1;
+        int featModifier = FeatRegistry.totalCheckModifier(state, player.getUUID(), check.attribute());
+        int clueModifier = InvestigationRegistry.totalCheckModifier(state, player.getUUID(), check.attribute());
+        int attributeScore = state.getAttribute(player.getUUID(), check.attribute()) + check.staticModifier() + featModifier + clueModifier;
+        int firstRoll = player.getRandom().nextInt(20) + 1;
+        int dieRoll = firstRoll;
+        if (check.advantage()) {
+            dieRoll = Math.max(firstRoll, player.getRandom().nextInt(20) + 1);
+        }
         int total = dieRoll + attributeScore;
         boolean critical = dieRoll == 1 || dieRoll == 20;
         boolean success;
@@ -261,7 +304,8 @@ public final class DialogueService {
         List<String> messages = new ArrayList<>();
         for (DialogueEffect effect : effects) {
             effect.apply(state, player.getUUID()).ifPresent(messages::add);
-            if (effect.type() == DialogueEffect.EffectType.ROUTINE_PLACEHOLDER) {
+            if (effect.type() == DialogueEffect.EffectType.ROUTINE_PLACEHOLDER
+                    || effect.type() == DialogueEffect.EffectType.SET_NPC_ROUTINE) {
                 applyRoutineEffect(effect, player, session).ifPresent(messages::add);
             }
         }
@@ -285,8 +329,8 @@ public final class DialogueService {
         return Optional.empty();
     }
 
-    private static boolean conditionsMet(DialogueChoice choice, NarrativeSavedData state, UUID playerUuid) {
-        return choice.conditions().stream().allMatch(condition -> condition.matches(state, playerUuid));
+    private static boolean conditionsMet(DialogueChoice choice, NarrativeSavedData state, UUID playerUuid, long dayTime) {
+        return choice.conditions().stream().allMatch(condition -> condition.matches(state, playerUuid, dayTime));
     }
 
     private static Optional<String> combineStatus(Optional<String> first, Optional<String> second) {
@@ -318,8 +362,10 @@ public final class DialogueService {
             DialogueDefinition definition,
             DialogueNode node,
             NarrativeSavedData state,
-            Optional<String> statusMessage
+            Optional<String> statusMessage,
+            long dayTime
     ) {
+        Optional<String> combinedStatus = combineStatus(statusMessage, ChimeResolver.resolve(definition, node, state, session.playerUuid()));
         return new OpenDialoguePayload(
                 session.conversationId(),
                 definition.id(),
@@ -327,8 +373,8 @@ public final class DialogueService {
                 node.speaker(),
                 node.text(),
                 node.textKey(),
-                visibleChoices(node, state, session.playerUuid()),
-                statusMessage
+                visibleChoices(node, state, session.playerUuid(), session.dialogueId(), dayTime),
+                combinedStatus
         );
     }
 
@@ -339,8 +385,10 @@ public final class DialogueService {
             DialogueNode node,
             NarrativeSavedData state,
             Optional<RollResultPayload> rollResult,
-            Optional<String> statusMessage
+            Optional<String> statusMessage,
+            long dayTime
     ) {
+        Optional<String> combinedStatus = combineStatus(statusMessage, ChimeResolver.resolve(definition, node, state, session.playerUuid()));
         responseSender.sendPacket(new DialogueUpdatePayload(
                 session.conversationId(),
                 definition.id(),
@@ -348,17 +396,30 @@ public final class DialogueService {
                 node.speaker(),
                 node.text(),
                 node.textKey(),
-                visibleChoices(node, state, session.playerUuid()),
+                visibleChoices(node, state, session.playerUuid(), session.dialogueId(), dayTime),
                 rollResult,
-                statusMessage
+                combinedStatus
         ));
     }
 
-    private static List<VisibleDialogueChoice> visibleChoices(DialogueNode node, NarrativeSavedData state, UUID playerUuid) {
-        return node.choices().stream()
-                .filter(choice -> conditionsMet(choice, state, playerUuid))
+    private static List<VisibleDialogueChoice> visibleChoices(DialogueNode node, NarrativeSavedData state, UUID playerUuid, Identifier dialogueId, long dayTime) {
+        List<VisibleDialogueChoice> visible = new ArrayList<>(node.choices().stream()
+                .filter(choice -> conditionsMet(choice, state, playerUuid, dayTime))
+                .filter(choice -> !choice.singleUse() || !state.hasPlayerFlag(playerUuid, singleUseFlag(dialogueId, choice.id())))
                 .map(VisibleDialogueChoice::fromChoice)
-                .toList();
+                .toList());
+        if (node.next().isPresent() && node.type() != DialogueNodeType.END) {
+            visible.add(new VisibleDialogueChoice(SYNTHETIC_NEXT_CHOICE_ID, ChoiceType.DIALOGUE, "继续。", Optional.empty(), Optional.empty()));
+        }
+        return List.copyOf(visible);
+    }
+
+    private static String singleUseFlag(Identifier dialogueId, String choiceId) {
+        return "dialogue_choice_used:" + dialogueId + ":" + choiceId;
+    }
+
+    private static long currentDayTime(ServerPlayer player) {
+        return ((ServerLevel) player.level()).getOverworldClockTime();
     }
 
     private record ChoiceResolution(

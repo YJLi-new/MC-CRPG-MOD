@@ -1,0 +1,81 @@
+{
+  "id": "ebb:demo/counter_ledger_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "柜台账本摊开着，像一本假装只记录酒钱的证词目录。",
+      "choices": [
+        {
+          "id": "read",
+          "type": "dialogue",
+          "text": "查看最近的房费记录。",
+          "next": "read_line",
+          "effects": [
+            {
+              "type": "set_story_var",
+              "layer": "minor",
+              "id": "ledger_seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "mark",
+          "type": "action",
+          "text": "把缺失的一行折角标出来。",
+          "next": "mark_line",
+          "effects": [
+            {
+              "type": "set_scene_phase",
+              "scene": "ebb:demo/locked_room",
+              "phase": "paper_trail"
+            }
+          ]
+        },
+        {
+          "id": "think",
+          "type": "thought",
+          "text": "账本不是记忆；它是被允许留下来的记忆。",
+          "next": "think_line"
+        }
+      ]
+    },
+    "read_line": {
+      "speaker": "narrator",
+      "text": "最近一笔房费没有房号，只有一个被水渍拖长的首字母。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "mark_line": {
+      "speaker": "inner voice",
+      "text": "你没有偷走证据，只是让它以后更难假装自己没被看见。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "think_line": {
+      "speaker": "inner voice",
+      "text": "纸张的沉默比人的沉默便宜，但更耐久。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

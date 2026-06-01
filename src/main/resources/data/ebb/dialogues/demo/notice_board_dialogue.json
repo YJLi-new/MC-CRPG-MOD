@@ -1,0 +1,86 @@
+{
+  "id": "ebb:demo/notice_board_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "通告板上钉着失物、欠账和一张没有署名的安静请求。",
+      "choices": [
+        {
+          "id": "read",
+          "type": "dialogue",
+          "text": "读那张没有署名的纸。",
+          "next": "read_line",
+          "effects": [
+            {
+              "type": "set_story_var",
+              "layer": "major",
+              "id": "public_notice_seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "pin",
+          "type": "action",
+          "text": "把门的事写成一句会被看见的话。",
+          "next": "pin_line",
+          "effects": [
+            {
+              "type": "set_story_var",
+              "layer": "branch",
+              "id": "tavern_route",
+              "value": "public"
+            },
+            {
+              "type": "complete_quest_branch",
+              "id": "ebb:demo/tavern_public"
+            }
+          ]
+        },
+        {
+          "id": "think",
+          "type": "thought",
+          "text": "公开不是喊叫，是把沉默固定在墙上。",
+          "next": "think_line"
+        }
+      ]
+    },
+    "read_line": {
+      "speaker": "narrator",
+      "text": "纸上写着：请不要在午夜以后敲三下。没有人签名，因为每个人都懂。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "pin_line": {
+      "speaker": "narrator",
+      "text": "你的字迹丑得足够诚实。大厅从此多了一个不能假装没看见的物件。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "think_line": {
+      "speaker": "inner voice",
+      "text": "一块木板可以成为公共记忆，只要钉子够多。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

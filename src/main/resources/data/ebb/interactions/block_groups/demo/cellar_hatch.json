@@ -1,0 +1,16 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/cellar_hatch_dialogue",
+  "blocks": [
+    [
+      6,
+      63,
+      7
+    ]
+  ],
+  "interaction_point": [
+    6.5,
+    63.7,
+    7.5
+  ]
+}

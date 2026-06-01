@@ -1,0 +1,32 @@
+{
+  "steps": [
+    {
+      "time": [0, 6000],
+      "action": "stand",
+      "pos": [8.5, 64.0, 2.5],
+      "pose": "composed",
+      "animation": "idle",
+      "look": "window"
+    },
+    {
+      "time": [6000, 18000],
+      "action": "walk_path",
+      "path": [[8.5, 64.0, 2.5], [8.5, 64.0, 6.5]],
+      "pose": "restless",
+      "animation": "walk"
+    },
+    {
+      "time": [18000, 24000],
+      "action": "play_animation",
+      "pos": [8.5, 64.0, 6.5],
+      "animation": "fidget",
+      "pose": "guarded"
+    }
+  ],
+  "look_at_player": {
+    "enabled": true,
+    "range": 3.5,
+    "max_yaw_speed": 6.0,
+    "requires_line_of_sight": true
+  }
+}

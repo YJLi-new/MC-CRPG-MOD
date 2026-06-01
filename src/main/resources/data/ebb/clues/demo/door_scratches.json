@@ -1,0 +1,7 @@
+{
+  "title": "Fresh Scratches Inside the Doorframe",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/door_scratches",
+  "text": "The marks are on the inside edge. Someone tested the door from within before anyone outside admitted hearing it.",
+  "check_modifiers": { "perception": 1, "intelligence": 1 }
+}

@@ -1,0 +1,6 @@
+{
+  "display_name": "Witness",
+  "narrative_key": "ebb:demo/witness",
+  "default_score": 0,
+  "tags": ["core_npc", "gossip"]
+}

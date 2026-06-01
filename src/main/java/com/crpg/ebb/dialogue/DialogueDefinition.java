@@ -73,10 +73,16 @@ public record DialogueDefinition(
     private static boolean validateReferences(Identifier id, Map<String, DialogueNode> nodes, List<String> messages) {
         boolean valid = true;
         for (DialogueNode node : nodes.values()) {
+            valid &= validateRef(id, nodes, node.id(), "(node)", "next", node.next(), messages);
             for (DialogueChoice choice : node.choices()) {
                 valid &= validateRef(id, nodes, node.id(), choice.id(), "next", choice.next(), messages);
                 if (choice.check().isPresent()) {
                     DialogueCheck check = choice.check().get();
+                    if (check.failure().isEmpty() && choice.next().isEmpty()) {
+                        messages.add("dialogue " + id + ": node \"" + node.id() + "\" choice \"" + choice.id()
+                                + "\" has a check/roll but no failure target or fallback next; failing forward must be explicit.");
+                        valid = false;
+                    }
                     valid &= validateRef(id, nodes, node.id(), choice.id(), "check.success", check.success(), messages);
                     valid &= validateRef(id, nodes, node.id(), choice.id(), "check.failure", check.failure(), messages);
                     valid &= validateRef(id, nodes, node.id(), choice.id(), "check.critical_success", check.criticalSuccess(), messages);

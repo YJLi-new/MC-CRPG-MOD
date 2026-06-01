@@ -1,0 +1,6 @@
+{
+  "display_name": "Suspicious Tenant",
+  "narrative_key": "ebb:demo/tenant",
+  "default_score": 0,
+  "tags": ["core_npc", "suspect"]
+}

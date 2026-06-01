@@ -1,0 +1,13 @@
+{
+  "id": "city_office_counter",
+  "targetType": "block_group",
+  "dimension": "minecraft:overworld",
+  "anchor": [128.0, 64.9, -31.5],
+  "interactionRadius": 2.0,
+  "focusRadius": 10.0,
+  "boxes": [
+    { "min": [127.0, 64.0, -32.0], "max": [129.0, 65.0, -31.0] }
+  ],
+  "dialogue": "harbor_clerk_intro",
+  "promptKey": "key.ebb.interact"
+}

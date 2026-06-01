@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "time": [0, 12000],
+      "action": "stand",
+      "pos": [10.5, 64.0, 4.5],
+      "pose": "blocking",
+      "animation": "idle",
+      "teleport_distance": 32.0,
+      "look": "door"
+    },
+    {
+      "time": [12000, 24000],
+      "action": "set_pose",
+      "pos": [10.5, 64.0, 4.5],
+      "pose": "suspicious",
+      "animation": "idle"
+    }
+  ],
+  "look_at_player": {
+    "enabled": true,
+    "range": 5.0,
+    "max_yaw_speed": 8.0,
+    "requires_line_of_sight": true
+  }
+}

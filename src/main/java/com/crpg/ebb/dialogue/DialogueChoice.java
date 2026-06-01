@@ -19,6 +19,7 @@ public record DialogueChoice(
         Optional<DialogueCheck> check,
         List<DialogueCondition> conditions,
         List<DialogueEffect> effects,
+        boolean singleUse,
         boolean revalidateTarget
 ) {
     public DialogueChoice {
@@ -31,8 +32,11 @@ public record DialogueChoice(
 
     static Optional<DialogueChoice> parse(JsonObject json, String path, List<String> messages) {
         String id = requiredString(json, "id", path, messages).orElse(null);
-        String rawType = requiredString(json, "type", path, messages).orElse(null);
-        Optional<String> text = optionalString(json, "text");
+        String rawType = optionalString(json, "type").or(() -> optionalString(json, "kind")).orElse(null);
+        if (rawType == null || rawType.isBlank()) {
+            messages.add(path + ": missing required string \"type\" or \"kind\"");
+        }
+        Optional<String> text = optionalString(json, "text").or(() -> optionalString(json, "label"));
         Optional<String> textKey = optionalString(json, "text_key");
         if (text.isEmpty() && textKey.isEmpty()) {
             messages.add(path + ": missing required string \"text\" or \"text_key\"");
@@ -49,17 +53,21 @@ public record DialogueChoice(
         Optional<DialogueCheck> check = Optional.empty();
         if (json.has("check") && json.get("check").isJsonObject()) {
             check = DialogueCheck.parse(json.getAsJsonObject("check"), path + ".check", messages);
-        } else if (json.has("check")) {
-            messages.add(path + ": check must be an object when present");
+        } else if (json.has("roll") && json.get("roll").isJsonObject()) {
+            check = DialogueCheck.parse(json.getAsJsonObject("roll"), path + ".roll", messages);
+        } else if (json.has("check") || json.has("roll")) {
+            messages.add(path + ": check/roll must be an object when present");
         }
 
         List<DialogueCondition> conditions = parseConditions(json, path, messages);
         List<DialogueEffect> effects = DialogueEffect.parseList(json, "effects", path, messages);
+        boolean singleUse = optionalBoolean(json, "once").orElse(false)
+                || check.map(DialogueCheck::mode).filter(mode -> mode == RollMode.ONE_SHOT).isPresent();
         boolean defaultRevalidateTarget = type.get() == ChoiceType.ACTION
                 && (next.isPresent() || check.isPresent() || !effects.isEmpty());
         boolean revalidateTarget = optionalBoolean(json, "revalidate_target").orElse(defaultRevalidateTarget);
 
-        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects, revalidateTarget));
+        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects, singleUse, revalidateTarget));
     }
 
     public Optional<String> defaultNextNode() {
@@ -75,6 +83,9 @@ public record DialogueChoice(
         next.ifPresent(value -> builder.append(" -> ").append(value));
         if (type == ChoiceType.ACTION) {
             builder.append(" revalidate_target=").append(revalidateTarget);
+        }
+        if (singleUse) {
+            builder.append(" once=true");
         }
         check.ifPresent(value -> builder.append(" check=").append(value.debugSummary()));
         if (!conditions.isEmpty()) {

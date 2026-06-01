@@ -1,0 +1,81 @@
+{
+  "id": "ebb:demo/washroom_mirror_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "inner voice",
+      "text": "洗手间镜子把你分成两个版本：一个想破案，一个想看起来像会破案。",
+      "choices": [
+        {
+          "id": "ask_self",
+          "type": "dialogue",
+          "text": "问镜子：我现在像哪种人？",
+          "next": "ask_line"
+        },
+        {
+          "id": "steady",
+          "type": "action",
+          "text": "用冷水让手不再发抖。",
+          "next": "steady_line",
+          "effects": [
+            {
+              "type": "add_story_int",
+              "layer": "minor",
+              "id": "self_control",
+              "amount": 1
+            }
+          ]
+        },
+        {
+          "id": "dread",
+          "type": "thought",
+          "text": "如果门后什么都没有，那更糟。",
+          "next": "dread_line",
+          "conditions": [
+            {
+              "type": "attribute_at_least",
+              "attribute": "luck",
+              "min": 1
+            }
+          ]
+        }
+      ]
+    },
+    "ask_line": {
+      "speaker": "inner voice",
+      "text": "像一个临时借来正确问题的人。够用了。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "steady_line": {
+      "speaker": "narrator",
+      "text": "冷水没有给你勇气，但它把恐惧压成了可携带的形状。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    },
+    "dread_line": {
+      "speaker": "inner voice",
+      "text": "空房间最会说谎，因为它从不打断你。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

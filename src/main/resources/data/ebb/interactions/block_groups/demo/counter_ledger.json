@@ -1,0 +1,16 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/counter_ledger_dialogue",
+  "blocks": [
+    [
+      2,
+      64,
+      1
+    ]
+  ],
+  "interaction_point": [
+    2.5,
+    64.8,
+    1.5
+  ]
+}

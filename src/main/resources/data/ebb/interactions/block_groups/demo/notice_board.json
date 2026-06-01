@@ -1,0 +1,16 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/notice_board_dialogue",
+  "blocks": [
+    [
+      1,
+      65,
+      0
+    ]
+  ],
+  "interaction_point": [
+    1.5,
+    65.1,
+    0.5
+  ]
+}

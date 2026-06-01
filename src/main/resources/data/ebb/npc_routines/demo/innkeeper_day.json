@@ -22,6 +22,7 @@
   "look_at_player": {
     "enabled": true,
     "range": 4.0,
-    "max_yaw_speed": 8.0
+    "max_yaw_speed": 8.0,
+    "requires_line_of_sight": true
   }
 }

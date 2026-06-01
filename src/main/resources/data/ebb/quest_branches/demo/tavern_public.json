@@ -1,0 +1,13 @@
+{
+  "title": "公开揭露",
+  "kind": "major",
+  "description": "把旅馆门后的秘密推到公共视野里，让每个人都必须选择立场。",
+  "take_root_text": "公开路线扎根：你获得了把房间变成证词现场的习惯。旅馆会更快注意你，也更难忽略你。",
+  "grant_feats": [
+    "ebb:demo/tavern_authority",
+    "ebb:demo/cheap_empathy"
+  ],
+  "take_root_effects": [
+    { "type": "set_story_var", "scope": "player", "layer": "major", "id": "public_pressure", "value": 1 }
+  ]
+}

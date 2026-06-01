@@ -1,5 +1,6 @@
 package com.crpg.ebb.interaction.entity;
 
+import com.crpg.ebb.EbbMod;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -43,10 +44,10 @@ public record EntityBindingDefinition(
             List<String> tags = parseStringList(match, "tags");
             optionalString(match, "tag").ifPresent(tags::add);
             Optional<String> name = optionalString(match, "name");
-            List<Identifier> entityTypes = new ArrayList<>(parseIdentifierList(match, "entity_types"));
-            optionalString(match, "entity_type").map(Identifier::parse).ifPresent(entityTypes::add);
+            List<Identifier> entityTypes = new ArrayList<>(parseIdentifierList(match, "entity_types", "minecraft"));
+            optionalString(match, "entity_type").map(value -> parseIdentifier(value, "minecraft")).ifPresent(entityTypes::add);
             for (Identifier entityType : entityTypes) {
-                if (!BuiltInRegistries.ENTITY_TYPE.containsKey(entityType)) {
+                if (!BuiltInRegistries.ENTITY_TYPE.containsKey(entityType) && !EbbMod.id("npc").equals(entityType)) {
                     messages.add("entity binding " + id + ": unknown entity_type " + entityType);
                 }
             }
@@ -54,7 +55,7 @@ public record EntityBindingDefinition(
                 messages.add("entity binding " + id + ": match is empty; binding would match every entity");
                 return Optional.empty();
             }
-            Identifier dialogue = Identifier.parse(GsonHelper.getAsString(json, "dialogue"));
+            Identifier dialogue = parseIdentifier(GsonHelper.getAsString(json, "dialogue"));
             double interactionRange = optionalDouble(json, "interaction_range").orElse(DEFAULT_INTERACTION_RANGE);
             double highlightRange = optionalDouble(json, "highlight_range").orElse(DEFAULT_HIGHLIGHT_RANGE);
             int priority = optionalInt(json, "priority").orElse(0);
@@ -142,8 +143,16 @@ public record EntityBindingDefinition(
         return values;
     }
 
-    private static List<Identifier> parseIdentifierList(JsonObject json, String key) {
-        return new ArrayList<>(parseStringList(json, key).stream().map(Identifier::parse).toList());
+    private static List<Identifier> parseIdentifierList(JsonObject json, String key, String defaultNamespace) {
+        return new ArrayList<>(parseStringList(json, key).stream().map(value -> parseIdentifier(value, defaultNamespace)).toList());
+    }
+
+    private static Identifier parseIdentifier(String value) {
+        return parseIdentifier(value, "ebb");
+    }
+
+    private static Identifier parseIdentifier(String value, String defaultNamespace) {
+        return value.contains(":") ? Identifier.parse(value) : Identifier.fromNamespaceAndPath(defaultNamespace, value);
     }
 
     private static Optional<String> optionalString(JsonObject json, String key) {

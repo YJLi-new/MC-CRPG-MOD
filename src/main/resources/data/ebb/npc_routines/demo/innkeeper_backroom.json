@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "time": [0, 12000],
+      "action": "walk_path",
+      "path": [[5.5, 64.0, 2.5], [7.5, 64.0, 4.5]],
+      "pose": "guarded",
+      "animation": "walk",
+      "teleport_distance": 24.0,
+      "look": "backroom"
+    },
+    {
+      "time": [12000, 24000],
+      "action": "look_at",
+      "pos": [6.5, 64.0, 6.5],
+      "pose": "listening",
+      "animation": "idle"
+    }
+  ],
+  "look_at_player": {
+    "enabled": true,
+    "range": 5.0,
+    "max_yaw_speed": 10.0,
+    "requires_line_of_sight": true
+  }
+}
