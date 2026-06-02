@@ -702,7 +702,7 @@
 - Verification:
   - `scripts/run_smoke_checks.sh` passed; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
   - `scripts/goal_static_audit.py` passed for P2, P3, P4, and P5.
-  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 58s`.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 1m 11s`.
   - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
   - `git diff --check` → no whitespace errors.
   - Jar SHA-256 `6f3e3b345b8d5c457dbc291fa927fbf32d0c7793eb30911d028b696bef2b25fa`; sources jar SHA-256 `cfb59f1f4b1f228d850e9bf6dd77d43996d158e36453421556e779edc5f64bd2`.
@@ -744,7 +744,7 @@
   - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 2m 56s`.
   - `scripts/run_smoke_checks.sh` passed; DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, and GoalStaticAudit all passed.
   - `scripts/goal_static_audit.py` passed for P2-P7.
-  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 58s`.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 1m 11s`.
   - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 4 required GameTests passed.
   - `git diff --check` → no whitespace errors.
   - Jar SHA-256 `d511e37ae5451cf5797ebd22ccf8aca12c11976091b15625275ce3c161d2d14c`; sources jar SHA-256 `f9de175da9917b8abf790da05e27e88e59f0b96a7d66c9469e9e928e44ca306d`.
@@ -772,3 +772,129 @@
   - Post-bookkeeping recheck: fixed trailing-blank markdown whitespace, then `git diff --check`, `python3 scripts/goal_static_audit.py`, `python3 scripts/deep_research_static_audit.py`, `python3 scripts/third_review_static_audit.py`, and `scripts/gradle-local.sh --no-daemon validateEbbData` all passed; latest `validateEbbData` finished `BUILD SUCCESSFUL in 57s`.
 - Remaining manual step:
   - Optional/full GUI retest from the separate `26.1.2-Fabric-Ebb-Test` Windows profile: spawn role NPCs, visit all eight interactable points, play public/quiet/fail-forward routes, and verify the back-door ending placeholder changes.
+
+### Phase 18 / GUI Retest Issue Hotfix
+- **Status:** complete for code/profile/audit refresh; human must relaunch client for final visual retest.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Investigated screenshots and the save `新的世界 (1)`.
+  - Found the test profile was still running an older Ebb jar (`01d880...`) that packaged only 1 block group and 2 entity bindings; the rebuilt project jar packages 8 block groups and 6 bindings.
+  - Inspected `新的世界 (1)` block data and confirmed the P8 target objects exist at the authored coordinates.
+  - Inspected existing Ebb NPC entities and found legacy tags such as `ebb.npc.tenant_day`; updated role bindings to match both demo and legacy role tags.
+  - Made `/ebb dialogue vars` player-self accessible, added `/ebb vars`, and made `/ebb summon_npc tenant_day` resolve to bundled `ebb:demo/tenant_day` where available.
+  - Refreshed `26.1.2-Fabric-Ebb-Test` via `scripts/configure_pcl_test_client.sh`; installed jar hash now matches build jar.
+  - Moved client synced-interaction cleanup from `ClientPlayConnectionEvents.JOIN` to `INIT` so block-group/entity-binding sync is not cleared after initial join.
+  - Added `scripts/gui_retest_issue_audit.py` and wired it into `scripts/run_smoke_checks.sh` as a regression check for these exact screenshots/symptoms.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → `BUILD SUCCESSFUL in 2m 56s` after the final client sync-order fix.
+  - `scripts/run_smoke_checks.sh` → passed; loaded 13 dialogues, 8 block groups, 6 entity bindings, 5 routines, 0 validation messages; includes `GuiRetestIssueAudit`.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → `BUILD SUCCESSFUL in 1m 11s`.
+  - `git diff --check` → no whitespace errors.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → all 4 required GameTests passed; `BUILD SUCCESSFUL in 4m 34s`.
+  - Build jar and installed test-profile jar both SHA-256 `2f1817dcf9c3511eb02588c9d1ae3f4f73e61473744f273a1499741e275dea65`.
+  - Installed jar inspection confirmed 6 entity bindings, all 8 P8 block-group JSON files, and legacy tenant tags in packaged binding data.
+  - Full GUI issue audit with save path passed: `GuiRetestIssueAudit passed: commands, INIT sync clear, role bindings, 8 block groups, build jar, profile=2f1817dcf9c3511eb02588c9d1ae3f4f73e61473744f273a1499741e275dea65, save=...新的世界 (1)`.
+- Manual retest requirement:
+  - Fully close/relaunch Minecraft so the new jar is loaded; then run `/ebb data` and retest commands, role NPC dialogue, and all block targets.
+
+### Phase 18 / GUI Retest Issue Hotfix — strengthened regression evidence
+- **Status:** complete for code/profile/audit/test refresh; human must relaunch client for final visual retest.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added JUnit regression coverage in `DeepResearchDataTest.guiRetestCommandsRoleBindingsAndBlockGroupsAreRegistered` for `/ebb journal`, `/ebb quest`, `/ebb dialogue vars`, `/ebb vars`, four distinct role-specific NPC bindings, legacy `ebb.npc.<role>_day` tags, and all eight GUI retest block groups.
+  - Added Fabric GameTests for runtime legacy role-tag resolution across innkeeper/witness/tenant/guard and all eight vertical-slice block-group targets.
+  - Rebuilt the jar, refreshed `26.1.2-Fabric-Ebb-Test`, and re-ran the GUI issue audit against `新的世界 (1)`.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon test` → `BUILD SUCCESSFUL in 3m 47s`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → 6 required GameTests passed; `BUILD SUCCESSFUL in 4m 30s`.
+  - `scripts/run_smoke_checks.sh` → passed, including `GuiRetestIssueAudit`.
+  - `scripts/configure_pcl_test_client.sh` → refreshed separate Fabric test profile.
+  - `scripts/gui_retest_issue_audit.py --save-path '.../新的世界 (1)' --require-save` → passed; profile jar hash `da8da3aaa3769bbbb8b1324fe4bedf56ddc497ef26fb355766df40316285cf94`.
+  - `sha256sum build/libs/ebb-0.1.0-dev.jar .../mods/ebb-0.1.0-dev.jar` → both `da8da3aaa3769bbbb8b1324fe4bedf56ddc497ef26fb355766df40316285cf94`.
+  - `git diff --check` → no whitespace errors.
+- Manual retest requirement:
+  - Fully close/relaunch Minecraft so the new jar is loaded, then retest the screenshots' three visible symptom classes in `新的世界 (1)`.
+
+### Phase 18 / Runtime relaunch check helper
+- **Status:** complete for helper/evidence; GUI visual retest remains pending.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added `scripts/check_pcl_runtime_loaded.py` to distinguish a refreshed profile jar on disk from an already-running/stale Minecraft client process.
+  - The helper compares build/profile jar hashes, parses `26.1.2-Fabric-Ebb-Test/logs/latest.log`, and requires at least 13 dialogues, 8 block groups, 6 entity bindings, and 5 routines.
+- Verification:
+  - `python3 -m py_compile scripts/check_pcl_runtime_loaded.py` → passed.
+  - `scripts/check_pcl_runtime_loaded.py` currently reports stale runtime counts from the old visible session: dialogues=3, block_groups=1, entity_bindings=2, npc_routines=1, and notes that `latest.log` is older than the installed refreshed jar.
+- Manual retest requirement:
+  - Fully close/relaunch Minecraft, enter `新的世界 (1)`, then re-run `scripts/check_pcl_runtime_loaded.py`; it should pass before final GUI symptom confirmation.
+
+### Phase 18 / Runtime relaunch blocker recheck
+- **Status:** blocked on external Windows GUI relaunch.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Evidence:
+  - Re-ran `scripts/check_pcl_runtime_loaded.py`.
+  - The profile jar on disk is still the refreshed jar `da8da3aaa3769bbbb8b1324fe4bedf56ddc497ef26fb355766df40316285cf94`.
+  - The latest runtime log still reports the old loaded data counts: dialogues=3, block_groups=1, entity_bindings=2, npc_routines=1.
+  - The latest runtime log is older than the installed refreshed jar, proving Minecraft has not been relaunched into the refreshed mod build yet.
+- Blocker:
+  - No further source/profile changes can prove the requested GUI symptoms are fixed until the Windows client is fully closed and relaunched into `26.1.2-Fabric-Ebb-Test`, then `新的世界 (1)` is opened and rechecked.
+
+### Phase 19 / Mineflayer + MineDojo-compatible Windows GUI automation
+- **Status:** implementation complete; final visual pass still blocked by stale Windows client runtime until relaunch.
+- **Time:** 2026-06-01 Asia/Shanghai
+- Actions taken:
+  - Added local Node automation package under `tools/gui_automation/node` with `mineflayer`, `minecraft-protocol`, and `minecraft-data`.
+  - Added a 26.1.2 adapter that installs local minecraft-data aliases for missing 26.1 data tables while preserving protocol `775` and dataVersion `4790`.
+  - Added Python MineDojo-compatible `EbbGuiEnv`, runtime log parser, server controller, Windows GUI focus/input/screenshot helper, and screenshot color-signal assertions.
+  - Added `scripts/gui_e2e_run.py` scenarios: `dry_run`, `runtime_check`, `bot_probe`, and `gui_retest`.
+  - Added `scripts/install_gui_automation_deps.py`, `scripts/run_gui_automation_smoke.sh`, and `docs/gui_e2e_automation_2026-06-01.md`.
+  - Installed local Node dependencies and Windows Python GUI dependencies using allowed direct installation.
+- Verification:
+  - `scripts/install_gui_automation_deps.py` → installed Node deps and Windows Python deps; Node self-test passed.
+  - `npm --prefix tools/gui_automation/node run self-test` → selected `26.1.2`, protocol `775`, dataVersion `4790`.
+  - `scripts/gui_e2e_run.py --scenario dry_run` → passed.
+  - `scripts/gui_e2e_run.py --scenario gui_retest --allow-stale-runtime --bot-probe` → generated `build/gui-e2e/gui-retest-report.json`; bot probe correctly reported no server on localhost:25565.
+  - `scripts/run_gui_automation_smoke.sh` → passed.
+  - `scripts/gui_retest_issue_audit.py --save-path '.../新的世界 (1)' --require-save` → passed.
+  - `git diff --check` → no whitespace errors.
+  - `scripts/check_pcl_runtime_loaded.py` still reports the known stale runtime log counts `3/1/2/1`, confirming the remaining external relaunch blocker.
+  - `scripts/run_smoke_checks.sh` → passed after GUI automation additions; build, DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke, SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, GoalStaticAudit, and GuiRetestIssueAudit all passed.
+  - Windows dependency sanity check: `windows_gui.py find` via Windows Python succeeded and found the Plain Craft Launcher window.
+
+### Phase 19 GUI Automation Relaunch Pass / Name-Binding Hotfix
+- **Status:** in_progress
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - User relaunched the separate `26.1.2-Fabric-Ebb-Test` client and entered `新的世界 (1)` via GUI automation.
+  - Confirmed the previously refreshed runtime loaded the correct jar/data counts: `dialogues=13`, `block_groups=8`, `entity_bindings=6`, `npc_routines=5`.
+  - Fixed GUI automation reliability: direct `py.exe` Windows interop instead of PowerShell command-string regex escaping; clipboard paste instead of per-character typing; `/` command entry for commands; command-screen close logic; better retest viewpoints.
+  - Ran GUI retest and verified `/ebb journal`, `/ebb quest`, `/ebb dialogue vars`, and `/ebb vars` no longer show invalid-command errors.
+  - Observed role NPC prompt/dialogue prediction still unreliable in the running client when relying only on tag sync; added four role-specific custom-name entity bindings (`*_ebb_npc_name.json`) so dedicated-style clients can predict from synced custom names while server validation remains authoritative.
+  - Rebuilt and refreshed the PCL test profile jar with the name-binding hotfix.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon test` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → smoke checks passed and now reports `entity_bindings=10`.
+  - `scripts/gui_retest_issue_audit.py --save-path '/mnt/e/MC/PCL/.minecraft/versions/26.1.2-Fabric-Ebb-Test/saves/新的世界 (1)' --require-save` → passed with profile jar hash `03639e9834306a475487dbd32ba7f0079838de3bd2f70bf3a94cf37f08934133`.
+  - `scripts/check_pcl_runtime_loaded.py` correctly reports the current running Minecraft process is stale: latest log still has `entity_bindings=6`, expected `>=10`, and latest.log is older than the installed jar.
+- Blocker / next action:
+  - Full final GUI retest now requires fully closing the current Minecraft process and relaunching `26.1.2-Fabric-Ebb-Test` so the installed jar hash `03639e...` and 10 entity bindings load into memory.
+
+### Phase 19 final GUI visual pass and integrated-server sync fix
+- **Status:** complete
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Fully closed the running Minecraft client via Windows GUI automation and relaunched `26.1.2-Fabric-Ebb-Test` from Plain Craft Launcher without touching the vanilla `26.1.2` profile.
+  - Entered `新的世界 (1)` via GUI automation and confirmed the refreshed profile jar was loaded in memory.
+  - Fixed an integrated-server-only entity-binding sync regression: client INIT clearing of the common `EntityBindingRegistry` wiped the in-process server registry before `EntityBindingSyncPayload` serialization, causing `Entity binding registry synced: 0 binding(s)` in singleplayer. The client now preserves shared integrated-server registries during INIT while still clearing stale synced registries for dedicated clients.
+  - Hardened GUI retest automation to use tag-relative role teleports (`execute at @e[tag=ebb.npc.<role>_day]`) instead of stale fixed NPC coordinates, and to close only actual cyan-bordered Ebb screens so normal gameplay does not accidentally open the pause menu.
+  - Rebuilt/refreshed the playable PCL profile jar and reran final GUI visual retest.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL after the integrated-server sync fix.
+  - `scripts/configure_pcl_test_client.sh` → refreshed separate Fabric test profile.
+  - `scripts/gui_retest_issue_audit.py --save-path '/mnt/e/MC/PCL/.minecraft/versions/26.1.2-Fabric-Ebb-Test/saves/新的世界 (1)' --require-save` → passed; profile/build jar hash `23540536daaeda7e054813ee10fa4ce653fca1085876fce058f8a2819e3e3ec3`.
+  - `scripts/check_pcl_runtime_loaded.py` → passed with runtime `dialogues=13`, `block_groups=8`, `entity_bindings=10`, `npc_routines=5`.
+  - `scripts/gui_e2e_run.py --scenario gui_retest --gui --gui-wait 1.4` → report `build/gui-e2e/gui-retest-report.json`, 127 steps, 0 failures.
+  - Final visual contact sheet `build/gui-e2e/contact_dialogues_final_verified.png` shows `/ebb journal`, `/ebb quest`, `/ebb dialogue vars`, `/ebb vars`, four distinct role NPC dialogues (`innkeeper`, `witness`, `tenant`, `guard`), and all eight block-group dialogues (`locked_door`, `counter_ledger`, `notice_board`, `washroom_mirror`, `windowsill_ash`, `tenant_luggage`, `cellar_hatch`, `back_door`).
+  - `scripts/run_gui_automation_smoke.sh` → passed.
+  - `scripts/run_smoke_checks.sh` → passed, including build, authoring compile, DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke (`entity_bindings=10`), SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, GoalStaticAudit, and GuiRetestIssueAudit.
+  - `git diff --check` → no whitespace errors.

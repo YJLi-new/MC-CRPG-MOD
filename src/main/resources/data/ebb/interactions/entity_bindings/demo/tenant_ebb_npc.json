@@ -1,7 +1,12 @@
 {
   "match": {
     "entity_type": "ebb:npc",
-    "tag": "ebb.npc.demo.tenant"
+    "tags": [
+      "ebb.npc.demo.tenant",
+      "ebb.npc.demo.tenant_day",
+      "ebb.npc.tenant",
+      "ebb.npc.tenant_day"
+    ]
   },
   "dialogue": "ebb:demo/tenant_intro",
   "interaction_range": 2.5,

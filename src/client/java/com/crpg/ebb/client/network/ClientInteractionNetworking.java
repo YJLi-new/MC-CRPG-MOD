@@ -66,13 +66,24 @@ public final class ClientInteractionNetworking {
         ClientPlayNetworking.registerGlobalReceiver(EntityTargetSyncPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> ClientEntityTargetIndex.rebuild(payload.targets()))
         );
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> clearSyncedInteractionData());
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clearSyncedInteractionData());
+        ClientPlayConnectionEvents.INIT.register((handler, client) -> clearSyncedInteractionData(client, true));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clearSyncedInteractionData(client, false));
     }
 
-    private static void clearSyncedInteractionData() {
+    private static void clearSyncedInteractionData(Minecraft client, boolean preserveIntegratedServerRegistries) {
         ClientBlockGroupIndex.clear();
         ClientEntityTargetIndex.clear();
+        if (preserveIntegratedServerRegistries && client.getSingleplayerServer() != null) {
+            // In an integrated server, common data registries are JVM-global.
+            // Clearing EntityBindingRegistry at client INIT wipes the server's
+            // freshly reloaded binding registry before InteractionSyncService
+            // serializes EntityBindingSyncPayload, producing a 0-binding sync.
+            // Dedicated clients still clear stale synced bindings at INIT, and
+            // integrated clients receive/keep the authoritative in-process
+            // registry until the server sync overwrites it with the same data.
+            EbbMod.LOGGER.debug("Preserving shared integrated-server entity binding registry during client INIT clear.");
+            return;
+        }
         EntityBindingRegistry.clearSynced();
     }
 

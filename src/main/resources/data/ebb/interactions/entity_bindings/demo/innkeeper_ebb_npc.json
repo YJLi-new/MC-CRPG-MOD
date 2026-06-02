@@ -1,7 +1,12 @@
 {
   "match": {
     "entity_type": "ebb:npc",
-    "tag": "ebb.npc.demo.innkeeper"
+    "tags": [
+      "ebb.npc.demo.innkeeper",
+      "ebb.npc.demo.innkeeper_day",
+      "ebb.npc.innkeeper",
+      "ebb.npc.innkeeper_day"
+    ]
   },
   "dialogue": "ebb:demo/innkeeper_intro",
   "interaction_range": 2.5,

@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-GOAL.md implementation: P2 Story Variables through P8 Playable Tavern Vertical Slice are code/data/docs/tests complete with final automated build, smoke, validation, static-audit, GameTest, jar-hash, and jar-inspection evidence recorded. Full Windows GUI retest remains human-driven when requested.
+GUI automation final visual pass is complete. The separate PCL/Fabric `26.1.2-Fabric-Ebb-Test` profile was closed, relaunched, entered `新的世界 (1)`, loaded jar `23540536daaeda7e054813ee10fa4ce653fca1085876fce058f8a2819e3e3ec3`, and passed runtime + GUI verification for commands, four distinct role NPC dialogues, and all eight block-group dialogues.
 
 ## Phases
 
@@ -159,6 +159,30 @@ GOAL.md implementation: P2 Story Variables through P8 Playable Tavern Vertical S
 - [x] Implement P7 investigation and dialogue-set-piece conflict systems.
 - [x] Implement P8 playable tavern vertical slice with 4 NPCs, 8 interactable points, 2 major branches, 4 feats, 4 chimes, 1 conflict scene, and ending placeholder evidence.
 - **Status:** code/data/docs/automated verification complete for P2-P8; full Windows GUI retest pending human operation
+
+
+### Phase 18: GUI Retest Issue Hotfix
+- [x] Diagnose screenshots from `新的世界 (1)`: stale installed jar, legacy role NPC tags, and player-facing command permission/suggestion issue.
+- [x] Make `/ebb dialogue vars` accessible for player self-inspection and add `/ebb vars` alias.
+- [x] Make `/ebb summon_npc <routine>` resolve bundled bare routine names to `ebb:demo/<routine>` when present.
+- [x] Extend role NPC bindings to match both new demo tags and legacy `ebb.npc.<role>_day` tags already in the save.
+- [x] Rebuild, run smoke/data/GameTest verification, inspect packaged jar resources, and refresh the separate Fabric test profile.
+- [x] Add and run a GUI retest issue audit that checks command accessibility, INIT sync clear, role bindings, installed jar, and `新的世界 (1)` save evidence.
+- [x] Add JUnit/GameTest regressions for command nodes, distinct legacy role-NPC bindings, and all eight block-group targets.
+- [x] Add a profile runtime-log checker to prove whether the Windows client has relaunched into the refreshed jar/data.
+- **Status:** code/profile/audit/test complete; latest runtime log still stale until Windows client relaunches
+
+
+### Phase 19: Mineflayer/MineDojo Windows GUI Automation
+- [x] Add local Node mineflayer/minecraft-protocol/minecraft-data automation package.
+- [x] Add 26.1.2 high-version protocol/data alias adapter preserving protocol 775 and dataVersion 4790.
+- [x] Add MineDojo-compatible Python `EbbGuiEnv` orchestration layer.
+- [x] Add Windows Python focus/input/screenshot helper and image signal assertions.
+- [x] Add GUI E2E runner with runtime_check, bot_probe, dry_run, and gui_retest scenarios.
+- [x] Add dependency installer, GUI automation smoke runner, and documentation.
+- [x] Verify dry-run, Node self-test, GUI automation smoke, existing GUI issue audit, and runtime stale-log detection.
+- [x] Execute full Windows GUI visual pass after client relaunch.
+- **Status:** complete
 
 ## Key Questions
 1. Version pins? Resolved: Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, Loom `1.17.0-alpha.13`, GeckoLib `5.5.1`; no Yarn dependency line for 26.1+.

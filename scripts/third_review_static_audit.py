@@ -72,7 +72,7 @@ def main() -> int:
         "ClientBlockGroupIndex.rebuild(payload.definitions())",
         "EntityBindingRegistry.syncFromServer(payload.definitions(), payload.settings())",
         "ClientEntityTargetIndex.rebuild(payload.targets())",
-        "ClientPlayConnectionEvents.JOIN.register",
+        "ClientPlayConnectionEvents.INIT.register",
         "ClientPlayConnectionEvents.DISCONNECT.register",
         "ClientBlockGroupIndex.clear()",
         "ClientEntityTargetIndex.clear()",

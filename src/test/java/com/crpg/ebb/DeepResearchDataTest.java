@@ -19,16 +19,21 @@ import com.crpg.ebb.journal.JournalService;
 import com.crpg.ebb.quest.QuestBranchRegistry;
 import com.crpg.ebb.quest.TakeRootService;
 import com.crpg.ebb.relationship.RelationshipRegistry;
+import com.crpg.ebb.registry.ModCommands;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
 import com.crpg.ebb.state.NarrativeSavedData;
 import com.crpg.ebb.story.StoryVarLayer;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.tree.CommandNode;
+import net.minecraft.commands.CommandSourceStack;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -37,6 +42,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DeepResearchDataTest {
@@ -368,6 +374,64 @@ final class DeepResearchDataTest {
     }
 
     @Test
+    void guiRetestCommandsRoleBindingsAndBlockGroupsAreRegistered() throws Exception {
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+        register.setAccessible(true);
+        register.invoke(null, dispatcher);
+
+        CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+        requireCommandPath(ebb, "journal");
+        requireCommandPath(ebb, "quest");
+        requireCommandPath(ebb, "quest", "tree");
+        requireCommandPath(ebb, "dialogue", "vars");
+        requireCommandPath(ebb, "vars");
+
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        DialogueRegistry.rebuild(load(bundled.resolve("dialogues")));
+        BlockGroupIndex.rebuild(load(bundled.resolve("interactions/block_groups")));
+        EntityBindingRegistry.rebuild(load(bundled.resolve("interactions/entity_bindings")));
+
+        Map<String, String> expectedRoleDialogues = Map.of(
+                "innkeeper", "ebb:demo/innkeeper_intro",
+                "witness", "ebb:demo/witness_intro",
+                "tenant", "ebb:demo/tenant_intro",
+                "guard", "ebb:demo/guard_intro"
+        );
+        for (Map.Entry<String, String> role : expectedRoleDialogues.entrySet()) {
+            Identifier bindingId = Identifier.parse("ebb:demo/" + role.getKey() + "_ebb_npc");
+            var binding = EntityBindingRegistry.definitions().get(bindingId);
+            assertNotNull(binding, "role-specific binding should exist: " + bindingId);
+            assertEquals(Identifier.parse(role.getValue()), binding.dialogueId(),
+                    "role-specific binding should not fall back to innkeeper dialogue");
+            assertTrue(binding.tags().contains("ebb.npc." + role.getKey() + "_day"),
+                    "role-specific binding should match existing save legacy tag for " + role.getKey());
+
+            Identifier nameBindingId = Identifier.parse("ebb:demo/" + role.getKey() + "_ebb_npc_name");
+            var nameBinding = EntityBindingRegistry.definitions().get(nameBindingId);
+            assertNotNull(nameBinding, "role-specific name binding should exist for client prediction: " + nameBindingId);
+            assertEquals(Identifier.parse(role.getValue()), nameBinding.dialogueId(),
+                    "name binding should preserve the role-specific dialogue");
+            assertEquals("Ebb NPC: " + role.getKey() + "_day", nameBinding.name().orElseThrow(),
+                    "name binding should match the custom name visible to dedicated clients");
+        }
+
+        for (String id : java.util.List.of(
+                "ebb:demo/locked_door",
+                "ebb:demo/counter_ledger",
+                "ebb:demo/notice_board",
+                "ebb:demo/washroom_mirror",
+                "ebb:demo/windowsill_ash",
+                "ebb:demo/tenant_luggage",
+                "ebb:demo/cellar_hatch",
+                "ebb:demo/back_door"
+        )) {
+            assertTrue(BlockGroupIndex.byId(Identifier.parse(id)).isPresent(),
+                    "all GUI retest block targets should be registered: " + id);
+        }
+    }
+
+    @Test
     void authoringCompilerOutputLoadsAsRuntimeData() throws Exception {
         Path generated = Path.of("build/generated/ebb_authoring/data/ebb");
         DialogueRegistry.rebuild(load(generated.resolve("dialogues")));
@@ -402,5 +466,19 @@ final class DeepResearchDataTest {
             }
         }
         return map;
+    }
+
+    private static void requireCommandPath(CommandNode<CommandSourceStack> root, String... path) {
+        CommandNode<CommandSourceStack> cursor = root;
+        for (String segment : path) {
+            cursor = requireChild(cursor, segment);
+        }
+        assertNotNull(cursor.getCommand(), "command path should execute: /ebb " + String.join(" ", path));
+    }
+
+    private static CommandNode<CommandSourceStack> requireChild(CommandNode<CommandSourceStack> root, String name) {
+        CommandNode<CommandSourceStack> child = root.getChild(name);
+        assertNotNull(child, "command node should exist: " + name);
+        return child;
     }
 }

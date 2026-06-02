@@ -11,3 +11,5 @@ run/
 logs/
 run-gametest/
 __pycache__/
+tools/gui_automation/node/node_modules/
+tools/gui_automation/node/.npm-cache/

@@ -308,3 +308,31 @@ Still needs explicit or implicit confirmation:
 - Finding: P8 is best completed as a content/data vertical slice on top of the existing server-authoritative systems, not by hard-coding a tavern controller. The final slice uses block groups, entity bindings, dialogue JSON, chimes, feats, journal/clue effects, relationship/routine effects, and conflict state as the integration surface.
 - Finding: The minimum playable evidence should count concrete authoring assets, not just code features. Final automated checks assert 13 dialogues, 8 block groups, 6 entity bindings, 5 routines, 4 feats, 4 chimes, 5 clues, one conflict, and public/quiet/messy ending placeholders.
 - Finding: Remaining uncertainty is only experiential/GUI pacing, so it is explicitly separated as a human Windows client retest item; automated build/data/GameTest/static/jar evidence is complete.
+
+## 2026-06-01 — GUI retest issue root cause
+- Finding: The reported missing commands, repeated NPC dialogue, and single block target were primarily caused by the Windows test profile still carrying an older Ebb jar (`01d880...`) that had only 1 block group and 2 bindings. The profile now has the rebuilt jar `f11d67...` with 8 block groups and 6 bindings.
+- Finding: Existing NPCs in `新的世界 (1)` were spawned before routine-id normalization and carry legacy tags like `ebb.npc.tenant_day`; role bindings now include both `ebb.npc.demo.<role>` and legacy `ebb.npc.<role>_day` tags so the save does not need entity replacement.
+- Finding: Player-facing state inspection should not be hidden behind OP-only dialogue tooling. `/ebb dialogue vars` is now accessible for the invoking player, and `/ebb vars` is available as a short alias.
+- Finding: Client-side stale-sync cleanup belongs at play connection init rather than join-ready; clearing at join risks removing block-group/entity-binding payloads delivered during login.
+- Finding: A dedicated `GuiRetestIssueAudit` is now tracked because these GUI bugs crossed source, packaged jar, profile jar, and existing-save state; future smoke checks should keep proving all four layers.
+
+## 2026-06-01 — GUI retest regressions should be runtime-covered, not only statically audited
+- Finding: Static/source/profile checks prove packaging and registration shape, but the NPC role problem was specifically a runtime priority/matching issue. Added Fabric GameTests that spawn `ebb:npc` entities with the same legacy `ebb.npc.<role>_day` tags seen in `新的世界 (1)` and assert they resolve to distinct role dialogues.
+- Finding: The single-block-target symptom needs exact content inventory checks. Added JUnit/GameTest assertions for all eight authored block-group targets so future regressions cannot pass with only `locked_door` packaged.
+
+## 2026-06-01 — Latest client log confirms the visible test window was still old-code
+- Finding: `/mnt/e/MC/PCL/.minecraft/versions/26.1.2-Fabric-Ebb-Test/logs/latest.log` still records the user-visible problematic session loading only 3 dialogues, 1 block group, and 2 entity bindings at 16:37. That matches the screenshots and proves the window was launched before the refreshed jar/profile state. The installed profile jar now hashes to `da8da3...`, but a running Minecraft process cannot hot-swap its already-loaded mod classes/resources.
+
+## 2026-06-01 — Separate on-disk profile correctness from runtime-log correctness
+- Finding: The refreshed profile jar and source/build audits can be correct while `latest.log` still proves the last visible client session was old. Added `scripts/check_pcl_runtime_loaded.py` so the next retest can confirm the Windows client actually relaunched into the refreshed jar before judging GUI behavior.
+
+## 2026-06-01 — Runtime relaunch remains the only unresolved blocker
+- Finding: A fresh recheck still shows `check_pcl_runtime_loaded.py` observing stale runtime counts from the old client session: 3 dialogues, 1 block group, 2 entity bindings, and 1 routine. The profile jar on disk is correct (`da8da3...`), so further code edits are not the limiting factor; final verification requires closing and relaunching the Windows Minecraft client.
+
+## 2026-06-01 — Mineflayer 26.1.2 needs data-table aliasing, not only version metadata
+- Finding: `minecraft-data` 3.110.2 contains 26.1.2 protocol metadata (`protocolVersion=775`, `dataVersion=4790`) but not full `26.1` data tables, so `minecraft-data('26.1.2')` returns null by default.
+- Decision: Install a local adapter that aliases missing 26.1 data tables to the newest compatible 1.21.x tables while retaining the 26.1.2 protocol/dataVersion metadata. This lets mineflayer/minecraft-protocol attempt 26.1.2 negotiation and report remaining protocol mismatches explicitly.
+
+## 2026-06-01 — MineDojo compatibility should wrap current tooling rather than revive old Malmo
+- Finding: PyPI `minedojo` is only version 0.1 and is not installed; the old MineDojo/Malmo backend is not a viable direct 26.1.2 runtime.
+- Decision: Provide a MineDojo-compatible `EbbGuiEnv` API backed by the actual Fabric 26.1.2 profile/server, mineflayer probe/chat layer, and Windows screenshot/input automation.

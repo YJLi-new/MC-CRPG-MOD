@@ -1,7 +1,12 @@
 {
   "match": {
     "entity_type": "ebb:npc",
-    "tag": "ebb.npc.demo.guard"
+    "tags": [
+      "ebb.npc.demo.guard",
+      "ebb.npc.demo.guard_day",
+      "ebb.npc.guard",
+      "ebb.npc.guard_day"
+    ]
   },
   "dialogue": "ebb:demo/guard_intro",
   "interaction_range": 2.5,

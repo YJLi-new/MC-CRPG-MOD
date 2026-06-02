@@ -101,8 +101,8 @@ public final class ModCommands {
                         .then(Commands.literal("summary")
                                 .executes(context -> sendDevSummaryText(context.getSource()))))
                 .then(Commands.literal("dialogue")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
                         .then(Commands.literal("inspect")
+                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
                                 .then(Commands.literal("current")
                                         .executes(context -> inspectCurrentTarget(context.getSource())))
                                 .then(Commands.literal("entity")
@@ -116,6 +116,7 @@ public final class ModCommands {
                                                         context.getSource(),
                                                         StringArgumentType.getString(context, "dialogue_id"))))))
                         .then(Commands.literal("tree")
+                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
                                 .then(Commands.argument("dialogue_id", StringArgumentType.string())
                                         .executes(context -> inspectDialogueById(
                                                 context.getSource(),
@@ -127,7 +128,15 @@ public final class ModCommands {
                                                 context.getSource(),
                                                 EntityArgument.getPlayer(context, "player")))))
                         .then(Commands.literal("reload")
+                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
                                 .executes(context -> reloadDialogueData(context.getSource()))))
+                .then(Commands.literal("vars")
+                        .executes(context -> sendDialogueVars(context.getSource(), context.getSource().getPlayerOrException()))
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
+                                .executes(context -> sendDialogueVars(
+                                        context.getSource(),
+                                        EntityArgument.getPlayer(context, "player")))))
                 .then(Commands.literal("quest")
                         .executes(context -> sendQuestTree(context.getSource()))
                         .then(Commands.literal("tree")
@@ -593,9 +602,11 @@ public final class ModCommands {
     private static int summonNpc(CommandSourceStack source, String routine) {
         Identifier routineId;
         try {
-            routineId = parseEbbIdentifier(routine);
+            routineId = parseRoutineIdentifier(routine);
         } catch (RuntimeException ex) {
-            source.sendFailure(Component.literal("Invalid routine id: " + routine));
+            source.sendFailure(Component.literal("Invalid or unknown routine id: " + routine
+                    + ". Use e.g. /ebb summon_npc demo/innkeeper_day. Loaded routines="
+                    + NpcRoutineRegistry.size()));
             return 0;
         }
 
@@ -614,6 +625,20 @@ public final class ModCommands {
         npc.setCustomName(Component.literal("Ebb NPC: " + routineId.getPath()));
         source.sendSuccess(() -> Component.literal("Spawned Ebb NPC at " + pos.toShortString() + " with routine " + routineId), true);
         return 1;
+    }
+
+    private static Identifier parseRoutineIdentifier(String raw) {
+        Identifier direct = parseEbbIdentifier(raw);
+        if (NpcRoutineRegistry.byId(direct).isPresent()) {
+            return direct;
+        }
+        if (!raw.contains(":") && !raw.startsWith("demo/")) {
+            Identifier demo = EbbMod.id("demo/" + raw);
+            if (NpcRoutineRegistry.byId(demo).isPresent()) {
+                return demo;
+            }
+        }
+        throw new IllegalArgumentException("unknown routine " + raw);
     }
 
     private static String narrativeKeyForRoutine(Identifier routineId) {

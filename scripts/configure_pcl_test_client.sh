@@ -191,12 +191,27 @@ cat > "$PROFILE_DIR/command_history.txt" <<'EOF_COMMANDS'
 /ebb status
 /ebb data
 /ebb dev
+/ebb journal
+/ebb quest
+/ebb dialogue vars
+/ebb vars
 /ebb attributes
 /ebb attributes spend charisma 1
 /ebb attributes grant 8
-/ebb summon_npc ebb:demo/innkeeper_day
+/ebb summon_npc demo/innkeeper_day
+/ebb summon_npc demo/witness_day
+/ebb summon_npc demo/tenant_day
+/ebb summon_npc demo/guard_day
 /setblock 0 64 4 minecraft:oak_door[half=lower,facing=south]
 /setblock 0 65 4 minecraft:oak_door[half=upper,facing=south]
+/setblock 2 64 1 minecraft:lectern
+/setblock 1 65 0 minecraft:oak_sign[facing=south]
+/setblock -2 64 6 minecraft:glass
+/setblock 4 65 6 minecraft:gray_wool
+/setblock 8 64 3 minecraft:chest[facing=south]
+/setblock 6 63 7 minecraft:acacia_fence
+/setblock 10 64 5 minecraft:oak_door[half=lower,facing=south]
+/setblock 10 65 5 minecraft:oak_door[half=upper,facing=south]
 /tag @e[type=minecraft:villager,limit=1,sort=nearest] add ebb.npc.innkeeper
 EOF_COMMANDS
 

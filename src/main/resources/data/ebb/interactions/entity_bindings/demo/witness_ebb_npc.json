@@ -1,7 +1,12 @@
 {
   "match": {
     "entity_type": "ebb:npc",
-    "tag": "ebb.npc.demo.witness"
+    "tags": [
+      "ebb.npc.demo.witness",
+      "ebb.npc.demo.witness_day",
+      "ebb.npc.witness",
+      "ebb.npc.witness_day"
+    ]
   },
   "dialogue": "ebb:demo/witness_intro",
   "interaction_range": 2.5,
