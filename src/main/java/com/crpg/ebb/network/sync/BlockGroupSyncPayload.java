@@ -2,6 +2,7 @@ package com.crpg.ebb.network.sync;
 
 import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.interaction.BlockGroupDefinition;
+import com.crpg.ebb.interaction.HighlightStyle;
 import com.crpg.ebb.interaction.InteractionSyncLimits;
 import io.netty.handler.codec.DecoderException;
 import net.minecraft.core.BlockPos;
@@ -55,6 +56,7 @@ public record BlockGroupSyncPayload(List<BlockGroupDefinition> definitions) impl
         buffer.writeDouble(definition.interactionPoint().x);
         buffer.writeDouble(definition.interactionPoint().y);
         buffer.writeDouble(definition.interactionPoint().z);
+        writeHighlightStyle(buffer, definition.highlightStyle());
         int blockCount = definition.blocks().size();
         if (blockCount > MAX_BLOCKS_PER_GROUP) {
             throw new IllegalArgumentException("Cannot write block group " + definition.id() + " with "
@@ -89,6 +91,7 @@ public record BlockGroupSyncPayload(List<BlockGroupDefinition> definitions) impl
         ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, buffer.readIdentifier());
         Identifier dialogueId = buffer.readIdentifier();
         Vec3 interactionPoint = new Vec3(buffer.readDouble(), buffer.readDouble(), buffer.readDouble());
+        HighlightStyle highlightStyle = readHighlightStyle(buffer);
         int blockCount = buffer.readVarInt();
         if (blockCount <= 0 || blockCount > MAX_BLOCKS_PER_GROUP) {
             throw new DecoderException("Invalid block count for block group " + id + ": " + blockCount);
@@ -102,7 +105,22 @@ public record BlockGroupSyncPayload(List<BlockGroupDefinition> definitions) impl
                 expectedBlocks.put(blockPos, buffer.readIdentifier());
             }
         }
-        return BlockGroupDefinition.fromSynced(id, dimension, blocks, expectedBlocks, interactionPoint, dialogueId);
+        return BlockGroupDefinition.fromSynced(id, dimension, blocks, expectedBlocks, interactionPoint, dialogueId, highlightStyle);
+    }
+
+    private static void writeHighlightStyle(RegistryFriendlyByteBuf buffer, HighlightStyle style) {
+        buffer.writeInt(style.closeColor());
+        buffer.writeInt(style.farColor());
+        buffer.writeUtf(style.renderMode().serializedName(), 16);
+        buffer.writeVarInt(style.priority());
+    }
+
+    private static HighlightStyle readHighlightStyle(RegistryFriendlyByteBuf buffer) {
+        int closeColor = buffer.readInt();
+        int farColor = buffer.readInt();
+        HighlightStyle.RenderMode renderMode = HighlightStyle.RenderMode.parse(buffer.readUtf(16));
+        int priority = buffer.readVarInt();
+        return new HighlightStyle(closeColor, farColor, renderMode, priority);
     }
 
     @Override

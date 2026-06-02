@@ -898,3 +898,89 @@
   - `scripts/run_gui_automation_smoke.sh` → passed.
   - `scripts/run_smoke_checks.sh` → passed, including build, authoring compile, DeepResearchSmoke, AttributePointsSmoke, ReviewSmoke (`entity_bindings=10`), SecondReviewSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, GoalStaticAudit, and GuiRetestIssueAudit.
   - `git diff --check` → no whitespace errors.
+
+### Phase 20 / Architecture Plan P20-P21 documentation baseline
+- **Status:** complete.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Read `C:\Users\lanla\Downloads\minecraft_disco_crpg_mod_goal_architecture_plan.md` and identified the new active roadmap P20-P31 plus Alpha 0.1 target.
+  - Copied the uploaded plan to root `GOAL.md`.
+  - Added `README.md`, `AGENTS.md`, `docs/architecture.md`, `docs/current_status.md`, and `docs/status_reconciliation_2026-06-02.md`.
+  - Added supersession notes to historical P2-P8 completion docs so their original GUI-pending text is preserved but reconciled with the final GUI automation evidence.
+  - Extended `scripts/goal_static_audit.py` with P20/P21 checks for authoritative docs, version pins, required data directories, artifact status hashes, failure-forward checked choices, and major quest Take-Root consequences.
+- Verification so far:
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` -> passed after adding P20/P21 guardrails.
+  - `python3 scripts/deep_research_static_audit.py` -> passed.
+  - `python3 scripts/third_review_static_audit.py` -> passed.
+  - `scripts/compile_authoring_sources.py --clean` -> compiled generated authoring data with 0 errors.
+  - `scripts/gradle-local.sh --no-daemon test` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> 6 required GameTests passed.
+  - `scripts/run_smoke_checks.sh` -> passed, including updated `GuiRetestIssueAudit`.
+  - `scripts/run_gui_automation_smoke.sh` -> passed.
+  - `python3 scripts/gui_e2e_run.py --scenario runtime_check` -> passed.
+  - `python3 scripts/gui_e2e_run.py --scenario gui_retest --gui --gui-wait 1.4` -> `build/gui-e2e/gui-retest-report.json`, 127 steps, 0 failures.
+  - `git diff --check` -> passed.
+- Next:
+  - Continue with P22 interaction/highlight polish from `GOAL.md`.
+
+### Phase 21 / Architecture Plan P22 interaction-highlight polish
+- **Status:** in_progress; code/data/docs/tests complete, GUI relaunch visual proof pending.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Added `HighlightStyle` with close/far ARGB colors, opacity parsing, `outline` / `merged` / `bounds` render modes, and visual priority.
+  - Added highlight style parsing to `BlockGroupDefinition` and `EntityBindingDefinition`.
+  - Synced highlight style through `BlockGroupSyncPayload`, `EntityBindingSyncPayload`, and `EntityTargetSyncPayload`; `SyncedEntityTarget` now carries the binding style.
+  - Extended `ClientInteractionState` and `ClientTargetDetector` to preserve target prediction reasons and the selected highlight style while still filtering unbound entities and respecting per-binding highlight ranges.
+  - Updated `TargetHighlightRenderer` to use synced styles and merge adjacent block-group blocks into cleaner cuboid outlines.
+  - Added F3/debug-screen Ebb target reason text in `InteractionPromptHud`, keeping normal play quiet.
+  - Added demo highlight style data to `locked_door` and innkeeper bindings and documented highlight authoring fields.
+  - Updated `scripts/goal_static_audit.py` with P22 guardrails and made `scripts/run_smoke_checks.sh` ignore stale legacy generated `build/tmp/verify-src` unless explicitly requested.
+  - Refreshed the separate PCL test profile with the rebuilt P22 jar.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` -> passed, including P22 `GoalStaticAudit` and updated `GuiRetestIssueAudit`.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> 6 required GameTests passed.
+  - `git diff --check` -> passed.
+  - P22 jar/profile hash: `3c8a3b636e1fb1dcbc9d668b12d446cf002355123b6eac095b3701f4abaae35c`; sources jar hash `321b18fa91be822655bf5d6d340d13652dda311afac590372ef3bee7adb57967`.
+- Next:
+  - Close/relaunch `26.1.2-Fabric-Ebb-Test` and run GUI visual proof that the refreshed P22 jar is loaded and styled highlights/debug reasons render as expected.
+
+### Phase 21 / P22 runtime relaunch check
+- **Status:** pending external GUI relaunch for visual proof only; source/profile verification is complete.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Evidence:
+  - `scripts/check_pcl_runtime_loaded.py` after refreshing the P22 profile reports the new profile jar hash `3c8a3b636e1fb1dcbc9d668b12d446cf002355123b6eac095b3701f4abaae35c`, but `latest.log` is older than the installed jar.
+  - Observed data counts are still sufficient (`dialogues=13`, `block_groups=8`, `entity_bindings=10`, `npc_routines=5`), but the runtime log cannot prove the new highlight-style code is loaded until Minecraft is relaunched.
+- Next:
+  - Close/relaunch `26.1.2-Fabric-Ebb-Test`, enter `新的世界 (1)`, and run GUI/runtime checks for P22 styling.
+
+
+### Phase 21 / P22 post-HUD readability build and push preparation
+- **Status:** source/profile ready for push; GUI visual proof remains pending.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Split the F3 Ebb target debug overlay into concise reason/style and id/dialogue/match lines to avoid the earlier overlong overlay crossing other F3 text.
+  - Rebuilt the mod and refreshed the separate PCL/Fabric test profile.
+  - Updated `docs/current_status.md` with the latest P22 build/profile hashes before push.
+- Evidence:
+  - `build/libs/ebb-0.1.0-dev.jar` SHA-256: `37188b09af534900f2024bd32cc6795e059c5cf319f7edd032dfd1d54a7b2c8d`.
+  - `26.1.2-Fabric-Ebb-Test/mods/ebb-0.1.0-dev.jar` SHA-256: `37188b09af534900f2024bd32cc6795e059c5cf319f7edd032dfd1d54a7b2c8d`.
+  - `build/libs/ebb-0.1.0-dev-sources.jar` SHA-256: `42473d388a1b577652ee656da6abac5e9f61f2612c4c314953911aa3c034d351`.
+- Remaining:
+  - Runtime latest.log still needs a fresh close/relaunch into this exact post-HUD P22 jar before final GUI visual proof can close Phase 21.
+
+### Phase 21 / P22 pre-push verification refresh
+- **Status:** passed for source/profile push.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Verification:
+  - `python3 scripts/goal_static_audit.py` -> passed with P20/P21/P22 guardrails.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` -> passed, including build, authoring compile, DeepResearchSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, GoalStaticAudit, and GuiRetestIssueAudit.
+  - `git diff --check` -> passed.
+  - Hashes rechecked: build/profile jar `37188b09af534900f2024bd32cc6795e059c5cf319f7edd032dfd1d54a7b2c8d`; sources jar `42473d388a1b577652ee656da6abac5e9f61f2612c4c314953911aa3c034d351`.
+- Remaining:
+  - This does not close the P22 GUI proof checkbox; a fresh Windows client close/relaunch and visual check are still needed for that item.

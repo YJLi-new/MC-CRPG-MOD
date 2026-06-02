@@ -1,5 +1,8 @@
 # GOAL.md P6 Relationship / NPC Memory / Routine Completion Audit
 
+> Status reconciliation 2026-06-02: this document is historical. Its original GUI-pending note is superseded by `docs/current_status.md` and `docs/status_reconciliation_2026-06-02.md`, which record the final automated GUI visual pass against the refreshed `26.1.2-Fabric-Ebb-Test` jar.
+
+
 Date: 2026-06-01 Asia/Shanghai
 
 ## Scope

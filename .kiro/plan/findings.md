@@ -336,3 +336,7 @@ Still needs explicit or implicit confirmation:
 ## 2026-06-01 — MineDojo compatibility should wrap current tooling rather than revive old Malmo
 - Finding: PyPI `minedojo` is only version 0.1 and is not installed; the old MineDojo/Malmo backend is not a viable direct 26.1.2 runtime.
 - Decision: Provide a MineDojo-compatible `EbbGuiEnv` API backed by the actual Fabric 26.1.2 profile/server, mineflayer probe/chat layer, and Windows screenshot/input automation.
+
+## 2026-06-02 — Architecture plan P20/P21 first-gap analysis
+- Finding: The uploaded architecture/product plan is not just a recap of P2-P8; its active roadmap starts at P20/P21. The earliest concrete gaps in the current repo were missing root `GOAL.md`, missing root `README.md`/`AGENTS.md`, no `docs/architecture.md`, no authoritative `docs/current_status.md`, and old historical docs that still said GUI retest was pending without a current supersession note.
+- Decision: Implement P20/P21 first before feature expansion. This makes the repo self-explanatory and adds machine guardrails for version pins, required data directories, current artifact hashes, failure-forward checked choices, and major Take-Root consequences.

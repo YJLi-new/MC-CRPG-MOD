@@ -4,6 +4,7 @@ import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.interaction.BlockGroupDefinition;
 import com.crpg.ebb.interaction.BlockGroupTarget;
 import com.crpg.ebb.interaction.EntityTarget;
+import com.crpg.ebb.interaction.HighlightStyle;
 import com.crpg.ebb.interaction.InteractionTarget;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.interaction.entity.SyncedEntityTarget;
@@ -45,7 +46,7 @@ public final class ClientTargetDetector {
         LocalPlayer player = minecraft.player;
         if (player == null || minecraft.level == null || player.isSpectator() || minecraft.screen != null) {
             ClientInteractionState.clear();
-            return ClientInteractionState.Snapshot.empty();
+            return ClientInteractionState.Snapshot.empty("inactive_client_state");
         }
 
         Vec3 eye = player.getEyePosition(1.0F);
@@ -60,7 +61,7 @@ public final class ClientTargetDetector {
                 player
         ));
         double blockDistanceSqr = hitDistanceSqr(eye, blockHit);
-        Optional<BlockGroupTarget> blockGroupTarget = detectBlockGroup(player, blockHit);
+        Optional<BlockGroupDefinition> blockGroupDefinition = detectBlockGroup(player, blockHit);
 
         EntityHitResult entityHit = detectEntity(player, eye, look, end);
         double entityDistanceSqr = entityHit == null ? Double.POSITIVE_INFINITY : eye.distanceToSqr(entityHit.getLocation());
@@ -71,6 +72,7 @@ public final class ClientTargetDetector {
         double highlightRange = HIGHLIGHT_RANGE;
         boolean entityTargetCandidate = false;
         String reason = "no_target";
+        HighlightStyle highlightStyle = HighlightStyle.blockDefault();
 
         if (entityHit != null && entityDistanceSqr <= blockDistanceSqr) {
             Entity entity = entityHit.getEntity();
@@ -82,16 +84,18 @@ public final class ClientTargetDetector {
                 dialogueId = targetData.dialogueId();
                 interactionRange = targetData.interactionRange();
                 highlightRange = targetData.highlightRange();
+                highlightStyle = targetData.highlightStyle();
                 reason = "entity_target_sync_hit:" + targetData.bindingId();
             } else {
                 var binding = EntityBindingRegistry.resolve(entity).orElse(null);
                 if (binding == null) {
-                    ClientInteractionState.clear();
-                    return ClientInteractionState.Snapshot.empty();
+                    ClientInteractionState.set(ClientInteractionState.Snapshot.empty("unbound_entity"));
+                    return ClientInteractionState.Snapshot.empty("unbound_entity");
                 }
                 dialogueId = binding.dialogueId();
                 interactionRange = binding.interactionRange();
                 highlightRange = binding.highlightRange();
+                highlightStyle = binding.highlightStyle();
                 reason = "entity_binding_hit:" + binding.id();
             }
             target = new EntityTarget(
@@ -102,33 +106,35 @@ public final class ClientTargetDetector {
                     dialogueId
             );
             distance = eye.distanceTo(target.interactionPoint());
-        } else if (blockGroupTarget.isPresent()) {
-            target = blockGroupTarget.get();
+        } else if (blockGroupDefinition.isPresent()) {
+            BlockGroupDefinition definition = blockGroupDefinition.get();
+            target = definition.asTarget();
             distance = target.bounds().distanceToSqr(player.position()) == 0.0D
                     ? 0.0D
                     : Math.sqrt(target.bounds().distanceToSqr(player.position()));
+            highlightStyle = definition.highlightStyle();
             reason = "block_group_hit";
         }
 
         if (target == null) {
-            ClientInteractionState.clear();
-            return ClientInteractionState.Snapshot.empty();
+            String emptyReason = blockHit.getType() == HitResult.Type.BLOCK ? "blocked_or_unregistered_block" : "no_target";
+            ClientInteractionState.set(ClientInteractionState.Snapshot.empty(emptyReason));
+            return ClientInteractionState.Snapshot.empty(emptyReason);
         }
         if (entityTargetCandidate && distance > highlightRange) {
-            ClientInteractionState.clear();
-            return ClientInteractionState.Snapshot.empty();
+            ClientInteractionState.set(ClientInteractionState.Snapshot.empty("outside_binding_highlight_range"));
+            return ClientInteractionState.Snapshot.empty("outside_binding_highlight_range");
         }
 
         boolean withinInteractionRange = distance <= interactionRange;
-        return new ClientInteractionState.Snapshot(Optional.of(target), distance, withinInteractionRange, true, reason);
+        return new ClientInteractionState.Snapshot(Optional.of(target), distance, withinInteractionRange, true, reason, highlightStyle);
     }
 
-    private static Optional<BlockGroupTarget> detectBlockGroup(LocalPlayer player, BlockHitResult blockHit) {
+    private static Optional<BlockGroupDefinition> detectBlockGroup(LocalPlayer player, BlockHitResult blockHit) {
         if (blockHit.getType() != HitResult.Type.BLOCK) {
             return Optional.empty();
         }
-        return ClientBlockGroupIndex.byBlock(player.level().dimension(), blockHit.getBlockPos())
-                .map(BlockGroupDefinition::asTarget);
+        return ClientBlockGroupIndex.byBlock(player.level().dimension(), blockHit.getBlockPos());
     }
 
     private static EntityHitResult detectEntity(LocalPlayer player, Vec3 eye, Vec3 look, Vec3 end) {

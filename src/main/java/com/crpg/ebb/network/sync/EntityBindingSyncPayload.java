@@ -1,6 +1,7 @@
 package com.crpg.ebb.network.sync;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.interaction.HighlightStyle;
 import com.crpg.ebb.interaction.InteractionSettings;
 import com.crpg.ebb.interaction.InteractionSyncLimits;
 import com.crpg.ebb.interaction.entity.EntityBindingDefinition;
@@ -80,6 +81,7 @@ public record EntityBindingSyncPayload(
         buffer.writeDouble(definition.interactionRange());
         buffer.writeDouble(definition.highlightRange());
         buffer.writeVarInt(definition.priority());
+        writeHighlightStyle(buffer, definition.highlightStyle());
     }
 
     private static EntityBindingDefinition readDefinition(RegistryFriendlyByteBuf buffer) {
@@ -106,10 +108,11 @@ public record EntityBindingSyncPayload(
         double interactionRange = buffer.readDouble();
         double highlightRange = buffer.readDouble();
         int priority = buffer.readVarInt();
+        HighlightStyle highlightStyle = readHighlightStyle(buffer);
         if (interactionRange <= 0.0D || highlightRange < interactionRange) {
             throw new DecoderException("Invalid range for entity binding " + id + ": " + interactionRange + "/" + highlightRange);
         }
-        return new EntityBindingDefinition(id, uuid, tags, name, entityTypes, dialogueId, interactionRange, highlightRange, priority);
+        return new EntityBindingDefinition(id, uuid, tags, name, entityTypes, dialogueId, interactionRange, highlightRange, priority, highlightStyle);
     }
 
     private static void writeSettings(RegistryFriendlyByteBuf buffer, InteractionSettings.Snapshot settings) {
@@ -149,6 +152,21 @@ public record EntityBindingSyncPayload(
         if (definition.entityTypes().size() > MAX_ENTITY_TYPES) {
             throw new IllegalArgumentException("Entity binding " + definition.id() + " has too many entity types: " + definition.entityTypes().size());
         }
+    }
+
+    private static void writeHighlightStyle(RegistryFriendlyByteBuf buffer, HighlightStyle style) {
+        buffer.writeInt(style.closeColor());
+        buffer.writeInt(style.farColor());
+        buffer.writeUtf(style.renderMode().serializedName(), 16);
+        buffer.writeVarInt(style.priority());
+    }
+
+    private static HighlightStyle readHighlightStyle(RegistryFriendlyByteBuf buffer) {
+        int closeColor = buffer.readInt();
+        int farColor = buffer.readInt();
+        HighlightStyle.RenderMode renderMode = HighlightStyle.RenderMode.parse(buffer.readUtf(16));
+        int priority = buffer.readVarInt();
+        return new HighlightStyle(closeColor, farColor, renderMode, priority);
     }
 
     @Override

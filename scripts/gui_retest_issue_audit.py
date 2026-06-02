@@ -3,12 +3,15 @@
 
 Checks the exact failure modes reported from the Windows client:
 1) player-facing commands must exist and not be hidden behind OP-only dialogue tooling;
-2) role NPC bindings must resolve to distinct dialogues and cover legacy tags in the existing save;
+2) role NPC bindings must resolve to distinct dialogues and cover legacy tags/names used by
+   saves and GUI automation;
 3) all P8 block groups must be packaged, and the refreshed test profile must carry the same jar.
 
 When --save-path is supplied, it also inspects the external Minecraft save for the authored
-P8 block objects and legacy NPC tags. The save audit uses nbtlib if available and is intentionally
-not required for CI.
+P8 block objects and verifies any Ebb NPCs currently present use tags/names supported by the
+source bindings. It no longer requires every role NPC to exist in the mutable user save; the
+source/JUnit/GameTest checks cover all four role bindings. The save audit uses nbtlib if
+available and is intentionally not required for CI.
 """
 
 from __future__ import annotations
@@ -56,6 +59,8 @@ SAVE_BLOCKS = {
     (10, 65, 5): "minecraft:oak_planks",
 }
 LEGACY_NPC_TAGS = {"ebb.npc.innkeeper_day", "ebb.npc.witness_day", "ebb.npc.tenant_day", "ebb.npc.guard_day"}
+ROLE_CUSTOM_NAMES = {f"Ebb NPC: {role}_day": role for role in ROLE_EXPECTATIONS}
+SUPPORTED_ROLE_TAGS = {tag for _, tags in ROLE_EXPECTATIONS.values() for tag in tags}
 
 
 def fail(message: str) -> None:
@@ -240,14 +245,25 @@ def audit_save(save_path: Path) -> None:
         if actual != expected:
             fail(f"save block {pos}: {actual} != {expected}")
 
-    found_tags: set[str] = set()
+    found_role_markers: set[str] = set()
     for region_path in (overworld / "entities").glob("*.mca"):
         for root in region_chunks(region_path) or []:
             for entity in root.get("Entities", root.get("entities", [])):
                 tags = {str(tag) for tag in entity.get("Tags", [])}
-                found_tags |= tags & LEGACY_NPC_TAGS
-    if not LEGACY_NPC_TAGS.issubset(found_tags):
-        fail(f"save missing legacy NPC tags: {sorted(LEGACY_NPC_TAGS - found_tags)}")
+                custom_name = str(entity.get("CustomName", ""))
+                entity_id = str(entity.get("id", ""))
+                if entity_id != "ebb:npc" and "ebb.npc" not in tags and "Ebb NPC:" not in custom_name:
+                    continue
+                unsupported_tags = sorted(tag for tag in tags if tag.startswith("ebb.npc.") and tag not in SUPPORTED_ROLE_TAGS and tag != "ebb.npc")
+                if unsupported_tags:
+                    fail(f"save has Ebb NPC tags not covered by source bindings: {unsupported_tags}")
+                if custom_name.startswith("Ebb NPC:") and custom_name not in ROLE_CUSTOM_NAMES:
+                    fail(f"save has Ebb NPC custom name not covered by name bindings: {custom_name}")
+                found_role_markers |= tags & SUPPORTED_ROLE_TAGS
+                if custom_name in ROLE_CUSTOM_NAMES:
+                    found_role_markers.add(custom_name)
+    if not found_role_markers:
+        fail("save audit found no Ebb NPC role tags or role custom names to validate")
 
 
 def main(argv: Iterable[str]) -> int:

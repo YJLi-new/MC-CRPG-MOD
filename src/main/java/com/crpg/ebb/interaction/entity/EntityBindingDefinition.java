@@ -1,6 +1,7 @@
 package com.crpg.ebb.interaction.entity;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.interaction.HighlightStyle;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -23,7 +24,8 @@ public record EntityBindingDefinition(
         Identifier dialogueId,
         double interactionRange,
         double highlightRange,
-        int priority
+        int priority,
+        HighlightStyle highlightStyle
 ) {
     public static final double DEFAULT_INTERACTION_RANGE = 2.0D;
     public static final double DEFAULT_HIGHLIGHT_RANGE = 10.0D;
@@ -33,6 +35,7 @@ public record EntityBindingDefinition(
         tags = tags == null ? List.of() : List.copyOf(tags);
         name = name == null ? Optional.empty() : name;
         entityTypes = entityTypes == null ? List.of() : List.copyOf(entityTypes);
+        highlightStyle = highlightStyle == null ? HighlightStyle.entityDefault() : highlightStyle;
     }
 
     public static Optional<EntityBindingDefinition> parse(Identifier id, JsonObject json, List<String> messages) {
@@ -59,6 +62,12 @@ public record EntityBindingDefinition(
             double interactionRange = optionalDouble(json, "interaction_range").orElse(DEFAULT_INTERACTION_RANGE);
             double highlightRange = optionalDouble(json, "highlight_range").orElse(DEFAULT_HIGHLIGHT_RANGE);
             int priority = optionalInt(json, "priority").orElse(0);
+            HighlightStyle highlightStyle = HighlightStyle.parseOptional(
+                    json,
+                    HighlightStyle.entityDefault(),
+                    messages,
+                    "entity binding " + id
+            ).orElse(HighlightStyle.entityDefault());
             if (interactionRange <= 0.0D) {
                 messages.add("entity binding " + id + ": interaction_range must be > 0");
                 interactionRange = DEFAULT_INTERACTION_RANGE;
@@ -67,7 +76,7 @@ public record EntityBindingDefinition(
                 messages.add("entity binding " + id + ": highlight_range is smaller than interaction_range; clamped up");
                 highlightRange = interactionRange;
             }
-            return Optional.of(new EntityBindingDefinition(id, uuid, tags, name, entityTypes, dialogue, interactionRange, highlightRange, priority));
+            return Optional.of(new EntityBindingDefinition(id, uuid, tags, name, entityTypes, dialogue, interactionRange, highlightRange, priority, highlightStyle));
         } catch (RuntimeException ex) {
             messages.add("entity binding " + id + ": " + ex.getMessage());
             return Optional.empty();
@@ -123,7 +132,8 @@ public record EntityBindingDefinition(
                 + ", entity_types=" + entityTypes
                 + ") range=" + interactionRange
                 + "/" + highlightRange
-                + " priority=" + priority;
+                + " priority=" + priority
+                + " " + highlightStyle.debugSummary();
     }
 
     private static List<String> parseStringList(JsonObject json, String key) {

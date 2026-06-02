@@ -49,7 +49,20 @@ def focus_window(title_regex: str) -> dict[str, object]:
         raise RuntimeError(f"no window matched {title_regex!r}")
     hwnd = int(windows[0]["hwnd"])
     win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-    win32gui.SetForegroundWindow(hwnd)
+    try:
+        win32gui.SetForegroundWindow(hwnd)
+    except Exception:
+        # Windows foreground-lock rules can reject SetForegroundWindow even for
+        # a visible launcher window.  A harmless center click is sufficient for
+        # GUI testing and avoids falling back to shell-specific tricks.
+        left, top, right, bottom = windows[0]["rect"]
+        win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, left, top, right - left, bottom - top, 0)
+        win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, left, top, right - left, bottom - top, 0)
+        pyautogui.click(left + max(1, (right - left) // 2), top + max(1, (bottom - top) // 2))
+        try:
+            win32gui.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
     time.sleep(0.2)
     return windows[0]
 
@@ -91,6 +104,15 @@ def press_key(title_regex: str, key: str) -> dict[str, object]:
     return {"window": window, "key": key}
 
 
+def hotkey(title_regex: str, keys: list[str]) -> dict[str, object]:
+    pyautogui, *_ = _import_gui_deps()
+    if not keys:
+        raise ValueError("--keys is required")
+    window = focus_window(title_regex)
+    pyautogui.hotkey(*keys)
+    return {"window": window, "keys": keys}
+
+
 def click_relative(title_regex: str, x: int, y: int, clicks: int = 1) -> dict[str, object]:
     pyautogui, *_ = _import_gui_deps()
     window = focus_window(title_regex)
@@ -107,11 +129,12 @@ def launch(exe: Path) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["find", "focus", "screenshot", "send-text", "press", "click", "launch"])
+    parser.add_argument("action", choices=["find", "focus", "screenshot", "send-text", "press", "hotkey", "click", "launch"])
     parser.add_argument("--title", default=r"26\.1\.2-Fabric-Ebb-Test|Minecraft")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--text")
     parser.add_argument("--key")
+    parser.add_argument("--keys", nargs="+")
     parser.add_argument("--x", type=int)
     parser.add_argument("--y", type=int)
     parser.add_argument("--clicks", type=int, default=1)
@@ -134,6 +157,8 @@ def main() -> int:
         elif args.action == "click":
             if args.x is None or args.y is None: raise ValueError("--x and --y are required")
             result = click_relative(args.title, args.x, args.y, args.clicks)
+        elif args.action == "hotkey":
+            result = hotkey(args.title, args.keys or [])
         else:
             if args.key is None: raise ValueError("--key is required")
             result = press_key(args.title, args.key)

@@ -39,7 +39,14 @@ Example:
   "dialogue": "ebb:demo/innkeeper_intro",
   "interaction_range": 2.25,
   "highlight_range": 10.0,
-  "priority": 100
+  "priority": 100,
+  "highlight": {
+    "color": "#76F2B2",
+    "opacity": 1.0,
+    "far_opacity": 0.6,
+    "render_mode": "outline",
+    "priority": 40
+  }
 }
 ```
 
@@ -51,6 +58,15 @@ Supported match fields:
 - `entity_type` or `entity_types`: entity type id(s).
 
 Higher specificity/priority wins. Entity bindings are synced to modded clients with `EntityBindingSyncPayload` for dedicated-server-safe highlight/prompt prediction.
+
+Optional `highlight` fields are synced to clients:
+
+- `color`: base `#RRGGBB` or `#AARRGGBB`.
+- `opacity`: near/in-range alpha, 0.0–1.0.
+- `far_opacity`: far/highlight-only alpha, 0.0–1.0.
+- `close_color` / `far_color`: explicit colors when one base color is not enough.
+- `render_mode`: `outline`, `merged`, or `bounds`; entity bindings normally use `outline`.
+- `priority`: visual priority reserved for future overlapping-target polish.
 
 ## Block groups
 
@@ -66,7 +82,14 @@ Example:
     { "pos": [0, 64, 4], "block": "minecraft:oak_door" },
     [0, 65, 4]
   ],
-  "interaction_point": [0.5, 64.5, 4.5]
+  "interaction_point": [0.5, 64.5, 4.5],
+  "highlight": {
+    "color": "#64E6FF",
+    "opacity": 1.0,
+    "far_opacity": 0.55,
+    "render_mode": "merged",
+    "priority": 20
+  }
 }
 ```
 
@@ -75,6 +98,7 @@ Notes:
 - Each group may contain at most `max_blocks_per_group` blocks, default/hard limit 512.
 - Object block entries with `block` add server-side block predicate validation.
 - Large structures should be split into multiple logical groups or represented by smaller interaction hotspots.
+- Block-group `highlight.render_mode=merged` merges adjacent authored blocks into fewer outline boxes for cleaner visuals. Use `outline` for per-block outlines or `bounds` for a single bounding box.
 
 ## Dialogues
 

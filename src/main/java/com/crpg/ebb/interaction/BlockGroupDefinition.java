@@ -28,11 +28,13 @@ public record BlockGroupDefinition(
         Map<BlockPos, Identifier> expectedBlocks,
         Vec3 interactionPoint,
         Identifier dialogueId,
-        AABB bounds
+        AABB bounds,
+        HighlightStyle highlightStyle
 ) {
     public BlockGroupDefinition {
         blocks = List.copyOf(blocks);
         expectedBlocks = Map.copyOf(expectedBlocks);
+        highlightStyle = highlightStyle == null ? HighlightStyle.blockDefault() : highlightStyle;
     }
 
     public BlockGroupTarget asTarget() {
@@ -82,7 +84,14 @@ public record BlockGroupDefinition(
                     ? parseVec3(GsonHelper.getAsJsonArray(json, "anchor"), "anchor")
                     : bounds.getCenter();
 
-            return Optional.of(new BlockGroupDefinition(id, dimension, parsedBlocks.blocks(), parsedBlocks.expectedBlocks(), interactionPoint, dialogueId, bounds));
+            HighlightStyle highlightStyle = HighlightStyle.parseOptional(
+                    json,
+                    HighlightStyle.blockDefault(),
+                    messages,
+                    "Block group " + id
+            ).orElse(HighlightStyle.blockDefault());
+
+            return Optional.of(new BlockGroupDefinition(id, dimension, parsedBlocks.blocks(), parsedBlocks.expectedBlocks(), interactionPoint, dialogueId, bounds, highlightStyle));
         } catch (RuntimeException ex) {
             messages.add("Invalid block group " + id + ": " + ex.getMessage());
             return Optional.empty();
@@ -95,9 +104,10 @@ public record BlockGroupDefinition(
             List<BlockPos> blocks,
             Map<BlockPos, Identifier> expectedBlocks,
             Vec3 interactionPoint,
-            Identifier dialogueId
+            Identifier dialogueId,
+            HighlightStyle highlightStyle
     ) {
-        return new BlockGroupDefinition(id, dimension, blocks, expectedBlocks, interactionPoint, dialogueId, computeBounds(blocks));
+        return new BlockGroupDefinition(id, dimension, blocks, expectedBlocks, interactionPoint, dialogueId, computeBounds(blocks), highlightStyle);
     }
 
     private static ResourceKey<Level> parseDimension(String value) {

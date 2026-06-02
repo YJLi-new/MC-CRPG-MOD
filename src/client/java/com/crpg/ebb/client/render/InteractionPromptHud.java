@@ -12,6 +12,7 @@ public final class InteractionPromptHud {
     private static final int BACKGROUND = 0x90000000;
     private static final int BORDER = 0x8064E6FF;
     private static final int TEXT = 0xFFFFFFFF;
+    private static final int DEBUG_TEXT = 0xFFB8F4FF;
 
     private InteractionPromptHud() {
     }
@@ -26,17 +27,21 @@ public final class InteractionPromptHud {
 
     private static void render(net.minecraft.client.gui.GuiGraphicsExtractor graphics) {
         ClientInteractionState.Snapshot snapshot = ClientInteractionState.snapshot();
-        if (snapshot.target().isEmpty() || !snapshot.withinInteractionRange() || !snapshot.lineOfSight()) {
-            return;
-        }
-
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.level == null || minecraft.screen != null) {
             return;
         }
 
-        Component prompt = Component.translatable("hud.ebb.interact_prompt", Component.keybind("key.ebb.interact"));
         Font font = minecraft.font;
+        if (minecraft.getDebugOverlay().showDebugScreen()) {
+            renderDebugReason(graphics, font, snapshot);
+        }
+
+        if (snapshot.target().isEmpty() || !snapshot.withinInteractionRange() || !snapshot.lineOfSight()) {
+            return;
+        }
+
+        Component prompt = Component.translatable("hud.ebb.interact_prompt", Component.keybind("key.ebb.interact"));
         int x = graphics.guiWidth() / 2;
         int y = graphics.guiHeight() / 2 + 18;
         int width = font.width(prompt);
@@ -48,5 +53,50 @@ public final class InteractionPromptHud {
         graphics.fill(left, top, right, bottom, BACKGROUND);
         graphics.outline(left, top, right - left, bottom - top, BORDER);
         graphics.centeredText(font, prompt, x, y, TEXT);
+    }
+
+    private static void renderDebugReason(
+            net.minecraft.client.gui.GuiGraphicsExtractor graphics,
+            Font font,
+            ClientInteractionState.Snapshot snapshot
+    ) {
+        String reason = snapshot.reason();
+        int detailSeparator = reason.indexOf(':');
+        String reasonKind = detailSeparator >= 0 ? reason.substring(0, detailSeparator) : reason;
+        String reasonDetail = detailSeparator >= 0 ? reason.substring(detailSeparator + 1) : "";
+        String firstLine = "Ebb target: reason=" + reasonKind
+                + " d=" + (Double.isFinite(snapshot.distance())
+                ? String.format(java.util.Locale.ROOT, "%.2f", snapshot.distance())
+                : "-")
+                + (snapshot.withinInteractionRange() ? " in_range" : " too_far")
+                + " style=" + snapshot.highlightStyle().renderMode().serializedName();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add(firstLine);
+        snapshot.target().ifPresent(target -> {
+            String secondLine = "id=" + target.id() + " dialogue=" + target.dialogueId();
+            if (!reasonDetail.isBlank()) {
+                secondLine += " match=" + reasonDetail;
+            }
+            lines.add(clip(secondLine, 96));
+        });
+        if (snapshot.target().isEmpty() && !reasonDetail.isBlank()) {
+            lines.add("detail=" + clip(reasonDetail, 96));
+        }
+        int x = graphics.guiWidth() / 2;
+        int y = graphics.guiHeight() / 2 + 34;
+        for (int i = 0; i < lines.size(); i++) {
+            Component text = Component.literal(lines.get(i));
+            int width = font.width(text);
+            int lineY = y + i * 10;
+            graphics.fill(x - width / 2 - 4, lineY - 2, x + (width + 1) / 2 + 4, lineY + 10, BACKGROUND);
+            graphics.centeredText(font, text, x, lineY, DEBUG_TEXT);
+        }
+    }
+
+    private static String clip(String text, int maxChars) {
+        if (text.length() <= maxChars) {
+            return text;
+        }
+        return text.substring(0, Math.max(0, maxChars - 1)) + "…";
     }
 }

@@ -1,6 +1,7 @@
 package com.crpg.ebb.client.interaction;
 
 import com.crpg.ebb.interaction.InteractionTarget;
+import com.crpg.ebb.interaction.HighlightStyle;
 
 import java.util.Optional;
 
@@ -27,10 +28,19 @@ public final class ClientInteractionState {
             double distance,
             boolean withinInteractionRange,
             boolean lineOfSight,
-            String reason
+            String reason,
+            HighlightStyle highlightStyle
     ) {
+        public Snapshot {
+            highlightStyle = highlightStyle == null ? HighlightStyle.blockDefault() : highlightStyle;
+        }
+
         public static Snapshot empty() {
-            return new Snapshot(Optional.empty(), Double.NaN, false, false, "no_target");
+            return empty("no_target");
+        }
+
+        public static Snapshot empty(String reason) {
+            return new Snapshot(Optional.empty(), Double.NaN, false, false, reason, HighlightStyle.blockDefault());
         }
     }
 }

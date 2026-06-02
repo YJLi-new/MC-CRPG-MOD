@@ -5,5 +5,12 @@
     [0, 64, 4],
     [0, 65, 4]
   ],
-  "interaction_point": [0.5, 64.9, 3.75]
+  "interaction_point": [0.5, 64.9, 3.75],
+  "highlight": {
+    "color": "#64E6FF",
+    "opacity": 1.0,
+    "far_opacity": 0.55,
+    "render_mode": "merged",
+    "priority": 20
+  }
 }

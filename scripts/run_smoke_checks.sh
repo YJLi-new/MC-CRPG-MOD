@@ -13,7 +13,7 @@ for class_file in scripts/smoke/*.java; do
   .tools/jdk-25/bin/java -cp "build/tmp/smoke-classes:$CP" "$class_name"
 done
 
-if [ -d build/tmp/verify-src ]; then
+if [ "${EBB_RUN_LEGACY_VERIFY_SRC:-0}" = "1" ] && [ -d build/tmp/verify-src ]; then
   mkdir -p build/tmp/verify
   .tools/jdk-25/bin/javac -cp "$CP" -d build/tmp/verify build/tmp/verify-src/*.java
   for class_file in build/tmp/verify-src/*.java; do

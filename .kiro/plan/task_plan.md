@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-GUI automation final visual pass is complete. The separate PCL/Fabric `26.1.2-Fabric-Ebb-Test` profile was closed, relaunched, entered `新的世界 (1)`, loaded jar `23540536daaeda7e054813ee10fa4ce653fca1085876fce058f8a2819e3e3ec3`, and passed runtime + GUI verification for commands, four distinct role NPC dialogues, and all eight block-group dialogues.
+Architecture-plan implementation has started from `C:\Users\lanla\Downloads\minecraft_disco_crpg_mod_goal_architecture_plan.md`. P20/P21 documentation consolidation and baseline audit guardrails are implemented and verified. P22 interaction/highlight polish has begun: synced highlight styles, merged block outlines, concise F3 target-reason/style overlay, and profile refresh are implemented; automated validation is being refreshed before push, and full GUI relaunch visual proof for the new P22 styling remains next. The previous GUI final visual pass remains valid evidence: the separate PCL/Fabric `26.1.2-Fabric-Ebb-Test` profile loaded jar `23540536daaeda7e054813ee10fa4ce653fca1085876fce058f8a2819e3e3ec3` and passed runtime + GUI verification for commands, four distinct role NPC dialogues, and all eight block-group dialogues.
 
 ## Phases
 
@@ -183,6 +183,26 @@ GUI automation final visual pass is complete. The separate PCL/Fabric `26.1.2-Fa
 - [x] Verify dry-run, Node self-test, GUI automation smoke, existing GUI issue audit, and runtime stale-log detection.
 - [x] Execute full Windows GUI visual pass after client relaunch.
 - **Status:** complete
+
+### Phase 20: Architecture Plan P20/P21 Documentation and Baseline Health
+- [x] Read `C:\Users\lanla\Downloads\minecraft_disco_crpg_mod_goal_architecture_plan.md` and copy it into repository root as `GOAL.md`.
+- [x] Add repository-level onboarding docs: `README.md`, `AGENTS.md`, `docs/architecture.md`, `docs/current_status.md`, and `docs/status_reconciliation_2026-06-02.md`.
+- [x] Reconcile historical GUI-pending docs with the final automated GUI evidence without deleting old audit context.
+- [x] Extend `scripts/goal_static_audit.py` with P20/P21 guardrails: docs existence, version pins, required data directories, current artifact hashes, failure-forward checked-choice lint, and major Take-Root consequence checks.
+- [x] Run initial baseline `scripts/gradle-local.sh --no-daemon build` and `validateEbbData` after reading the new GOAL track.
+- [x] Run full P21 verification suite after documentation/audit changes.
+- **Status:** complete
+
+### Phase 21: Architecture Plan P22 Interaction and Highlight Polish
+- [x] Add data-driven `HighlightStyle` for block groups and entity bindings with colors, opacity, render mode, and visual priority.
+- [x] Sync highlight styles through block-group, entity-binding, and registered entity-target payloads.
+- [x] Render merged adjacent block-group outlines and support `outline` / `merged` / `bounds` render modes.
+- [x] Add F3-only Ebb target prediction reason/style overlay for no-target/unbound/too-far/binding-hit diagnostics.
+- [x] Add demo authoring data and docs for `highlight` style fields.
+- [x] Extend `scripts/goal_static_audit.py` with P22 guardrails.
+- [x] Build, validate data, smoke check, and GameTest after P22 code changes.
+- [ ] Close/relaunch the Windows test client and run GUI visual proof against the refreshed P22 jar.
+- **Status:** in_progress; code/data/docs/tests complete, P22 GUI relaunch proof pending.
 
 ## Key Questions
 1. Version pins? Resolved: Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, Loom `1.17.0-alpha.13`, GeckoLib `5.5.1`; no Yarn dependency line for 26.1+.

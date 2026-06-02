@@ -1,5 +1,6 @@
 package com.crpg.ebb.interaction.entity;
 
+import com.crpg.ebb.interaction.HighlightStyle;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 
@@ -10,7 +11,8 @@ public record SyncedEntityTarget(
         Identifier bindingId,
         Identifier dialogueId,
         double interactionRange,
-        double highlightRange
+        double highlightRange,
+        HighlightStyle highlightStyle
 ) {
     public SyncedEntityTarget {
         if (entityUuid == null) {
@@ -28,6 +30,7 @@ public record SyncedEntityTarget(
         if (!Double.isFinite(highlightRange) || highlightRange < interactionRange) {
             throw new IllegalArgumentException("highlightRange must be finite and >= interactionRange");
         }
+        highlightStyle = highlightStyle == null ? HighlightStyle.entityDefault() : highlightStyle;
     }
 
     public static SyncedEntityTarget from(Entity entity, EntityBindingDefinition binding) {
@@ -36,7 +39,8 @@ public record SyncedEntityTarget(
                 binding.id(),
                 binding.dialogueId(),
                 binding.interactionRange(),
-                binding.highlightRange()
+                binding.highlightRange(),
+                binding.highlightStyle()
         );
     }
 }

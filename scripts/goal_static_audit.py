@@ -2,13 +2,16 @@
 """Static audit for the active GOAL.md implementation track.
 
 The GOAL document is larger than the previous review reports. This audit grows
-phase-by-phase; it currently gates P2 Story Variables, P3 Quest Branch /
+phase-by-phase; it currently gates P20/P21 documentation/baseline guardrails,
+P2 Story Variables, P3 Quest Branch /
 Take Root / Feat MVP, P4 Chime / Inner Voice MVP, P5 Journal/UI rhythm,
 P6 relationship/NPC-memory/routine wiring, P7 investigation/conflict, and
 P8 playable vertical-slice content minimums.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 import sys
 
@@ -33,7 +36,218 @@ def require(name: str, haystack: str, *needles: str) -> None:
         raise AssertionError(f"{name}: missing {missing}")
 
 
+def parse_properties(relative: str) -> dict[str, str]:
+    props: dict[str, str] = {}
+    for raw in read(relative).splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        props[key.strip()] = value.strip()
+    return props
+
+
+def json_files(relative: str) -> list[Path]:
+    root = ROOT / relative
+    if not root.exists():
+        raise AssertionError(f"missing path: {relative}")
+    return sorted(root.rglob("*.json"))
+
+
+def load_json(path: Path) -> dict:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise AssertionError(f"{path.relative_to(ROOT)}: invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise AssertionError(f"{path.relative_to(ROOT)}: expected JSON object")
+    return data
+
+
+def sha256(relative: str) -> str:
+    path = ROOT / relative
+    if not path.exists():
+        raise AssertionError(f"missing file for hash: {relative}")
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def audit_p20_p21_documentation_and_baseline() -> None:
+    for path in [
+        "GOAL.md",
+        "README.md",
+        "AGENTS.md",
+        "docs/architecture.md",
+        "docs/current_status.md",
+        "docs/status_reconciliation_2026-06-02.md",
+    ]:
+        exists(path)
+
+    goal = read("GOAL.md")
+    require("GOAL product plan", goal, "Minecraft Disco-like CRPG Mod", "P20", "P21", "P31", "Final Target for Alpha 0.1")
+    require("GOAL operating contract", goal, "migrate this project", "Mandatory verification", "Every new dialogue check must fail forward")
+
+    readme = read("README.md")
+    require("README onboarding", readme, "Esoteric Ebb CRPG", "Build and validate", "Play in the local test profile", "Authoring")
+    require("README verification", readme, "scripts/run_smoke_checks.sh", "scripts/gradle-local.sh --no-daemon build", "GOAL.md", "docs/json_authoring_guide.md")
+
+    agents = read("AGENTS.md")
+    require("AGENTS guardrails", agents, "server-authoritative", "data-driven", "Do not make all entities interactable", "26.1.2-Fabric-Ebb-Test")
+
+    architecture = read("docs/architecture.md")
+    require("Architecture doc", architecture, "Runtime flow", "Data layer", "Interaction layer", "Networking layer", "Narrative state", "Verification contract")
+
+    status = read("docs/current_status.md")
+    require("Current status doc", status, "dialogues=13", "block_groups=8", "entity_bindings=10", "127 steps, 0 failures")
+    require("Status reconciliation", read("docs/status_reconciliation_2026-06-02.md"), "Historical docs remain valid", "final GUI report", "current status authorities")
+
+    props = parse_properties("gradle.properties")
+    expected = {
+        "minecraft_version": "26.1.2",
+        "loader_version": "0.19.2",
+        "fabric_api_version": "0.150.0+26.1.2",
+        "loom_version": "1.17.0-alpha.13",
+        "geckolib_version": "5.5.1",
+        "mod_version": "0.1.0-dev",
+        "maven_group": "com.crpg",
+        "archives_base_name": "ebb",
+        "mod_id": "ebb",
+        "mod_name": "Esoteric Ebb CRPG",
+    }
+    mismatches = {key: (props.get(key), value) for key, value in expected.items() if props.get(key) != value}
+    if mismatches:
+        raise AssertionError(f"gradle.properties pin mismatch: {mismatches}")
+    for value in expected.values():
+        if value not in goal and value not in status and value not in readme:
+            raise AssertionError(f"version/metadata value is undocumented: {value}")
+
+    fabric_mod = read("src/main/resources/fabric.mod.json")
+    require("fabric.mod.json entrypoints", fabric_mod, "com.crpg.ebb.EbbMod", "com.crpg.ebb.client.EbbClient", "com.crpg.ebb.test.EbbGameTests")
+
+    for data_dir in [
+        "src/main/resources/data/ebb/interactions/settings",
+        "src/main/resources/data/ebb/interactions/entity_bindings",
+        "src/main/resources/data/ebb/interactions/block_groups",
+        "src/main/resources/data/ebb/dialogues",
+        "src/main/resources/data/ebb/attributes",
+        "src/main/resources/data/ebb/chimes",
+        "src/main/resources/data/ebb/journal_entries",
+        "src/main/resources/data/ebb/quest_branches",
+        "src/main/resources/data/ebb/feats",
+        "src/main/resources/data/ebb/relationships",
+        "src/main/resources/data/ebb/npc_routines",
+        "src/main/resources/data/ebb/clues",
+        "src/main/resources/data/ebb/investigation_scenes",
+        "src/main/resources/data/ebb/conflicts",
+        "authoring/dialogues",
+        "authoring/interactables",
+        "authoring/npc",
+    ]:
+        exists(data_dir)
+
+    # P21: built jars must be documented when they exist. This keeps status docs
+    # honest after Java/resource changes that affect artifacts.
+    if (ROOT / "build/libs/ebb-0.1.0-dev.jar").exists():
+        jar_hash = sha256("build/libs/ebb-0.1.0-dev.jar")
+        if jar_hash not in status:
+            raise AssertionError(f"docs/current_status.md missing current jar hash {jar_hash}")
+    if (ROOT / "build/libs/ebb-0.1.0-dev-sources.jar").exists():
+        sources_hash = sha256("build/libs/ebb-0.1.0-dev-sources.jar")
+        if sources_hash not in status:
+            raise AssertionError(f"docs/current_status.md missing current sources jar hash {sources_hash}")
+
+    # Failure-forward lint: every bundled checked choice must have a failure
+    # branch and/or failure effects, and any failure branch must resolve to a
+    # non-empty node in the same dialogue.
+    for path in json_files("src/main/resources/data/ebb/dialogues"):
+        dialogue = load_json(path)
+        nodes = dialogue.get("nodes", {})
+        if not isinstance(nodes, dict):
+            continue
+        for node_id, node in nodes.items():
+            if not isinstance(node, dict):
+                continue
+            choices = node.get("choices", [])
+            if not isinstance(choices, list):
+                continue
+            for choice in choices:
+                if not isinstance(choice, dict) or "check" not in choice:
+                    continue
+                check = choice.get("check")
+                if not isinstance(check, dict):
+                    raise AssertionError(f"{path.relative_to(ROOT)}:{node_id}:{choice.get('id')}: check must be an object")
+                failure = check.get("failure") or check.get("fail")
+                failure_effects = check.get("failure_effects") or check.get("fail_effects")
+                if not failure and not failure_effects:
+                    raise AssertionError(f"{path.relative_to(ROOT)}:{node_id}:{choice.get('id')}: checked choice lacks failure-forward branch/effects")
+                if failure:
+                    failure_node = nodes.get(str(failure))
+                    if not isinstance(failure_node, dict):
+                        raise AssertionError(f"{path.relative_to(ROOT)}:{node_id}:{choice.get('id')}: missing failure node {failure}")
+                    if not (failure_node.get("text") or failure_node.get("text_key") or failure_node.get("choices") or failure_node.get("enter_effects")):
+                        raise AssertionError(f"{path.relative_to(ROOT)}:{failure}: failure node is empty")
+
+    # Major branches must take root into visible text plus a build/state
+    # consequence.
+    for path in json_files("src/main/resources/data/ebb/quest_branches"):
+        quest = load_json(path)
+        if str(quest.get("kind", "")).lower() != "major":
+            continue
+        if not str(quest.get("take_root_text", "")).strip():
+            raise AssertionError(f"{path.relative_to(ROOT)}: major quest branch missing take_root_text")
+        if not quest.get("grant_feats") and not quest.get("take_root_effects"):
+            raise AssertionError(f"{path.relative_to(ROOT)}: major quest branch lacks feat/effect consequence")
+
+
+def audit_p22_interaction_highlight_polish() -> None:
+    exists("src/main/java/com/crpg/ebb/interaction/HighlightStyle.java")
+    highlight_style = read("src/main/java/com/crpg/ebb/interaction/HighlightStyle.java")
+    require("HighlightStyle", highlight_style, "closeColor", "farColor", "RenderMode", "OUTLINE", "MERGED", "BOUNDS", "opacity")
+
+    block_group = read("src/main/java/com/crpg/ebb/interaction/BlockGroupDefinition.java")
+    require("Block group highlight style", block_group, "HighlightStyle", "parseOptional", "highlightStyle", "blockDefault")
+    entity_binding = read("src/main/java/com/crpg/ebb/interaction/entity/EntityBindingDefinition.java")
+    require("Entity binding highlight style", entity_binding, "HighlightStyle", "parseOptional", "highlightStyle", "entityDefault", "debugSummary")
+
+    require("Block group style sync", read("src/main/java/com/crpg/ebb/network/sync/BlockGroupSyncPayload.java"), "writeHighlightStyle", "readHighlightStyle", "definition.highlightStyle()")
+    require("Entity binding style sync", read("src/main/java/com/crpg/ebb/network/sync/EntityBindingSyncPayload.java"), "writeHighlightStyle", "readHighlightStyle", "definition.highlightStyle()")
+    require("Entity target style sync", read("src/main/java/com/crpg/ebb/network/sync/EntityTargetSyncPayload.java"), "writeHighlightStyle", "readHighlightStyle", "target.highlightStyle()")
+    require("Synced entity style", read("src/main/java/com/crpg/ebb/interaction/entity/SyncedEntityTarget.java"), "HighlightStyle", "binding.highlightStyle()")
+
+    detector = read("src/client/java/com/crpg/ebb/client/interaction/ClientTargetDetector.java")
+    require("Client target prediction reasons/styles", detector, "highlightStyle", "outside_binding_highlight_range", "unbound_entity", "targetData.highlightStyle()", "binding.highlightStyle()")
+    require("Entity highlight respects binding range", detector, "distance > highlightRange", "ClientEntityTargetIndex.contains", "EntityBindingRegistry.isRegisteredTarget")
+
+    state = read("src/client/java/com/crpg/ebb/client/interaction/ClientInteractionState.java")
+    require("Client interaction state debug", state, "reason", "highlightStyle", "empty(String reason)")
+
+    renderer = read("src/client/java/com/crpg/ebb/client/render/TargetHighlightRenderer.java")
+    require("Target renderer style/merge", renderer, "snapshot.highlightStyle()", "mergeAdjacentBlockBoxes", "RenderMode.MERGED", "RenderMode.BOUNDS", "RenderMode.OUTLINE")
+
+    hud = read("src/client/java/com/crpg/ebb/client/render/InteractionPromptHud.java")
+    require("Target debug overlay", hud, "showDebugScreen", "Ebb target:", "snapshot.reason()", "style=")
+
+    service = read("src/main/java/com/crpg/ebb/interaction/InteractionService.java")
+    require("Server LOS collider policy", service, "ClipContext.Block.COLLIDER", "blocked_line_of_sight")
+
+    locked_door = load_json(ROOT / "src/main/resources/data/ebb/interactions/block_groups/demo/locked_door.json")
+    if "highlight" not in locked_door or locked_door["highlight"].get("render_mode") != "merged":
+        raise AssertionError("locked_door block group should exercise highlight.render_mode=merged")
+    innkeeper_binding = load_json(ROOT / "src/main/resources/data/ebb/interactions/entity_bindings/demo/innkeeper_ebb_npc_name.json")
+    if "highlight" not in innkeeper_binding or innkeeper_binding["highlight"].get("render_mode") != "outline":
+        raise AssertionError("innkeeper name binding should exercise highlight.render_mode=outline")
+
+    docs = read("docs/json_authoring_guide.md")
+    require("Authoring docs highlight style", docs, "Optional `highlight` fields", "render_mode", "merged", "bounds", "far_opacity")
+
+
 def main() -> int:
+    audit_p20_p21_documentation_and_baseline()
+    audit_p22_interaction_highlight_polish()
+
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")
     require("StoryVarLayer", read("src/main/java/com/crpg/ebb/story/StoryVarLayer.java"), "BRANCH", "MAJOR", "MINOR", "serializedName")
@@ -243,7 +457,7 @@ def main() -> int:
     require("Authoring docs P8", docs, "Playable Tavern Vertical Slice Content Map", "eight block-group investigation points", "back door / ending placeholder")
     require("P8 completion audit", read("docs/goal_p8_vertical_slice_2026-06-01.md"), "four role NPCs", "eight interactable investigation points", "Ending placeholders")
 
-    print("GoalStaticAudit passed: P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
+    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
     return 0
 
 

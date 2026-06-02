@@ -67,7 +67,8 @@ public final class InteractionSettings {
                 settings.debugEntityFallbackDialogue(),
                 settings.debugEntityFallbackInteractionRange(),
                 settings.debugEntityFallbackHighlightRange(),
-                Integer.MIN_VALUE
+                Integer.MIN_VALUE,
+                HighlightStyle.entityDefault()
         );
     }
 

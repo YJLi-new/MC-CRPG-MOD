@@ -1,6 +1,7 @@
 package com.crpg.ebb.network.sync;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.interaction.HighlightStyle;
 import com.crpg.ebb.interaction.InteractionSyncLimits;
 import com.crpg.ebb.interaction.entity.SyncedEntityTarget;
 import io.netty.handler.codec.DecoderException;
@@ -55,6 +56,7 @@ public record EntityTargetSyncPayload(
         buffer.writeIdentifier(target.dialogueId());
         buffer.writeDouble(target.interactionRange());
         buffer.writeDouble(target.highlightRange());
+        writeHighlightStyle(buffer, target.highlightStyle());
     }
 
     private static SyncedEntityTarget readTarget(RegistryFriendlyByteBuf buffer) {
@@ -63,12 +65,28 @@ public record EntityTargetSyncPayload(
         Identifier dialogueId = buffer.readIdentifier();
         double interactionRange = buffer.readDouble();
         double highlightRange = buffer.readDouble();
+        HighlightStyle highlightStyle = readHighlightStyle(buffer);
         if (interactionRange <= 0.0D || highlightRange < interactionRange
                 || !Double.isFinite(interactionRange) || !Double.isFinite(highlightRange)) {
             throw new DecoderException("Invalid range for synced entity target " + entityUuid + ": "
                     + interactionRange + "/" + highlightRange);
         }
-        return new SyncedEntityTarget(entityUuid, bindingId, dialogueId, interactionRange, highlightRange);
+        return new SyncedEntityTarget(entityUuid, bindingId, dialogueId, interactionRange, highlightRange, highlightStyle);
+    }
+
+    private static void writeHighlightStyle(RegistryFriendlyByteBuf buffer, HighlightStyle style) {
+        buffer.writeInt(style.closeColor());
+        buffer.writeInt(style.farColor());
+        buffer.writeUtf(style.renderMode().serializedName(), 16);
+        buffer.writeVarInt(style.priority());
+    }
+
+    private static HighlightStyle readHighlightStyle(RegistryFriendlyByteBuf buffer) {
+        int closeColor = buffer.readInt();
+        int farColor = buffer.readInt();
+        HighlightStyle.RenderMode renderMode = HighlightStyle.RenderMode.parse(buffer.readUtf(16));
+        int priority = buffer.readVarInt();
+        return new HighlightStyle(closeColor, farColor, renderMode, priority);
     }
 
     @Override
