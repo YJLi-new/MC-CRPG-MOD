@@ -1,0 +1,8 @@
+{
+  "title": "钥匙回声",
+  "kind": "minor",
+  "description": "确认钥匙不存在时，谁还在按钥匙说话。",
+  "grant_feats": [
+    "ebb:demo/lock_memory"
+  ]
+}

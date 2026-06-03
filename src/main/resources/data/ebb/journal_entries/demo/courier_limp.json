@@ -1,0 +1,11 @@
+{
+  "title": "Courier Limp Timing",
+  "category": "clue",
+  "quest": "ebb:demo/minor_courier_route",
+  "text": "信使的跛脚只在提到后巷时出现。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_courier_route"
+  ]
+}

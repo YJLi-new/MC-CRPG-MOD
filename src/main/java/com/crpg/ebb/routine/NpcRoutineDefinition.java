@@ -10,13 +10,53 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 public record NpcRoutineDefinition(
         Identifier id,
         List<Step> steps,
         LookAtPlayer lookAtPlayer
 ) {
+    public static final Set<String> ALLOWED_ACTIONS = Set.of(
+            "stand",
+            "wait",
+            "walk",
+            "walk_path",
+            "look_at",
+            "play_animation",
+            "set_pose",
+            "teleport_fallback"
+    );
+    public static final Set<String> ALLOWED_ANIMATIONS = Set.of(
+            "idle",
+            "walk",
+            "fidget",
+            "talk",
+            "think",
+            "dismiss",
+            "nervous_idle",
+            "scripted"
+    );
+    public static final Set<String> ALLOWED_POSES = Set.of(
+            "standing",
+            "blocking",
+            "suspicious",
+            "guarded",
+            "listening",
+            "composed",
+            "restless",
+            "leaning",
+            "pacing",
+            "conversation",
+            "talking",
+            "thinking",
+            "dismissing",
+            "nervous",
+            "scripted"
+    );
+
     public NpcRoutineDefinition {
         steps = List.copyOf(steps);
     }
@@ -61,7 +101,16 @@ public record NpcRoutineDefinition(
         }
         int start = time.get(0).getAsInt();
         int end = time.get(1).getAsInt();
-        String action = GsonHelper.getAsString(json, "action", "stand");
+        if (start < 0 || start > 24000 || end < 0 || end > 24000 || start == end) {
+            messages.add("npc routine " + id + ": steps[" + index + "].time entries must be 0..24000 and not equal");
+            return Optional.empty();
+        }
+        String action = GsonHelper.getAsString(json, "action", "stand").trim().toLowerCase(Locale.ROOT);
+        if (!ALLOWED_ACTIONS.contains(action)) {
+            messages.add("npc routine " + id + ": steps[" + index + "].action \"" + action
+                    + "\" is invalid; expected one of " + ALLOWED_ACTIONS);
+            return Optional.empty();
+        }
         Optional<Vec3> pos = json.has("pos") && json.get("pos").isJsonArray() ? Optional.of(parseVec3(json.getAsJsonArray("pos"))) : Optional.empty();
         List<Vec3> path = new ArrayList<>();
         if (json.has("path") && json.get("path").isJsonArray()) {
@@ -72,8 +121,28 @@ public record NpcRoutineDefinition(
             }
         }
         Optional<String> look = json.has("look") && !json.get("look").isJsonNull() ? Optional.of(GsonHelper.getAsString(json, "look")) : Optional.empty();
-        Optional<String> animation = optionalString(json, "animation").or(() -> optionalString(json, "play_animation"));
-        Optional<String> pose = optionalString(json, "pose").or(() -> optionalString(json, "set_pose"));
+        Optional<String> animation = optionalString(json, "animation").or(() -> optionalString(json, "play_animation"))
+                .map(value -> value.trim().toLowerCase(Locale.ROOT));
+        Optional<String> pose = optionalString(json, "pose").or(() -> optionalString(json, "set_pose"))
+                .map(value -> value.trim().toLowerCase(Locale.ROOT));
+        if (animation.isPresent() && !ALLOWED_ANIMATIONS.contains(animation.get())) {
+            messages.add("npc routine " + id + ": steps[" + index + "].animation \"" + animation.get()
+                    + "\" is invalid; expected one of " + ALLOWED_ANIMATIONS);
+            return Optional.empty();
+        }
+        if (pose.isPresent() && !ALLOWED_POSES.contains(pose.get())) {
+            messages.add("npc routine " + id + ": steps[" + index + "].pose \"" + pose.get()
+                    + "\" is invalid; expected one of " + ALLOWED_POSES);
+            return Optional.empty();
+        }
+        if ("walk_path".equals(action) && path.size() < 2) {
+            messages.add("npc routine " + id + ": steps[" + index + "].path must contain at least two waypoints for walk_path");
+            return Optional.empty();
+        }
+        if ((Set.of("stand", "walk", "look_at", "teleport_fallback").contains(action)) && pos.isEmpty() && path.isEmpty()) {
+            messages.add("npc routine " + id + ": steps[" + index + "] action " + action + " requires pos or path");
+            return Optional.empty();
+        }
         double teleportDistance = optionalDouble(json, "teleport_distance")
                 .or(() -> optionalDouble(json, "teleportFallbackDistance"))
                 .orElse(16.0D);

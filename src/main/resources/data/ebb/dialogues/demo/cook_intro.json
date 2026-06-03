@@ -1,0 +1,94 @@
+{
+  "id": "ebb:demo/cook_intro",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "cook",
+      "text": "厨房的热气让厨子看起来像一句一直没说出口的证词。",
+      "choices": [
+        {
+          "id": "ask",
+          "type": "dialogue",
+          "text": "你在案发前最后看见了什么？",
+          "next": "route",
+          "effects": [
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/cook_burn"
+            },
+            {
+              "type": "start_quest_branch",
+              "id": "ebb:demo/tavern_trade"
+            }
+          ]
+        },
+        {
+          "id": "pressure",
+          "type": "action",
+          "text": "把问题推进到交易/留情的边缘。",
+          "next": "branch",
+          "check": {
+            "attribute": "charisma",
+            "dc": 12,
+            "success": "branch",
+            "failure": "fail_forward",
+            "success_effects": [
+              {
+                "type": "complete_quest_branch",
+                "id": "ebb:demo/tavern_trade"
+              }
+            ],
+            "failure_effects": [
+              {
+                "type": "add_relation",
+                "relation": "ebb:demo/cook",
+                "amount": -1
+              }
+            ]
+          }
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "暂时离开。"
+        }
+      ]
+    },
+    "route": {
+      "speaker": "cook",
+      "text": "他没有给你完整答案，只给了一个能继续追的缺口。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "回到问题。",
+          "next": "start"
+        }
+      ]
+    },
+    "branch": {
+      "speaker": "narrator",
+      "text": "这条路线暂时扎根；更长的后果会在下一版长出来。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续。",
+          "next": "start"
+        }
+      ]
+    },
+    "fail_forward": {
+      "speaker": "narrator",
+      "text": "他退后半步，但退后的方向暴露了另一条路。失败继续推进。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续追。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

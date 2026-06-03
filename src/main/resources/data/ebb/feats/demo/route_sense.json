@@ -1,0 +1,9 @@
+{
+  "display_name": "Route Sense",
+  "description": "You feel how bodies move through service corridors and alleys.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "wisdom": 1
+  }
+}

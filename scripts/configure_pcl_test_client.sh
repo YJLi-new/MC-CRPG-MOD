@@ -38,6 +38,38 @@ require_file "$BASE_DIR/$BASE_ID.json"
 require_file "$BASE_DIR/$BASE_ID.jar"
 require_file "$PROJECT_DIR/build/libs/ebb-0.1.0-dev.jar"
 
+profile_running_pids() {
+  if ! command -v powershell.exe >/dev/null 2>&1; then
+    return 0
+  fi
+  PROFILE_ID="$PROFILE_ID" powershell.exe -NoProfile -Command '
+$profile = $env:PROFILE_ID
+Get-CimInstance Win32_Process |
+  Where-Object {
+    ($_.Name -eq "javaw.exe" -or $_.Name -eq "java.exe") -and
+    $_.CommandLine -and
+    ($_.CommandLine.Contains("--version $profile") -or $_.CommandLine.Contains("versions\$profile"))
+  } |
+  ForEach-Object { $_.ProcessId }
+' 2>/dev/null | tr -d '\r'
+}
+
+RUNNING_PROFILE_PIDS="$(profile_running_pids | sed '/^$/d' || true)"
+if [[ -n "$RUNNING_PROFILE_PIDS" && "${EBB_ALLOW_RUNNING_PROFILE_REFRESH:-}" != "1" ]]; then
+  cat >&2 <<EOF_RUNNING
+Refusing to refresh $PROFILE_ID while its Minecraft Java process is still running.
+Running PID(s): $RUNNING_PROFILE_PIDS
+
+Reason: overwriting profile-local mod jars while Minecraft is open can leave the JVM
+with stale ZIP offsets and later produce errors such as:
+  ZipFile invalid LOC header / Failed to load class file
+
+Fully close Minecraft first, then rerun this script. If you are intentionally doing
+low-level testing, set EBB_ALLOW_RUNNING_PROFILE_REFRESH=1 to override.
+EOF_RUNNING
+  exit 2
+fi
+
 if [[ ! -f "$FABRIC_PROFILE_JSON" ]]; then
   curl -fsSL "https://meta.fabricmc.net/v2/versions/loader/$BASE_ID/$FABRIC_LOADER_VERSION/profile/json" -o "$FABRIC_PROFILE_JSON"
 fi

@@ -1,0 +1,13 @@
+id: tavern_case/pantry_keeper
+baseEntity: ebb:npc
+dialogueBindings:
+  default: tavern_case/locked_pantries
+  tags: [ebb.npc.tavern_case.pantry_keeper]
+routine:
+  id: tavern_case/pantry_keeper_day
+  schedule:
+    - from: 0
+      to: 12000
+      action: stand
+      pos: [13.5, 64.0, 2.5]
+      look: player

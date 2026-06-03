@@ -1,0 +1,45 @@
+{
+  "id": "ebb:demo/guestbook_torn_page_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "住客簿缺了一页，缺口像是被人用不耐烦撕开的。",
+      "choices": [
+        {
+          "id": "inspect",
+          "type": "thought",
+          "text": "把这个细节写进案子的路线图。",
+          "next": "noted",
+          "effects": [
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/guestbook_gap"
+            },
+            {
+              "type": "start_quest_branch",
+              "id": "ebb:demo/minor_guestbook_gap"
+            }
+          ]
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "暂时离开。"
+        }
+      ]
+    },
+    "noted": {
+      "speaker": "inner voice",
+      "text": "证据没有变大，但它终于有了方向。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

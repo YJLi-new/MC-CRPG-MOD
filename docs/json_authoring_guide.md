@@ -114,6 +114,18 @@ Core concepts:
 - Choice `effects`: pre-roll / outcome-independent effects.
 - Choice `check`: server-side d20 check with outcome branches and outcome effects.
 - `text_key` may be used instead of, or alongside, literal `text` for localization.
+- When `text_key` is missing from the active language file, the client falls back to literal `text` instead of showing the raw translation key.
+- Check display controls:
+  - `hidden_dc: true` or `show_dc: false` hides the numeric DC from choice labels and roll-result echoes.
+  - `hidden_roll: true` or `show_roll: false` hides the d20/total arithmetic while still reporting the resolved outcome.
+  - `display_dc` and `display_roll` are accepted aliases for `show_dc` / `show_roll`.
+
+Player-facing reading settings:
+
+- The dialogue screen exposes A-/A+ controls for local dialogue font scale.
+- The dialogue screen exposes a speed button cycling Slow / Normal / Fast / Instant text reveal.
+- These are client-only readability preferences saved in `config/ebb-client.json`; they do not affect server-authoritative checks, choices, conditions, or effects.
+- The dialogue layout computes body, status, choice, and done-button regions from one panel model so scaled text/status echoes are clipped rather than overlapping choices.
 
 Check outcome effect keys:
 
@@ -121,6 +133,122 @@ Check outcome effect keys:
 - `failure_effects`
 - `critical_success_effects`
 - `critical_failure_effects`
+
+## P24 validation, schemas, and reference tables
+
+Machine-readable starter schemas live under `docs/schemas/`:
+
+- `ebb.dialogue.schema.json`
+- `ebb.block_group.schema.json`
+- `ebb.entity_binding.schema.json`
+- `ebb.chime.schema.json`
+- `ebb.conflict.schema.json`
+
+They are intentionally conservative authoring aids; the Java parsers and `scripts/p24_authoring_validation.py` remain the authoritative validation path for cross-file references and failure-forward rules.
+
+## P29 save/load, multiplayer, and permission hardening contract
+
+Narrative state is server-owned and saved through `NarrativeSavedData`. P29 sets `CURRENT_SCHEMA_VERSION = 2`; older v1 saves are migrated on load and re-saved at the current version. The v1→v2 migration infers missing `conflict_phase:<conflict_id>` states from legacy `conflict:<conflict_id>` state plus persisted stress/resolve scores, so existing worlds keep their hallway-confrontation progress while gaining P28 phases.
+
+Multiplayer dialogue sessions are also server-authoritative:
+
+- One player may have only one active session; opening a new dialogue closes that player's older one.
+- Two players may talk to different NPCs concurrently.
+- The same entity is reserved while another player's dialogue session targets it; a second opener receives `entity_dialogue_busy`.
+- Choice packets are preflighted by conversation UUID, player UUID, and timeout. Spoofed, stale, expired, invalid-choice, unavailable-choice, and stale-target/action packets are denied before effects run.
+- Disconnect, respawn, leave, dimension change, timeout, and server stopping clean up sessions.
+
+Command permission rules:
+
+- OP/GAMEMASTER-gated: `/ebb dev`, `/ebb dialogue inspect|tree|reload`, `/ebb routine`, `/ebb export save-debug`, `/ebb summon_npc`, `/ebb attributes grant|set|reset`.
+- Player-safe self-inspection: `/ebb status`, `/ebb data`, `/ebb vars`, `/ebb dialogue vars`, `/ebb journal`, `/ebb quest`, `/ebb attributes`, `/ebb attributes spend`.
+
+Dedicated-server client diagnostics are surfaced in `/ebb dev`: if a player does not advertise Ebb sync payloads (`BlockGroupSyncPayload`, `EntityBindingSyncPayload`, or `EntityTargetSyncPayload`), the server records missing-client-mod diagnostics rather than silently assuming client prediction is available.
+
+## P30 Vertical slice content expansion map
+
+P30 expands the tavern slice into a larger 3-act proof-of-design:
+
+1. **Discovery:** the original locked door, ledger, mirror, window, luggage, notice board, cellar hatch, and back door introduce the room.
+2. **Pressure / investigation:** new investigation points (`stairwell_dust`, `kitchen_manifest`, `guestbook_torn_page`, `stable_mud`) plus cook/courier NPCs add service-route, trade, and mercy clues.
+3. **Confrontation / ending:** hallway, kitchen, and courtyard set-piece conflicts feed public, quiet, messy, trade, and mercy ending placeholders.
+
+P30 content minimums now tracked by static/JUnit/smoke checks:
+
+- 12 block-group investigation points.
+- At least 6 NPC roles or equivalent depth; current data has innkeeper, witness, tenant, guard, cook, and courier coverage through role bindings/routines/dialogues.
+- 4 major branches and 8 minor branches.
+- 12 feats.
+- 8 Chimes with at least 40 Chime lines.
+- At least 20 journal entries and 20 clues.
+- 3 set-piece conflicts.
+- Ending placeholders for each major route (`public_end`, `quiet_end`, `trade_end`, `mercy_end`) plus the messy fail-forward route.
+
+Run authoring checks from the repository root:
+
+```bash
+scripts/compile_authoring_sources.py --clean
+scripts/compile_authoring_sources.py --source authoring/examples/tavern_case --out build/generated/ebb_authoring_examples/tavern_case/data/ebb --clean
+scripts/p24_authoring_validation.py
+scripts/p24_authoring_validation.py build/generated/ebb_authoring_examples/tavern_case/data/ebb
+```
+
+Compiler diagnostics include file names and, for malformed YAML/JSON, parser line/column positions. Cross-reference validation checks dialogue ids, node-local branch refs, quest ids, feat ids, chime trigger tags, journal/clue ids, routine ids, relationship ids, investigation scene ids, and conflict ids.
+
+### Condition reference
+
+| Type / aliases | Required fields | Optional fields | Meaning | Cross-reference target |
+|---|---|---|---|---|
+| `flag`, `has_flag`, `not_flag`, `trait`, `thought` | `id` / `key` / `flag` / `trait` / `thought` | `scope`, `expected`, `value` | Player/world boolean flag, trait, or thought gate. | Local narrative state |
+| `variable_equals`, `var_equals`, `variable` | `id` / `key`, `equals` / `string_value` / `value` | `scope`, `expected` | Player/world string variable equality. | Local narrative state |
+| `attribute_at_least`, `skill_at_least`, `attribute` | `attribute` / `id` / `key`, `min` / `at_least` | `expected` | DND-8 attribute threshold gate. | Attribute key/alias |
+| `story_var`, `story_variable`, `story_var_equals`, `story_var_at_least` | `id` / `story_var`, plus `value`/`equals` or `min` | `scope`, `layer`, `expected` | Branch/Major/Minor story variable equality or integer threshold. | Story variable layer/key |
+| `quest_state`, `quest`, `quest_branch` | `id` / `quest` / `quest_branch` | `state` / `value`, `expected` | Quest branch state, defaulting to `take_rooted`. | `quest_branches` |
+| `has_feat`, `feat`, `has_active_feat` | `id` / `feat` | `expected` | Unlocked/known feat gate. | `feats` |
+| `has_journal_entry`, `journal`, `journal_entry` | `id` / `journal` / `journal_entry` | `expected` | Journal entry gate. | `journal_entries` |
+| `clue_found`, `has_clue`, `clue` | `id` / `clue` | `expected` | Clue or matching journal-entry gate. | `clues` |
+| `relation_at_least`, `relationship_at_least`, `relation`, `relationship` | `id` / `relation` / `relationship`, `min` | `expected` | NPC relationship threshold gate. | `relationships` |
+| `npc_state`, `npc_tag`, `has_npc_state`, `has_npc_tag` | `npc` / `npc_id` / `id`, `tag` / `state` / `state_tag` | `scope`, `expected` | NPC memory/state tag gate. | NPC state key |
+| `time_window`, `time`, `time_of_day`, `day_time` | `start` / `min`, `end` / `max` | `expected` | Minecraft day-time window; wrap-around windows are supported. | Day time |
+| `conflict_state`, `conflict`, `conflict_status` | `id` / `conflict` | `state` / `value`, `expected` | Set-piece conflict state gate. | `conflicts` |
+| `scene_phase`, `scene`, `scene_status` | `id` / `scene` | `phase` / `value`, `expected` | Investigation scene phase gate. | `investigation_scenes` |
+
+### Effect reference
+
+| Type / aliases | Required fields | Value fields | Status echo / behavior | Cross-reference target |
+|---|---|---|---|---|
+| `set_flag`, `setFlag` | `id` / `key` / `flag` | `scope` | Sets a player/world flag. | Local narrative state |
+| `clear_flag`, `clearFlag` | `id` / `key` / `flag` | `scope` | Clears a player/world flag. | Local narrative state |
+| `set_attribute` | `attribute` / `id`, integer `value` | — | Sets player attribute score. | Attribute key/alias |
+| `set_variable`, `set_var`, `setVar` | `id` / `key` / `var` | `string_value` / `text` / `value`, `scope` | Sets a string variable. | Local narrative state |
+| `clear_variable`, `clear_var` | `id` / `key` / `var` | `scope` | Clears a string variable. | Local narrative state |
+| `set_story_var`, `story_var`, `setStoryVar` | `id` / `story_var` | `value`, `scope`, `layer` | Emits `story_var_set`. | Story variable layer/key |
+| `clear_story_var`, `clearStoryVar` | `id` / `story_var` | `scope`, `layer` | Emits `story_var_clear`. | Story variable layer/key |
+| `add_story_int`, `addStoryInt`, `increment_story_var` | `id` / `story_var` | `amount` / `delta` / `value`, `scope`, `layer` | Emits `story_var_add`. | Story variable layer/key |
+| `start_quest_branch`, `start_quest` | `id` / `quest` / `quest_branch` | — | Starts quest branch. | `quest_branches` |
+| `complete_quest_branch`, `complete_quest`, `take_root` | `id` / `quest` / `quest_branch` | — | Completes branch and may Take Root. | `quest_branches` |
+| `unlock_feat`, `grant_feat` | `id` / `feat` | — | Unlocks a feat. | `feats` |
+| `activate_feat`, `equip_feat`, `slot_feat` | `id` / `feat` | — | Activates feat slot. | `feats` |
+| `add_journal_entry`, `journal`, `add_journal` | `id` / `journal` / `journal_entry` | — | Emits journal/clue status. | `journal_entries` |
+| `reveal_clue`, `add_clue`, `clue` | `id` / `clue` | — | Reveals clue and linked journal behavior. | `clues` |
+| `set_relation`, `relation`, `set_relationship` | `id` / `relation` / `relationship` | integer `value` / `amount` / `delta` | Emits `relation_changed`. | `relationships` |
+| `add_relation`, `modify_relation` | `id` / `relation` / `relationship` | integer `value` / `amount` / `delta` | Adds to relation and emits `relation_changed`. | `relationships` |
+| `set_npc_state`, `npc_state`, `add_npc_tag` | `id` / `npc` / `npc_id` | `tag` / `state` / `state_tag`, `scope` | Emits `npc_state_set`. | NPC state key |
+| `clear_npc_state`, `remove_npc_tag` | `id` / `npc` / `npc_id` | `tag` / `state` / `state_tag`, `scope` | Emits `npc_state_clear`. | NPC state key |
+| `set_npc_routine`, `routine`, `set_routine` | `id` / `routine` | — | Requests routine change for interacted Ebb NPC. | `npc_routines` |
+| `start_conflict`, `conflict` | `id` / `conflict` | — | Starts set-piece conflict. | `conflicts` |
+| `add_conflict_stress`, `add_stress` | `id` / `conflict` | integer `amount` / `delta` / `value` | Adds stress. | `conflicts` |
+| `add_conflict_resolve`, `add_resolve` | `id` / `conflict` | integer `amount` / `delta` / `value` | Adds resolve. | `conflicts` |
+| `apply_conflict_outcome`, `conflict_outcome`, `resolve_conflict` | `id` / `conflict` | `outcome` / `outcome_id` / `value` | Applies a declared conflict outcome and sets phase. | `conflicts.outcomes` |
+| `set_conflict_state` | `id` / `conflict` | `state` / `value` | Emits `conflict_state`. | `conflicts` |
+| `set_scene_phase`, `scene_phase` | `id` / `scene` | `phase` / `value` | Emits `scene_phase`. | `investigation_scenes` |
+| `add_trait`, `remove_trait` | `id` / `trait` | — | Sets/clears trait flag. | Local narrative state |
+| `add_thought`, `remove_thought` | `id` / `thought` | — | Sets/clears thought flag. | Local narrative state |
+| `unlock_retry`, `unlock` | `id` / `key` / `unlock` | — | Sets retry unlock flag. | Local narrative state |
+| `give_item`, `take_item` | `id` / `key` | — | Placeholder item flag; not real inventory yet. | Placeholder state |
+| `routine_placeholder` | `id` / `routine` | — | Legacy placeholder, prefer `set_npc_routine`. | Placeholder state |
+
+High-stakes checks (`dc >= 10` unless explicitly `optional: true`) should include a `failure` branch or `failure_effects`; validation reports them as authoring errors.
 
 ## Story Variables
 
@@ -159,14 +287,33 @@ Path: `data/<namespace>/chimes/<id>.json`
   "name": "Rhetoric",
   "source_attribute": "charisma",
   "min_score": 1,
-  "trigger_tags": ["innkeeper.read"],
+  "trigger_tags": ["innkeeper.read", "witness.read"],
+  "tone_guide": "Argument architecture. Finds leverage in wording, audience, framing, and who loses narrative control.",
   "speaker_style": "argument",
   "cooldown_ticks": 200,
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": ["ebb:demo/thought_rhetoric"],
   "lines": ["别问钥匙。问谁会因为钥匙被交出来而失去叙事控制。"]
 }
 ```
 
-Dialogue nodes can opt into passive insert resolution with `chime_tags`:
+Fields:
+
+| Field | Meaning |
+|---|---|
+| `source_attribute` / `attribute` | DND-8 attribute key or alias that powers this voice. |
+| `min_score` | Minimum player score required before the voice can speak. |
+| `trigger_tags` / `tags` | Dialogue-node `chime_tags` that this Chime can answer. |
+| `tone_guide` | Author-facing tone contract; keep it specific enough that future lines stay consistent. |
+| `speaker_style` | Short rendering/dev label such as `argument`, `soft`, `gut`, or `warning`. |
+| `cooldown_ticks` / `cooldown` | Per-player anti-spam cooldown between passive inserts from the same Chime. |
+| `one_shot_per_node` / `one_shot` | Default `true`; prevents repeating the same Chime on the same dialogue node. |
+| `one_shot_global` | Optional stronger lock that lets this Chime speak only once per player. |
+| `active_thoughts` / `active_thought` | Thought IDs unlocked by active follow-up routes associated with this Chime. |
+| `lines` / `text` | Passive insert text candidates shown in the dialogue status area. |
+
+Dialogue nodes opt into passive insert resolution with `chime_tags`:
 
 ```json
 {
@@ -181,13 +328,16 @@ Runtime behavior:
 - The server checks the current node's `chime_tags` against loaded chimes.
 - A chime triggers when the player has the required source attribute score.
 - The passive insert appears in the dialogue status area with cyan Chime styling.
-- Triggering a chime writes `chime:<id>` as a player flag, so a normal condition can unlock a follow-up thought path:
+- Triggering a chime writes `chime:<id>` as a player flag, so a normal condition can unlock a follow-up thought path.
+- `cooldown_ticks`, `one_shot_per_node`, and `one_shot_global` keep Chimes from spamming repeated nodes.
+- Active thought routes should usually add the matching thought flag with `add_thought`, allowing the Journal/Quest/Dev views to show that the player internalized the insight.
 
 ```json
 { "type": "flag", "scope": "player", "id": "chime:ebb:demo/rhetoric", "value": true }
+{ "type": "add_thought", "id": "ebb:demo/thought_rhetoric" }
 ```
 
-Current bundled chimes are `Instinct`, `Rhetoric`, `Dread`, and `Empathy`.
+The bundled P26 demo set now provides eight attribute voices: `Force`/strength, `Finesse`/dexterity, `Endurance`/constitution, `Logic`/intelligence, `Empathy`/wisdom, `Rhetoric`/charisma, `Instinct`/perception, and `Dread`/luck. Each has a passive insert plus one active thought route in `ebb:demo/innkeeper_intro`.
 
 ## Journal / Clues / Leads
 
@@ -314,9 +464,18 @@ MVP behavior:
 - `stand` moves to/holds a single `pos`.
 - `walk` follows `path` waypoints sequentially and loops while the step is active.
 - `look_at_player` turns the NPC's head/look controller toward the nearest non-spectator player in range, respecting `requires_line_of_sight` when enabled.
-- Active dialogue sessions with an Ebb NPC pause its movement routine and force a conversation-focus look target until the session ends.
+- Active dialogue sessions with an Ebb NPC pause its movement routine, force a conversation-focus look target, and restore the previous pose/animation when the session closes or times out.
+- `/ebb routine inspect <entity>` shows routine id, visual role, pose/animation, current step, current action/target, and whether conversation focus is active.
 
-Known future NPC work: behavior stacks, richer schedules/transitions, patrol pause points, animation performances, gestures, and custom humanoid art assets.
+P27 adds role-specific temporary skins and conversation-focus animations. The bundled `ebb:npc` still uses a simple humanoid GeckoLib model, but the renderer chooses `npc_innkeeper.png`, `npc_witness.png`, `npc_tenant.png`, or `npc_guard.png` from the NPC's routine/narrative key. This is intentionally placeholder art, not final production character art.
+
+Allowed routine actions: `stand`, `wait`, `walk`, `walk_path`, `look_at`, `play_animation`, `set_pose`, `teleport_fallback`.
+
+Allowed routine animations: `idle`, `walk`, `fidget`, `talk`, `think`, `dismiss`, `nervous_idle`, `scripted`. Dialogue focus can select `talk`, `think`, `dismiss`, or `nervous_idle` based on the active dialogue node.
+
+Allowed routine poses: `standing`, `blocking`, `suspicious`, `guarded`, `listening`, `composed`, `restless`, `leaning`, `pacing`, `conversation`, `talking`, `thinking`, `dismissing`, `nervous`, `scripted`. Invalid action, path, pose, or animation names are validation messages and invalid steps are not used.
+
+Known future NPC work: behavior stacks, richer schedules/transitions, patrol pause points, authored gestures, and final humanoid art assets.
 
 ## Author-friendly YAML/JSON source compiler
 
@@ -408,7 +567,7 @@ Example:
 }
 ```
 
-`EbbNpcEntity` persists a `narrative_key`, `pose`, and `animation` string. `/ebb routine inspect <entity>` shows these values, and dialogue can switch the currently interacted Ebb NPC's routine with:
+`EbbNpcEntity` persists a `narrative_key`, `visual_role`, `pose`, and `animation` string. `/ebb routine inspect <entity>` shows these values plus the current routine debug action/target. Dialogue can switch the currently interacted Ebb NPC's routine with:
 
 ```json
 { "type": "set_npc_routine", "id": "ebb:demo/innkeeper_backroom" }
@@ -452,25 +611,43 @@ If the clue has a `journal_entry`, the linked journal entry is also unlocked. Di
 { "type": "clue_found", "id": "ebb:demo/witness_knock_pattern" }
 ```
 
-Set-piece conflicts live under `data/<namespace>/conflicts/<id>.json`:
+Set-piece conflicts live under `data/<namespace>/conflicts/<id>.json`. P28 formalizes them as a small conversation-combat state machine with phases `setup`, `pressure`, `turn`, `consequence`, and `resolution`. `leverage_clues` names clue ids that should be surfaced in the conflict status UI when known, and `outcomes` declares the named nonviolent, messy, and failure-forward endings that dialogue effects may apply:
 
 ```json
 {
   "title": "Hallway Confrontation",
   "scene": "ebb:demo/locked_room",
+  "phases": [
+    { "id": "setup", "text": "Define the stakes." },
+    { "id": "pressure", "text": "Stress rises." },
+    { "id": "turn", "text": "Leverage converts into resolve." },
+    { "id": "consequence", "text": "Failure advances messily." },
+    { "id": "resolution", "text": "The scene resolves." }
+  ],
+  "leverage_clues": [
+    "ebb:demo/door_scratches",
+    "ebb:demo/witness_knock_pattern"
+  ],
   "stress_limit": 3,
   "resolve_goal": 2,
   "failure_state": "failed_forward",
-  "success_state": "resolved"
+  "success_state": "resolved",
+  "outcomes": [
+    { "id": "quiet_resolve", "kind": "nonviolent", "state": "resolved_nonviolent" },
+    { "id": "messy_resolve", "kind": "messy", "state": "resolved_messy" },
+    { "id": "public_pressure_fail", "kind": "failure_forward", "state": "failed_forward_public", "failure_forward": true },
+    { "id": "guard_standoff_fail", "kind": "failure_forward", "state": "failed_forward", "failure_forward": true }
+  ]
 }
 ```
 
-Conflict effects:
+Conflict effects. Starting or changing stress/resolve returns a `conflict_*` status echo with `state`, `phase`, `stress`, `resolve`, known `leverage`, and outcome count. This is displayed in the dialogue status strip and listed in `/ebb dev` snapshots:
 
 ```json
 { "type": "start_conflict", "id": "ebb:demo/hallway_confrontation" }
 { "type": "add_conflict_stress", "id": "ebb:demo/hallway_confrontation", "amount": 1 }
 { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 2 }
+{ "type": "apply_conflict_outcome", "id": "ebb:demo/hallway_confrontation", "outcome": "quiet_resolve" }
 { "type": "set_conflict_state", "id": "ebb:demo/hallway_confrontation", "state": "resolved" }
 { "type": "set_scene_phase", "scene": "ebb:demo/locked_room", "phase": "confrontation" }
 ```
@@ -482,7 +659,7 @@ Conflict/scene conditions:
 { "type": "scene_phase", "id": "ebb:demo/locked_room", "phase": "messy" }
 ```
 
-The bundled guard dialogue contains the first set-piece prototype. It uses clue-gated lines, d20 checks, stress/resolve effects, and fail-forward text rather than a generic combat system.
+The bundled guard dialogue contains the first expanded set-piece. It uses clue-gated lines, DND-8 d20 checks, stress/resolve effects, and `apply_conflict_outcome` nodes. Known clues both unlock options and modify DCs through the existing clue check modifiers. The demo includes a nonviolent quiet resolution, a messy resolution, and two separate failure-forward outcomes; failure changes the scene into a messier state instead of hard-stopping the vertical slice.
 
 ## Playable Tavern Vertical Slice Content Map
 

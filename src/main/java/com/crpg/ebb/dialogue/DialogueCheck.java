@@ -14,6 +14,8 @@ public record DialogueCheck(
         RollMode mode,
         boolean advantage,
         int staticModifier,
+        boolean showDc,
+        boolean showRoll,
         Optional<String> success,
         Optional<String> failure,
         Optional<String> criticalSuccess,
@@ -61,6 +63,8 @@ public record DialogueCheck(
                 mode,
                 advantage,
                 staticModifier,
+                showDc(json),
+                showRoll(json),
                 optionalString(json, "success"),
                 optionalString(json, "failure"),
                 optionalString(json, "critical_success"),
@@ -86,7 +90,9 @@ public record DialogueCheck(
         StringBuilder builder = new StringBuilder(attribute + " DC " + dc + " " + die
                 + " mode=" + mode.serializedName()
                 + (advantage ? " advantage" : "")
-                + (staticModifier == 0 ? "" : " mod=" + staticModifier));
+                + (staticModifier == 0 ? "" : " mod=" + staticModifier)
+                + (showDc ? "" : " hidden_dc")
+                + (showRoll ? "" : " hidden_roll"));
         success.ifPresent(value -> builder.append(" success=").append(value));
         failure.ifPresent(value -> builder.append(" failure=").append(value));
         criticalSuccess.ifPresent(value -> builder.append(" crit_success=").append(value));
@@ -137,5 +143,17 @@ public record DialogueCheck(
             }
         }
         return total;
+    }
+
+    private static boolean showDc(JsonObject json) {
+        return optionalBoolean(json, "show_dc")
+                .or(() -> optionalBoolean(json, "display_dc"))
+                .orElse(!optionalBoolean(json, "hidden_dc").orElse(false));
+    }
+
+    private static boolean showRoll(JsonObject json) {
+        return optionalBoolean(json, "show_roll")
+                .or(() -> optionalBoolean(json, "display_roll"))
+                .orElse(!optionalBoolean(json, "hidden_roll").orElse(false));
     }
 }

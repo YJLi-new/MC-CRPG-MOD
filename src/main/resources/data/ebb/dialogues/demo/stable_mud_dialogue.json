@@ -1,0 +1,45 @@
+{
+  "id": "ebb:demo/stable_mud_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "马厩泥土已经干了，但它的路线还湿着。",
+      "choices": [
+        {
+          "id": "inspect",
+          "type": "thought",
+          "text": "把这个细节写进案子的路线图。",
+          "next": "noted",
+          "effects": [
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/stable_mud"
+            },
+            {
+              "type": "start_quest_branch",
+              "id": "ebb:demo/minor_stable_mud"
+            }
+          ]
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "暂时离开。"
+        }
+      ]
+    },
+    "noted": {
+      "speaker": "inner voice",
+      "text": "证据没有变大，但它终于有了方向。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

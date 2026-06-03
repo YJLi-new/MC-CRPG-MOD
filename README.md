@@ -11,7 +11,7 @@ Esoteric Ebb CRPG (`ebb`) is a Fabric Minecraft Java Edition `26.1.2` mod protot
 - Java `25`
 - GeckoLib `5.5.1`
 
-See [`GOAL.md`](GOAL.md) for the product roadmap and [`docs/architecture.md`](docs/architecture.md) for runtime architecture.
+See [`GOAL.md`](GOAL.md) for the product roadmap, [`docs/architecture.md`](docs/architecture.md) for runtime architecture, and [`docs/installation.md`](docs/installation.md) for client/dedicated-server setup.
 
 ## Repository layout
 
@@ -101,14 +101,24 @@ OP/dev:
 
 ## Authoring
 
-Read [`docs/json_authoring_guide.md`](docs/json_authoring_guide.md). Runtime data lives under `src/main/resources/data/ebb/**`; authoring examples compile with:
+Read [`docs/json_authoring_guide.md`](docs/json_authoring_guide.md) for the full contract and [`docs/story_pack_tutorial.md`](docs/story_pack_tutorial.md) for a step-by-step block-group + dialogue + check tutorial. Runtime data lives under `src/main/resources/data/ebb/**`; authoring examples compile with:
 
 ```bash
 scripts/compile_authoring_sources.py --clean
 ```
 
-The current bundled vertical slice is a compact tavern/side-door case with four role NPCs, eight interactable block groups, two major quest routes, feats, chimes, clues, one investigation scene, one conflict, and ending placeholders.
+The current bundled vertical slice is a compact tavern/side-door case with six role NPCs, 12 interactable block groups, four major quest routes, eight minor branches, 12 feats, eight Chimes / 40 passive lines, 20 journal entries, 21 clues, three set-piece conflicts, and ending placeholders.
 
 ## Current status
 
 See [`docs/current_status.md`](docs/current_status.md). Historical docs that mention pending GUI retests are preserved as audit history and superseded by the final GUI automation evidence listed there.
+
+## Release packaging
+
+P31 alpha release preparation docs:
+
+- [`docs/installation.md`](docs/installation.md) — client, PCL test profile, and dedicated server installation.
+- [`docs/release_metadata_draft.md`](docs/release_metadata_draft.md) — Modrinth/CurseForge metadata draft.
+- [`docs/story_pack_tutorial.md`](docs/story_pack_tutorial.md) — custom story-pack tutorial.
+- [`CHANGELOG.md`](CHANGELOG.md) — alpha changelog.
+- [`LICENSE.md`](LICENSE.md) — code/data/assets license split.

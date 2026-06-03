@@ -1,0 +1,22 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/kitchen_manifest_dialogue",
+  "blocks": [
+    [
+      2,
+      64,
+      8
+    ]
+  ],
+  "interaction_point": [
+    2.5,
+    64.6,
+    8.5
+  ],
+  "highlight": {
+    "color": "#7ad9ff",
+    "opacity": 0.45,
+    "render_mode": "merged",
+    "priority": 80
+  }
+}

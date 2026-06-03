@@ -1,0 +1,60 @@
+{
+  "title": "Courtyard Standoff",
+  "scene": "ebb:demo/locked_room",
+  "phases": [
+    {
+      "id": "setup",
+      "text": "Courtyard Standoff phase: setup."
+    },
+    {
+      "id": "pressure",
+      "text": "Courtyard Standoff phase: pressure."
+    },
+    {
+      "id": "turn",
+      "text": "Courtyard Standoff phase: turn."
+    },
+    {
+      "id": "consequence",
+      "text": "Courtyard Standoff phase: consequence."
+    },
+    {
+      "id": "resolution",
+      "text": "Courtyard Standoff phase: resolution."
+    }
+  ],
+  "leverage_clues": [
+    "ebb:demo/kitchen_manifest",
+    "ebb:demo/courier_seal",
+    "ebb:demo/stable_mud",
+    "ebb:demo/key_echo"
+  ],
+  "stress_limit": 3,
+  "resolve_goal": 2,
+  "failure_state": "courtyard_failed_forward",
+  "success_state": "courtyard_resolved",
+  "outcomes": [
+    {
+      "id": "courtyard_quiet",
+      "kind": "nonviolent",
+      "state": "courtyard_resolved_quiet"
+    },
+    {
+      "id": "courtyard_messy",
+      "kind": "messy",
+      "state": "courtyard_resolved_messy"
+    },
+    {
+      "id": "courtyard_public_fail",
+      "kind": "failure_forward",
+      "state": "courtyard_failed_public",
+      "failure_forward": true
+    },
+    {
+      "id": "courtyard_private_fail",
+      "kind": "failure_forward",
+      "state": "courtyard_failed_private",
+      "failure_forward": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "display_name": "Soft Exit",
+  "description": "You find exits that let people keep a little dignity.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "dexterity": 1
+  }
+}

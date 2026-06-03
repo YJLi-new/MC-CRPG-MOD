@@ -56,6 +56,7 @@ public record DialogueEffect(
         ADD_CONFLICT_STRESS,
         ADD_CONFLICT_RESOLVE,
         SET_CONFLICT_STATE,
+        APPLY_CONFLICT_OUTCOME,
         SET_SCENE_PHASE,
         ADD_TRAIT,
         REMOVE_TRAIT,
@@ -111,6 +112,9 @@ public record DialogueEffect(
                 normalized = "ADD_CONFLICT_STRESS";
             } else if ("ADD_RESOLVE".equals(normalized) || "CONFLICT_RESOLVE".equals(normalized)) {
                 normalized = "ADD_CONFLICT_RESOLVE";
+            } else if ("CONFLICT_OUTCOME".equals(normalized) || "APPLY_OUTCOME".equals(normalized)
+                    || "APPLY_CONFLICT_OUTCOME".equals(normalized) || "RESOLVE_CONFLICT".equals(normalized)) {
+                normalized = "APPLY_CONFLICT_OUTCOME";
             } else if ("SCENE_PHASE".equals(normalized)) {
                 normalized = "SET_SCENE_PHASE";
             } else if ("RELATION".equals(normalized) || "SET_RELATIONSHIP".equals(normalized)) {
@@ -224,9 +228,13 @@ public record DialogueEffect(
                 .or(() -> optionalString(json, "tag"))
                 .or(() -> optionalString(json, "state"))
                 .or(() -> optionalString(json, "phase"))
+                .or(() -> optionalString(json, "outcome"))
+                .or(() -> optionalString(json, "outcome_id"))
+                .or(() -> optionalString(json, "outcomeId"))
                 .or(() -> optionalString(json, "state_tag"))
                 .or(() -> optionalString(json, "stateTag"))
                 .or(() -> type.get() == EffectType.SET_VARIABLE || type.get() == EffectType.SET_STORY_VAR
+                        || type.get() == EffectType.APPLY_CONFLICT_OUTCOME
                         ? optionalScalarString(json, "value") : Optional.empty());
         if (type.get() == EffectType.SET_VARIABLE && stringValue.isEmpty()) {
             messages.add(path + ": set_variable requires string_value/text/value");
@@ -254,6 +262,10 @@ public record DialogueEffect(
         }
         if ((type.get() == EffectType.SET_CONFLICT_STATE || type.get() == EffectType.SET_SCENE_PHASE) && stringValue.isEmpty()) {
             messages.add(path + ": set_conflict_state/set_scene_phase require state/phase/value");
+            return Optional.empty();
+        }
+        if (type.get() == EffectType.APPLY_CONFLICT_OUTCOME && stringValue.isEmpty()) {
+            messages.add(path + ": apply_conflict_outcome requires outcome/outcome_id/value");
             return Optional.empty();
         }
         Optional<Integer> integerValue = type.get() == EffectType.ADD_STORY_INT
@@ -344,6 +356,9 @@ public record DialogueEffect(
                 state.setConflictState(playerUuid, id, stringValue.orElse(""));
                 return Optional.of("conflict_state:" + id + "=" + state.getConflictState(playerUuid, id));
             }
+            case APPLY_CONFLICT_OUTCOME -> {
+                return ConflictService.applyOutcome(state, playerUuid, id, stringValue.orElse(""));
+            }
             case SET_SCENE_PHASE -> {
                 state.setScenePhase(playerUuid, id, stringValue.orElse(""));
                 return Optional.of("scene_phase:" + id + "=" + state.getScenePhase(playerUuid, id));
@@ -432,6 +447,7 @@ public record DialogueEffect(
         if (json.has("journal") || json.has("journalEntry")) return Optional.of("add_journal_entry");
         if (json.has("clue")) return Optional.of("reveal_clue");
         if (json.has("relation") || json.has("relationship")) return Optional.of("add_relation");
+        if (json.has("conflict") && (json.has("outcome") || json.has("outcome_id") || json.has("outcomeId"))) return Optional.of("apply_conflict_outcome");
         if (json.has("conflict")) return Optional.of("start_conflict");
         if (json.has("scene") && (json.has("phase") || json.has("state"))) return Optional.of("set_scene_phase");
         if (json.has("npc") && (json.has("tag") || json.has("state") || json.has("state_tag") || json.has("stateTag"))) return Optional.of("set_npc_state");

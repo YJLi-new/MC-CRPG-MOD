@@ -1,0 +1,9 @@
+{
+  "display_name": "Mud Reader",
+  "description": "You can tell which courtyard footprints were made in a hurry.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "perception": 1
+  }
+}

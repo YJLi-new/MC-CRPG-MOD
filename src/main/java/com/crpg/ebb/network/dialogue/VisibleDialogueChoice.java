@@ -23,7 +23,11 @@ public record VisibleDialogueChoice(
     }
 
     public static VisibleDialogueChoice fromChoice(DialogueChoice choice) {
-        Optional<String> check = choice.check().map(c -> c.attribute() + " DC " + c.dc() + " " + c.die());
+        Optional<String> check = choice.check().map(c -> {
+            String dc = c.showDc() ? "DC " + c.dc() : "DC ?";
+            String die = c.showRoll() ? c.die() : "hidden roll";
+            return c.attribute() + " " + dc + " " + die;
+        });
         return new VisibleDialogueChoice(choice.id(), choice.type(), choice.text(), choice.textKey(), check);
     }
 

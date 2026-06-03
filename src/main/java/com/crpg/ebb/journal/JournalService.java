@@ -42,7 +42,7 @@ public final class JournalService {
                 continue;
             }
             for (JournalEntryDefinition entry : entries) {
-                lines.add("- " + entry.title() + " (" + entry.id() + ")");
+                lines.add("- [category=" + entry.category().serializedName() + "] " + entry.title() + " (" + entry.id() + ")");
                 entry.quest().ifPresent(quest -> lines.add("  quest=" + quest));
                 lines.add("  " + entry.text());
             }

@@ -1,0 +1,9 @@
+{
+  "title": "Key Echo Without Key",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/key_echo",
+  "text": "没有钥匙，大家却都用钥匙的词谈论门。",
+  "check_modifiers": {
+    "wisdom": 1
+  }
+}

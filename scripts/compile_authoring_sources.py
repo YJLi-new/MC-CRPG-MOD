@@ -13,6 +13,7 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Any
+from json import JSONDecodeError
 
 try:
     import yaml  # type: ignore
@@ -41,6 +42,28 @@ def read_doc(path: Path) -> Any:
     else:
         data = json.loads(text)
     return data or {}
+
+
+def format_read_error(path: Path, exc: BaseException) -> str:
+    if isinstance(exc, JSONDecodeError):
+        return f"{path}:{exc.lineno}:{exc.colno}: invalid JSON: {exc.msg}"
+    mark = getattr(exc, "problem_mark", None)
+    problem = getattr(exc, "problem", None) or str(exc)
+    if mark is not None:
+        return f"{path}:{mark.line + 1}:{mark.column + 1}: invalid YAML: {problem}"
+    return f"{path}: could not parse authoring document: {exc}"
+
+
+def read_doc_or_error(path: Path, errors: list[str]) -> Any | None:
+    try:
+        data = read_doc(path)
+    except Exception as exc:
+        errors.append(format_read_error(path, exc))
+        return None
+    if not isinstance(data, dict):
+        errors.append(f"{path}:1:1: authoring document must be a mapping/object")
+        return None
+    return data
 
 
 def normalize_identifier(value: str, *, default_namespace: str = MOD_ID) -> str:
@@ -166,7 +189,9 @@ def compile_dialogues(source_root: Path, out_root: Path) -> tuple[int, list[str]
     for path in sorted((source_root / "dialogues").glob("**/*")):
         if path.suffix.lower() not in {".yaml", ".yml", ".json"}:
             continue
-        raw = read_doc(path)
+        raw = read_doc_or_error(path, errors)
+        if raw is None:
+            continue
         identifier = normalize_identifier(raw.get("id") or path.stem)
         start = raw.get("entry") or raw.get("start")
         runtime = {
@@ -189,7 +214,10 @@ def compile_interactables(source_root: Path, out_root: Path) -> tuple[int, list[
     for path in sorted((source_root / "interactables").glob("**/*")):
         if path.suffix.lower() not in {".json", ".yaml", ".yml"}:
             continue
-        raw = dict(read_doc(path))
+        raw_doc = read_doc_or_error(path, errors)
+        if raw_doc is None:
+            continue
+        raw = dict(raw_doc)
         identifier = normalize_identifier(raw.get("id") or path.stem)
         target_type = str(raw.pop("targetType", raw.pop("target_type", "block_group"))).lower()
         if target_type != "block_group":
@@ -209,7 +237,10 @@ def compile_npc(source_root: Path, out_root: Path) -> tuple[int, list[str]]:
     for path in sorted((source_root / "npc").glob("**/*")):
         if path.suffix.lower() not in {".yaml", ".yml", ".json"}:
             continue
-        raw = dict(read_doc(path))
+        raw_doc = read_doc_or_error(path, errors)
+        if raw_doc is None:
+            continue
+        raw = dict(raw_doc)
         npc_id = str(raw.get("id") or path.stem)
         bindings = raw.get("dialogueBindings") or raw.get("dialogue_bindings") or {}
         default_dialogue = bindings.get("default") if isinstance(bindings, dict) else None

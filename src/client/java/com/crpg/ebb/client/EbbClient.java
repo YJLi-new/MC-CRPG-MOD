@@ -1,6 +1,7 @@
 package com.crpg.ebb.client;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.client.gui.dialogue.ClientDialogueSettings;
 import com.crpg.ebb.client.input.ClientKeyMappings;
 import com.crpg.ebb.client.interaction.ClientTargetDetector;
 import com.crpg.ebb.client.network.ClientInteractionNetworking;
@@ -13,6 +14,7 @@ public final class EbbClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         EbbMod.LOGGER.info("Initializing Esoteric Ebb CRPG client skeleton.");
+        ClientDialogueSettings.load();
         ModEntityRenderers.register();
         ClientInteractionNetworking.register();
         ClientKeyMappings.register();

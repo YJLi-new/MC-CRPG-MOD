@@ -12,15 +12,8 @@
           "text": "你是来保护谁的？",
           "next": "authority_line",
           "effects": [
-            {
-              "type": "set_npc_state",
-              "npc": "ebb:demo/guard",
-              "tag": "challenged"
-            },
-            {
-              "type": "reveal_clue",
-              "id": "ebb:demo/guard_denial"
-            }
+            { "type": "set_npc_state", "npc": "ebb:demo/guard", "tag": "challenged" },
+            { "type": "reveal_clue", "id": "ebb:demo/guard_denial" }
           ]
         },
         {
@@ -28,12 +21,7 @@
           "type": "dialogue",
           "text": "整间旅馆都已经在听。你也可以开始说真话。",
           "next": "feat_line",
-          "conditions": [
-            {
-              "type": "has_feat",
-              "id": "ebb:demo/tavern_authority"
-            }
-          ]
+          "conditions": [ { "type": "has_feat", "id": "ebb:demo/tavern_authority" } ]
         },
         {
           "id": "start_conflict",
@@ -41,86 +29,42 @@
           "text": "把这次走廊对峙推到明面上。",
           "next": "conflict_round_1",
           "effects": [
-            {
-              "type": "start_conflict",
-              "id": "ebb:demo/hallway_confrontation"
-            },
-            {
-              "type": "set_scene_phase",
-              "scene": "ebb:demo/locked_room",
-              "phase": "confrontation"
-            }
+            { "type": "start_conflict", "id": "ebb:demo/hallway_confrontation" },
+            { "type": "set_scene_phase", "scene": "ebb:demo/locked_room", "phase": "confrontation" }
           ]
         },
-        {
-          "id": "leave",
-          "type": "action",
-          "text": "暂时离开。"
-        }
+        { "id": "leave", "type": "action", "text": "暂时离开。" }
       ]
     },
     "authority_line": {
       "speaker": "guard",
       "text": "“我保护的是门还没有打开这件事。” 这听起来不像答案，但它已经足够接近威胁。",
-      "choices": [
-        {
-          "id": "back",
-          "type": "dialogue",
-          "text": "记住这句威胁。",
-          "next": "start"
-        }
-      ]
+      "choices": [ { "id": "back", "type": "dialogue", "text": "记住这句威胁。", "next": "start" } ]
     },
     "feat_line": {
       "speaker": "guard",
       "text": "他终于把视线从门上移开：“那就让他们听见：不是我锁的门。”",
-      "choices": [
-        {
-          "id": "back",
-          "type": "dialogue",
-          "text": "回到门前的权力关系。",
-          "next": "start"
-        }
-      ]
+      "choices": [ { "id": "back", "type": "dialogue", "text": "回到门前的权力关系。", "next": "start" } ]
     },
     "conflict_round_1": {
       "speaker": "guard",
-      "text": "走廊变窄了。不是空间变了，是每个人都决定暂时不让路。",
+      "text": "走廊变窄了。不是空间变了，是每个人都决定暂时不让路。压力、线索和观众都在同一个回合里移动。",
       "choices": [
         {
           "id": "present_knocks",
           "type": "dialogue",
           "text": "三下、一停、两下。那不是求救，是暗号。",
-          "next": "conflict_success",
-          "conditions": [
-            {
-              "type": "clue_found",
-              "id": "ebb:demo/witness_knock_pattern"
-            }
-          ],
+          "next": "conflict_nonviolent_resolution",
+          "conditions": [ { "type": "clue_found", "id": "ebb:demo/witness_knock_pattern" } ],
           "check": {
             "attribute": "charisma",
             "dc": 13,
-            "success": "conflict_success",
-            "failure": "conflict_fail_forward",
-            "success_effects": [
-              {
-                "type": "add_conflict_resolve",
-                "id": "ebb:demo/hallway_confrontation",
-                "amount": 2
-              }
-            ],
+            "success": "conflict_nonviolent_resolution",
+            "failure": "conflict_public_fail_forward",
+            "success_effects": [ { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 2 } ],
             "failure_effects": [
-              {
-                "type": "add_conflict_stress",
-                "id": "ebb:demo/hallway_confrontation",
-                "amount": 1
-              },
-              {
-                "type": "set_npc_state",
-                "npc": "ebb:demo/guard",
-                "tag": "angered"
-              }
+              { "type": "add_conflict_stress", "id": "ebb:demo/hallway_confrontation", "amount": 1 },
+              { "type": "set_npc_state", "npc": "ebb:demo/guard", "tag": "angered" }
             ]
           }
         },
@@ -129,46 +73,54 @@
           "type": "thought",
           "text": "用门框刮痕重排他的说法。",
           "next": "conflict_leverage",
-          "conditions": [
-            {
-              "type": "clue_found",
-              "id": "ebb:demo/door_scratches"
-            }
-          ]
+          "conditions": [ { "type": "clue_found", "id": "ebb:demo/door_scratches" } ],
+          "effects": [ { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ]
+        },
+        {
+          "id": "tenant_window",
+          "type": "dialogue",
+          "text": "租客的窗户说法太方便了。你知道他在替谁省略路线。",
+          "next": "conflict_nonviolent_resolution",
+          "conditions": [ { "type": "clue_found", "id": "ebb:demo/tenant_false_window" } ],
+          "check": {
+            "attribute": "intelligence",
+            "dc": 12,
+            "success": "conflict_nonviolent_resolution",
+            "failure": "conflict_public_fail_forward",
+            "success_effects": [ { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 2 } ],
+            "failure_effects": [ { "type": "add_conflict_stress", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ]
+          }
+        },
+        {
+          "id": "guard_denial",
+          "type": "dialogue",
+          "text": "你否认的是“锁门”，不是“守住这扇门”。",
+          "next": "conflict_leverage",
+          "conditions": [ { "type": "clue_found", "id": "ebb:demo/guard_denial" } ],
+          "check": {
+            "attribute": "luck",
+            "dc": 11,
+            "success": "conflict_leverage",
+            "failure": "conflict_public_fail_forward",
+            "success_effects": [ { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ],
+            "failure_effects": [ { "type": "add_conflict_stress", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ]
+          }
         },
         {
           "id": "push_without_evidence",
           "type": "action",
           "text": "没有证据也要逼他让路。",
-          "next": "conflict_fail_forward",
+          "next": "conflict_messy_resolution",
           "check": {
             "attribute": "strength",
             "dc": 14,
-            "success": "conflict_leverage",
-            "failure": "conflict_fail_forward",
-            "success_effects": [
-              {
-                "type": "add_conflict_resolve",
-                "id": "ebb:demo/hallway_confrontation",
-                "amount": 1
-              }
-            ],
+            "success": "conflict_messy_resolution",
+            "failure": "conflict_messy_fail_forward",
+            "success_effects": [ { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ],
             "failure_effects": [
-              {
-                "type": "add_conflict_stress",
-                "id": "ebb:demo/hallway_confrontation",
-                "amount": 1
-              },
-              {
-                "type": "add_relation",
-                "relation": "ebb:demo/guard",
-                "amount": -1
-              },
-              {
-                "type": "set_scene_phase",
-                "scene": "ebb:demo/locked_room",
-                "phase": "messy"
-              }
+              { "type": "add_conflict_stress", "id": "ebb:demo/hallway_confrontation", "amount": 1 },
+              { "type": "add_relation", "relation": "ebb:demo/guard", "amount": -1 },
+              { "type": "set_scene_phase", "scene": "ebb:demo/locked_room", "phase": "messy" }
             ]
           }
         }
@@ -176,66 +128,94 @@
     },
     "conflict_leverage": {
       "speaker": "inner voice",
-      "text": "线索不是钥匙，但它们让锁开始解释自己。下一句话会更容易。",
+      "text": "线索不是钥匙，但它们让锁开始解释自己。下一句话会更容易；门、敲击和否认已经把 DC 往下推。",
       "choices": [
         {
-          "id": "press",
+          "id": "press_with_leverage",
           "type": "dialogue",
-          "text": "继续对峙。",
-          "next": "conflict_round_1"
-        }
+          "text": "把这些线索排成一个不需要吼叫的结论。",
+          "next": "conflict_nonviolent_resolution",
+          "check": {
+            "attribute": "charisma",
+            "dc": 12,
+            "success": "conflict_nonviolent_resolution",
+            "failure": "conflict_public_fail_forward",
+            "success_effects": [ { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ],
+            "failure_effects": [ { "type": "add_conflict_stress", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ]
+          }
+        },
+        {
+          "id": "force_latch_after_bruise",
+          "type": "action",
+          "text": "把失败的肩伤变成门闩证词。",
+          "next": "conflict_messy_resolution",
+          "conditions": [ { "type": "clue_found", "id": "ebb:demo/bruised_shoulder" } ],
+          "check": {
+            "attribute": "strength",
+            "dc": 13,
+            "success": "conflict_messy_resolution",
+            "failure": "conflict_messy_fail_forward",
+            "success_effects": [ { "type": "add_conflict_resolve", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ],
+            "failure_effects": [ { "type": "add_conflict_stress", "id": "ebb:demo/hallway_confrontation", "amount": 1 } ]
+          }
+        },
+        { "id": "continue", "type": "dialogue", "text": "回到对峙本身。", "next": "conflict_round_1" }
       ]
+    },
+    "conflict_nonviolent_resolution": {
+      "speaker": "guard",
+      "text": "他让开半步。不是投降，是承认走廊已经不再只听他的版本。没有人需要被打倒，门也能开。",
+      "enter_effects": [
+        { "type": "apply_conflict_outcome", "id": "ebb:demo/hallway_confrontation", "outcome": "quiet_resolve" },
+        { "type": "complete_quest_branch", "id": "ebb:demo/tavern_quiet" }
+      ],
+      "choices": [ { "id": "done", "type": "dialogue", "text": "通过走廊。", "next": "start" } ]
+    },
+    "conflict_messy_resolution": {
+      "speaker": "narrator",
+      "text": "门开了，但不是以干净的方式。木头、肩膀和旁观者的记忆一起裂开；你赢下路线，也买下后果。",
+      "enter_effects": [
+        { "type": "apply_conflict_outcome", "id": "ebb:demo/hallway_confrontation", "outcome": "messy_resolve" },
+        { "type": "set_scene_phase", "scene": "ebb:demo/locked_room", "phase": "messy" },
+        { "type": "add_journal_entry", "id": "ebb:demo/public_pressure" }
+      ],
+      "choices": [ { "id": "done", "type": "dialogue", "text": "带着吱呀声继续。", "next": "start" } ]
+    },
+    "conflict_public_fail_forward": {
+      "speaker": "narrator",
+      "text": "你把问题说给了整条走廊，却没有说到点上。失败没有关门：它让旁观者开始替你记住下一次该问什么。",
+      "enter_effects": [
+        { "type": "apply_conflict_outcome", "id": "ebb:demo/hallway_confrontation", "outcome": "public_pressure_fail" },
+        { "type": "set_scene_phase", "scene": "ebb:demo/locked_room", "phase": "messy" },
+        { "type": "add_journal_entry", "id": "ebb:demo/public_pressure" }
+      ],
+      "choices": [ { "id": "continue", "type": "dialogue", "text": "利用这次尴尬继续。", "next": "start" } ]
+    },
+    "conflict_messy_fail_forward": {
+      "speaker": "narrator",
+      "text": "撞门失败了。肩膀先于理论承认证据：里面确实有门闩，守门人也确实害怕你下一次用对力。",
+      "enter_effects": [
+        { "type": "apply_conflict_outcome", "id": "ebb:demo/hallway_confrontation", "outcome": "guard_standoff_fail" },
+        { "type": "set_scene_phase", "scene": "ebb:demo/locked_room", "phase": "messy" },
+        { "type": "reveal_clue", "id": "ebb:demo/bruised_shoulder" }
+      ],
+      "choices": [ { "id": "continue", "type": "dialogue", "text": "把疼痛当成线索继续。", "next": "conflict_leverage" } ]
     },
     "conflict_success": {
       "speaker": "guard",
-      "text": "他让开半步。不是投降，是承认走廊已经不再只听他的版本。",
-      "enter_effects": [
-        {
-          "type": "set_conflict_state",
-          "id": "ebb:demo/hallway_confrontation",
-          "state": "resolved"
-        },
-        {
-          "type": "complete_quest_branch",
-          "id": "ebb:demo/tavern_public"
-        }
-      ],
-      "choices": [
-        {
-          "id": "done",
-          "type": "dialogue",
-          "text": "通过走廊。",
-          "next": "start"
-        }
-      ]
+      "text": "旧版成功节点保留为兼容入口：他让开半步。",
+      "enter_effects": [ { "type": "set_conflict_state", "id": "ebb:demo/hallway_confrontation", "state": "resolved" } ],
+      "choices": [ { "id": "done", "type": "dialogue", "text": "通过走廊。", "next": "start" } ]
     },
     "conflict_fail_forward": {
       "speaker": "narrator",
-      "text": "失败没有结束对峙。它改变了房间：旁观者开始记住你用错力的方式，守门人开始害怕你下一次用对。",
+      "text": "旧版失败前进节点保留为兼容入口：失败改变了房间，而不是结束切片。",
       "enter_effects": [
-        {
-          "type": "set_conflict_state",
-          "id": "ebb:demo/hallway_confrontation",
-          "state": "failed_forward"
-        },
-        {
-          "type": "set_scene_phase",
-          "scene": "ebb:demo/locked_room",
-          "phase": "messy"
-        },
-        {
-          "type": "add_journal_entry",
-          "id": "ebb:demo/public_pressure"
-        }
+        { "type": "set_conflict_state", "id": "ebb:demo/hallway_confrontation", "state": "failed_forward" },
+        { "type": "set_scene_phase", "scene": "ebb:demo/locked_room", "phase": "messy" },
+        { "type": "add_journal_entry", "id": "ebb:demo/public_pressure" }
       ],
-      "choices": [
-        {
-          "id": "continue",
-          "type": "dialogue",
-          "text": "带着后果继续。",
-          "next": "start"
-        }
-      ]
+      "choices": [ { "id": "continue", "type": "dialogue", "text": "带着后果继续。", "next": "start" } ]
     }
   }
 }

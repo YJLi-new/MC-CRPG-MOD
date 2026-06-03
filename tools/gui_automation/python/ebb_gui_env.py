@@ -10,7 +10,7 @@ from typing import Any
 from runtime_log import RuntimeCounts, parse_runtime_counts
 from server_controller import ServerController
 
-EXPECTED_COUNTS = RuntimeCounts(dialogues=13, block_groups=8, entity_bindings=6, npc_routines=5)
+EXPECTED_COUNTS = RuntimeCounts(dialogues=19, block_groups=12, entity_bindings=14, npc_routines=7)
 
 @dataclass
 class EbbGuiEnv:
@@ -89,6 +89,12 @@ class EbbGuiEnv:
 
     def launch_pcl(self, exe: Path = Path("/mnt/e/MC/PCL/Plain Craft Launcher.exe")) -> subprocess.CompletedProcess:
         return self.windows_gui("launch", "--exe", self.wsl_to_windows(exe), timeout=10)
+
+    def close_client(self, window_title: str, force: bool = True) -> subprocess.CompletedProcess:
+        args = ["close", "--title", window_title]
+        if force:
+            args.append("--force")
+        return self.windows_gui(*args, timeout=20)
 
     def gui_chat_command(self, command: str, window_title: str, screenshot_name: str, wait_seconds: float = 1.0) -> Path:
         text = command

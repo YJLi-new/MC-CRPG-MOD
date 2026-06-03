@@ -1,0 +1,9 @@
+{
+  "title": "Laundry Thread on Bolt",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/laundry_thread",
+  "text": "门栓上挂着洗衣房线头。",
+  "check_modifiers": {
+    "dexterity": 1
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "title": "Cook Burned Palm",
+  "category": "clue",
+  "quest": "ebb:demo/minor_cook_manifest",
+  "text": "厨子的手心烫伤像是抓过热金属扣。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_cook_manifest"
+  ]
+}

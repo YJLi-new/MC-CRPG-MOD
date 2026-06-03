@@ -1,0 +1,9 @@
+{
+  "title": "Notice Board Rumor",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/notice_rumor",
+  "text": "告示板谣言把时间写得太准确，像是提前排练。",
+  "check_modifiers": {
+    "charisma": 1
+  }
+}

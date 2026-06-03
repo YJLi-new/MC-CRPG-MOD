@@ -1,0 +1,9 @@
+{
+  "title": "Cellar Debt Mark",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/cellar_debt",
+  "text": "地窖账本里有一笔债务被画了门闩形状的记号。",
+  "check_modifiers": {
+    "luck": 1
+  }
+}

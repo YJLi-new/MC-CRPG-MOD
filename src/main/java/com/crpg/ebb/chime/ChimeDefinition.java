@@ -15,15 +15,21 @@ public record ChimeDefinition(
         String sourceAttribute,
         int minScore,
         List<String> triggerTags,
+        String toneGuide,
         String speakerStyle,
         int cooldownTicks,
+        boolean oneShotPerNode,
+        boolean oneShotGlobal,
+        List<String> activeThoughtIds,
         List<String> lines
 ) {
     public ChimeDefinition {
         name = name == null || name.isBlank() ? id.toString() : name;
         sourceAttribute = sourceAttribute == null || sourceAttribute.isBlank() ? "wisdom" : sourceAttribute;
         triggerTags = triggerTags == null ? List.of() : List.copyOf(triggerTags);
+        toneGuide = toneGuide == null ? "" : toneGuide.strip();
         speakerStyle = speakerStyle == null ? "inner" : speakerStyle;
+        activeThoughtIds = activeThoughtIds == null ? List.of() : List.copyOf(activeThoughtIds);
         lines = lines == null ? List.of() : List.copyOf(lines);
     }
 
@@ -38,19 +44,49 @@ public record ChimeDefinition(
         if (triggerTags.isEmpty()) {
             triggerTags = parseStringList(fileId, json, "tags", messages);
         }
+        String toneGuide = optionalString(json, "tone_guide")
+                .or(() -> optionalString(json, "tone"))
+                .or(() -> optionalString(json, "guide"))
+                .orElse("");
         String speakerStyle = optionalString(json, "speaker_style").orElse("inner");
         int cooldownTicks = optionalInt(json, "cooldown").or(() -> optionalInt(json, "cooldown_ticks")).orElse(0);
+        boolean oneShotPerNode = optionalBoolean(json, "one_shot_per_node")
+                .or(() -> optionalBoolean(json, "one_shot"))
+                .orElse(true);
+        boolean oneShotGlobal = optionalBoolean(json, "one_shot_global").orElse(false);
+        List<String> activeThoughtIds = parseStringList(fileId, json, "active_thoughts", messages);
+        optionalString(json, "active_thought").ifPresent(activeThoughtIds::add);
         List<String> lines = parseStringList(fileId, json, "lines", messages);
         if (lines.isEmpty()) {
             optionalString(json, "text").ifPresent(lines::add);
         }
+        if (toneGuide.isBlank()) {
+            messages.add("chime " + id + ": tone_guide should not be empty");
+        }
         if (triggerTags.isEmpty()) {
             messages.add("chime " + id + ": trigger_tags should not be empty");
+        }
+        if (cooldownTicks < 0) {
+            messages.add("chime " + id + ": cooldown_ticks must be >= 0");
+            cooldownTicks = 0;
         }
         if (lines.isEmpty()) {
             messages.add("chime " + id + ": lines/text should not be empty");
         }
-        return Optional.of(new ChimeDefinition(id, name, sourceAttribute, minScore, triggerTags, speakerStyle, cooldownTicks, lines));
+        return Optional.of(new ChimeDefinition(
+                id,
+                name,
+                sourceAttribute,
+                minScore,
+                triggerTags,
+                toneGuide,
+                speakerStyle,
+                cooldownTicks,
+                oneShotPerNode,
+                oneShotGlobal,
+                activeThoughtIds.stream().distinct().toList(),
+                lines
+        ));
     }
 
     public String lineForStableIndex(int index) {
@@ -60,7 +96,9 @@ public record ChimeDefinition(
 
     public String debugSummary() {
         return id + " name=\"" + name + "\" attribute=" + sourceAttribute + ">=" + minScore
-                + " tags=" + triggerTags + " lines=" + lines.size();
+                + " tags=" + triggerTags + " tone=\"" + toneGuide + "\" cooldown=" + cooldownTicks
+                + " one_shot_per_node=" + oneShotPerNode + " one_shot_global=" + oneShotGlobal
+                + " active_thoughts=" + activeThoughtIds + " lines=" + lines.size();
     }
 
     private static List<String> parseStringList(Identifier fileId, JsonObject json, String key, List<String> messages) {
@@ -97,5 +135,10 @@ public record ChimeDefinition(
     private static Optional<Integer> optionalInt(JsonObject json, String key) {
         return json.has(key) && !json.get(key).isJsonNull() && json.get(key).isJsonPrimitive() && json.get(key).getAsJsonPrimitive().isNumber()
                 ? Optional.of(GsonHelper.getAsInt(json, key)) : Optional.empty();
+    }
+
+    private static Optional<Boolean> optionalBoolean(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull() && json.get(key).isJsonPrimitive()
+                ? Optional.of(GsonHelper.getAsBoolean(json, key)) : Optional.empty();
     }
 }

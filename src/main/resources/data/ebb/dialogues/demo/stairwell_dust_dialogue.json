@@ -1,0 +1,45 @@
+{
+  "id": "ebb:demo/stairwell_dust_dialogue",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "narrator",
+      "text": "楼梯边的灰尘被两种脚步切开：一种上楼，一种假装没上楼。",
+      "choices": [
+        {
+          "id": "inspect",
+          "type": "thought",
+          "text": "把这个细节写进案子的路线图。",
+          "next": "noted",
+          "effects": [
+            {
+              "type": "reveal_clue",
+              "id": "ebb:demo/ash_in_latch"
+            },
+            {
+              "type": "start_quest_branch",
+              "id": "ebb:demo/minor_key_echo"
+            }
+          ]
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "暂时离开。"
+        }
+      ]
+    },
+    "noted": {
+      "speaker": "inner voice",
+      "text": "证据没有变大，但它终于有了方向。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "dialogue",
+          "text": "继续观察。",
+          "next": "start"
+        }
+      ]
+    }
+  }
+}

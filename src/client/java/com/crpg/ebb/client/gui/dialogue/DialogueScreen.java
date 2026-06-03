@@ -11,8 +11,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ public final class DialogueScreen extends Screen {
     private static final int TEXT_COLOR = 0xFFE8E8E8;
     private static final int STATUS_COLOR = 0xFFFFD166;
     private static final int CHIME_STATUS_COLOR = 0xFF64E6FF;
+    private static final int TAKE_ROOT_STATUS_COLOR = 0xFFFF7A59;
     private static final int QUEST_STATUS_COLOR = 0xFFFFC857;
     private static final int FEAT_STATUS_COLOR = 0xFFB197FC;
     private static final int CLUE_STATUS_COLOR = 0xFF86EFAC;
@@ -36,6 +39,7 @@ public final class DialogueScreen extends Screen {
     private static final int PANEL_MAX_HEIGHT = 360;
     private static final int PANEL_MARGIN = 16;
     private static final int LINE_HEIGHT = 10;
+    private static final long WAITING_TIMEOUT_MS = 10_000L;
 
     private final UUID conversationId;
     private final Identifier dialogueId;
@@ -52,6 +56,8 @@ public final class DialogueScreen extends Screen {
     private boolean waitingForServer;
     private int choicePage;
     private int textScroll;
+    private long nodeOpenedAtMillis;
+    private long waitingStartedAtMillis;
 
     public DialogueScreen(OpenDialoguePayload payload) {
         super(Component.translatable("screen.ebb.dialogue.title"));
@@ -64,6 +70,7 @@ public final class DialogueScreen extends Screen {
         this.choices = List.copyOf(payload.choices());
         this.rollResult = Optional.empty();
         this.statusMessage = payload.statusMessage();
+        this.nodeOpenedAtMillis = System.currentTimeMillis();
         appendHistoryEntry(nodeId, speaker, text, textKey);
     }
 
@@ -79,8 +86,10 @@ public final class DialogueScreen extends Screen {
         this.choices = List.copyOf(payload.choices());
         this.rollResult = payload.rollResult();
         this.statusMessage = payload.statusMessage();
+        this.nodeOpenedAtMillis = System.currentTimeMillis();
         appendHistoryEntry(nodeId, speaker, text, textKey);
         this.waitingForServer = false;
+        this.waitingStartedAtMillis = 0L;
         this.choicePage = Math.min(choicePage, maxChoicePage());
         this.textScroll = 0;
         if (minecraft != null) {
@@ -97,10 +106,13 @@ public final class DialogueScreen extends Screen {
     protected void init() {
         int panelWidth = panelWidth();
         int left = panelLeft();
+        int top = panelTop();
         int buttonWidth = panelWidth - 104;
         int buttonY = choicesTop();
         int start = choicePage * VISIBLE_CHOICES;
         int end = Math.min(choices.size(), start + VISIBLE_CHOICES);
+
+        addSettingsWidgets(left, top);
 
         if (choices.isEmpty()) {
             addRenderableWidget(Button.builder(Component.translatable("screen.ebb.dialogue.end"), button -> closeByPlayer())
@@ -138,10 +150,26 @@ public final class DialogueScreen extends Screen {
                 .bounds(left + PANEL_MARGIN, doneButtonY(), panelWidth - PANEL_MARGIN * 2, 20).build());
     }
 
+    private void addSettingsWidgets(int left, int top) {
+        addRenderableWidget(Button.builder(Component.literal("A-"), button -> {
+            ClientDialogueSettings.decreaseFontScale();
+            textScroll = Math.min(textScroll, maxTextScroll());
+            rebuildWidgets();
+        }).bounds(left + 16, top + 6, 28, 16).build());
+        addRenderableWidget(Button.builder(Component.literal("A+"), button -> {
+            ClientDialogueSettings.increaseFontScale();
+            textScroll = Math.min(textScroll, maxTextScroll());
+            rebuildWidgets();
+        }).bounds(left + 48, top + 6, 28, 16).build());
+        addRenderableWidget(Button.builder(ClientDialogueSettings.textSpeedLabel(), button -> {
+            ClientDialogueSettings.cycleTextSpeed();
+            nodeOpenedAtMillis = System.currentTimeMillis();
+            rebuildWidgets();
+        }).bounds(left + 82, top + 6, 108, 16).build());
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float tickDelta) {
-        extractTransparentBackground(graphics);
-
         int panelWidth = panelWidth();
         int panelHeight = panelHeight();
         int left = panelLeft();
@@ -153,9 +181,9 @@ public final class DialogueScreen extends Screen {
 
         graphics.fill(left, top, right, bottom, PANEL_COLOR);
         graphics.outline(left, top, panelWidth, panelHeight, PANEL_BORDER);
-        graphics.centeredText(this.font, Component.translatable("screen.ebb.dialogue.heading", dialogueId.toString(), nodeId), this.width / 2, top + 8, TITLE_COLOR);
-        graphics.text(this.font, speakerComponent(), left + PANEL_MARGIN, top + 28, TITLE_COLOR);
-        int bodyTop = top + 44;
+        renderHeaderTitle(graphics, left, top, right);
+        drawScaledText(graphics, speakerComponent(), left + PANEL_MARGIN, top + 30, TITLE_COLOR);
+        int bodyTop = top + 48;
         int bodyBottom = Math.max(bodyTop + LINE_HEIGHT, statusTop - 8);
         renderScrollableBody(graphics, left + PANEL_MARGIN, bodyTop, panelWidth - PANEL_MARGIN * 2, bodyBottom - bodyTop);
         renderStatusArea(graphics, left + PANEL_MARGIN, statusTop, panelWidth - PANEL_MARGIN * 2, Math.max(LINE_HEIGHT, choiceTop - statusTop - 8));
@@ -182,6 +210,60 @@ public final class DialogueScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(KeyEvent event) {
+        int keyCode = event.key();
+        if (!waitingForServer && !choices.isEmpty()) {
+            int start = choicePage * VISIBLE_CHOICES;
+            int visible = visibleChoiceCountOnPage();
+            if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_5) {
+                int offset = keyCode - GLFW.GLFW_KEY_1;
+                if (offset < visible && start + offset < choices.size()) {
+                    sendChoice(choices.get(start + offset).id());
+                    return true;
+                }
+            }
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+                sendChoice(choices.get(start).id());
+                return true;
+            }
+            if ((keyCode == GLFW.GLFW_KEY_PAGE_UP || keyCode == GLFW.GLFW_KEY_UP) && choicePage > 0) {
+                choicePage--;
+                rebuildWidgets();
+                return true;
+            }
+            if ((keyCode == GLFW.GLFW_KEY_PAGE_DOWN || keyCode == GLFW.GLFW_KEY_DOWN) && choicePage < maxChoicePage()) {
+                choicePage++;
+                rebuildWidgets();
+                return true;
+            }
+        }
+        if (keyCode == GLFW.GLFW_KEY_HOME && textScroll != 0) {
+            textScroll = 0;
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_END) {
+            int max = maxTextScroll();
+            if (textScroll != max) {
+                textScroll = max;
+                return true;
+            }
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (waitingForServer && waitingStartedAtMillis > 0L
+                && System.currentTimeMillis() - waitingStartedAtMillis > WAITING_TIMEOUT_MS) {
+            waitingForServer = false;
+            waitingStartedAtMillis = 0L;
+            statusMessage = Optional.of(Component.translatable("message.ebb.dialogue_choice_timeout").getString());
+            rebuildWidgets();
+        }
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return false;
     }
@@ -199,12 +281,14 @@ public final class DialogueScreen extends Screen {
             return;
         }
         waitingForServer = true;
+        waitingStartedAtMillis = System.currentTimeMillis();
         rollResult = Optional.empty();
         findChoice(choiceId)
                 .flatMap(VisibleDialogueChoice::checkSummary)
                 .ifPresent(summary -> statusMessage = Optional.of(Component.translatable("screen.ebb.dialogue.rolling", summary).getString()));
         if (!ClientInteractionNetworking.sendDialogueChoice(conversationId, choiceId)) {
             waitingForServer = false;
+            waitingStartedAtMillis = 0L;
             statusMessage = Optional.of(Component.translatable("message.ebb.dialogue_choice_network_unavailable").getString());
         }
         rebuildWidgets();
@@ -225,21 +309,22 @@ public final class DialogueScreen extends Screen {
     }
 
     private int maxTextScroll() {
-        int bodyHeight = Math.max(LINE_HEIGHT, statusTop() - 8 - (panelTop() + 44));
-        int visibleLines = Math.max(1, bodyHeight / 10);
-        return Math.max(0, this.font.split(bodyComponent(), panelWidth() - PANEL_MARGIN * 2).size() - visibleLines);
+        int bodyHeight = Math.max(LINE_HEIGHT, statusTop() - 8 - (panelTop() + 48));
+        int visibleLines = Math.max(1, bodyHeight / scaledLineHeight());
+        return Math.max(0, this.font.split(bodyComponent(), splitWidth(panelWidth() - PANEL_MARGIN * 2)).size() - visibleLines);
     }
 
     private void renderScrollableBody(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
-        List<net.minecraft.util.FormattedCharSequence> lines = this.font.split(bodyComponent(), width);
-        int visibleLines = Math.max(1, height / 10);
+        List<net.minecraft.util.FormattedCharSequence> lines = this.font.split(bodyComponent(), splitWidth(width));
+        int lineHeight = scaledLineHeight();
+        int visibleLines = Math.max(1, height / lineHeight);
         int maxScroll = Math.max(0, lines.size() - visibleLines);
         textScroll = Math.max(0, Math.min(maxScroll, textScroll));
         graphics.enableScissor(x, y, x + width, y + height);
         int lineY = y;
         for (int i = textScroll; i < Math.min(lines.size(), textScroll + visibleLines); i++) {
-            graphics.text(this.font, lines.get(i), x, lineY, TEXT_COLOR);
-            lineY += 10;
+            drawScaledText(graphics, lines.get(i), x, lineY, TEXT_COLOR);
+            lineY += lineHeight;
         }
         graphics.disableScissor();
         if (maxScroll > 0) {
@@ -258,19 +343,32 @@ public final class DialogueScreen extends Screen {
             lineY = renderStatusEchoes(graphics, statusMessage.get(), x, lineY, width, bottom);
         }
         if (waitingForServer && lineY + LINE_HEIGHT <= bottom) {
-            graphics.text(this.font, Component.translatable("screen.ebb.dialogue.waiting"), x, lineY, MUTED_COLOR);
+            drawScaledText(graphics, Component.translatable("screen.ebb.dialogue.waiting"), x, lineY, MUTED_COLOR);
         }
         graphics.disableScissor();
     }
 
+    private void renderHeaderTitle(GuiGraphicsExtractor graphics, int left, int top, int right) {
+        Component title = Component.translatable("screen.ebb.dialogue.heading", dialogueId.toString(), nodeId);
+        int titleLeft = left + 202;
+        int titleRight = right - PANEL_MARGIN;
+        if (titleRight - titleLeft < 80) {
+            titleLeft = left + PANEL_MARGIN;
+        }
+        graphics.enableScissor(titleLeft, top + 4, titleRight, top + 24);
+        graphics.text(this.font, title, titleLeft, top + 9, TITLE_COLOR);
+        graphics.disableScissor();
+    }
+
     private int renderWrapped(GuiGraphicsExtractor graphics, Component component, int x, int y, int width, int bottom, int color) {
-        List<net.minecraft.util.FormattedCharSequence> lines = this.font.split(component, width);
+        int lineHeight = scaledLineHeight();
+        List<net.minecraft.util.FormattedCharSequence> lines = this.font.split(component, splitWidth(width));
         for (net.minecraft.util.FormattedCharSequence line : lines) {
-            if (y + LINE_HEIGHT > bottom) {
+            if (y + lineHeight > bottom) {
                 break;
             }
-            graphics.text(this.font, line, x, y, color);
-            y += LINE_HEIGHT;
+            drawScaledText(graphics, line, x, y, color);
+            y += lineHeight;
         }
         return y + 2;
     }
@@ -282,7 +380,7 @@ public final class DialogueScreen extends Screen {
                 continue;
             }
             y = renderWrapped(graphics, Component.literal(statusLabel(part)), x, y, width, bottom, statusColor(part));
-            if (y + LINE_HEIGHT > bottom) {
+            if (y + scaledLineHeight() > bottom) {
                 break;
             }
         }
@@ -303,6 +401,12 @@ public final class DialogueScreen extends Screen {
         if (status.startsWith("relation_")) return "关系变化： " + status;
         if (status.startsWith("npc_state_")) return "NPC记忆： " + status;
         if (status.startsWith("npc_routine_")) return "NPC行动： " + status;
+        if (status.startsWith("conflict_status:")) return "冲突状态： " + status.substring("conflict_status:".length());
+        if (status.startsWith("conflict_started:")) return "冲突开始： " + status.substring("conflict_started:".length());
+        if (status.startsWith("conflict_stress:")) return "冲突压力： " + status.substring("conflict_stress:".length());
+        if (status.startsWith("conflict_resolve:")) return "冲突进展： " + status.substring("conflict_resolve:".length());
+        if (status.startsWith("conflict_outcome#")) return "冲突结果： " + status.substring("conflict_outcome#".length());
+        if (status.startsWith("conflict_outcome_missing")) return "冲突结果错误： " + status;
         if (status.startsWith("conflict_")) return "冲突推进： " + status;
         if (status.startsWith("scene_phase:")) return "场景阶段： " + status.substring("scene_phase:".length());
         return status;
@@ -311,7 +415,8 @@ public final class DialogueScreen extends Screen {
     private static int statusColor(String status) {
         if (status.contains("[Chime:")) return CHIME_STATUS_COLOR;
         if (status.startsWith("clue_gained:") || status.startsWith("clue_") || status.startsWith("journal_entry_")) return CLUE_STATUS_COLOR;
-        if (status.startsWith("quest_") || status.startsWith("take_root:")) return QUEST_STATUS_COLOR;
+        if (status.startsWith("take_root:")) return TAKE_ROOT_STATUS_COLOR;
+        if (status.startsWith("quest_")) return QUEST_STATUS_COLOR;
         if (status.startsWith("feat_")) return FEAT_STATUS_COLOR;
         if (status.startsWith("relation_") || status.startsWith("npc_state_") || status.startsWith("npc_routine_")
                 || status.startsWith("conflict_") || status.startsWith("scene_phase:")) return RELATION_STATUS_COLOR;
@@ -356,8 +461,8 @@ public final class DialogueScreen extends Screen {
     }
 
     private int statusTop() {
-        int preferredHeight = hasStatusLines() ? 46 : LINE_HEIGHT;
-        int minTop = panelTop() + 62;
+        int preferredHeight = hasStatusLines() ? Math.max(46, scaledLineHeight() * 4) : scaledLineHeight();
+        int minTop = panelTop() + 66;
         return Math.max(minTop, choicesTop() - preferredHeight);
     }
 
@@ -371,7 +476,7 @@ public final class DialogueScreen extends Screen {
 
     private Component bodyComponent() {
         if (history.isEmpty()) {
-            return textKey.map(Component::translatable).orElseGet(() -> Component.literal(text));
+            return textKey.map(key -> Component.translatableWithFallback(key, text)).orElseGet(() -> Component.literal(text));
         }
         Component body = Component.empty();
         for (int i = 0; i < history.size(); i++) {
@@ -379,11 +484,38 @@ public final class DialogueScreen extends Screen {
             if (i > 0) {
                 body = body.copy().append(Component.literal("\n\n"));
             }
+            boolean current = i == history.size() - 1;
             body = body.copy()
-                    .append(Component.literal(entry.speaker() + ": ").withStyle(ChatFormatting.BOLD))
-                    .append(entry.textKey().map(Component::translatable).orElseGet(() -> Component.literal(entry.text())));
+                    .append(Component.literal((current ? "▶ " : "") + entry.speaker() + ": ")
+                            .withStyle(current ? ChatFormatting.AQUA : ChatFormatting.GRAY, ChatFormatting.BOLD))
+                    .append(entryTextComponent(entry, current));
         }
         return body;
+    }
+
+    private Component entryTextComponent(HistoryEntry entry, boolean current) {
+        Component component = entry.textKey()
+                .map(key -> Component.translatableWithFallback(key, entry.text()))
+                .orElseGet(() -> Component.literal(entry.text()));
+        if (!current) {
+            return component;
+        }
+        String full = component.getString();
+        int visible = visibleCharacters(full);
+        if (visible >= full.length()) {
+            return component;
+        }
+        return Component.literal(full.substring(0, Math.max(0, visible)));
+    }
+
+    private int visibleCharacters(String text) {
+        ClientDialogueSettings.TextSpeed speed = ClientDialogueSettings.textSpeed();
+        if (speed == ClientDialogueSettings.TextSpeed.INSTANT || text.isEmpty()) {
+            return text.length();
+        }
+        long elapsed = Math.max(0L, System.currentTimeMillis() - nodeOpenedAtMillis);
+        int visible = (int) ((elapsed * speed.charsPerSecond()) / 1000L);
+        return Math.min(text.length(), Math.max(1, visible));
     }
 
     private void appendHistoryEntry(String nodeId, String speaker, String text, Optional<String> textKey) {
@@ -396,7 +528,9 @@ public final class DialogueScreen extends Screen {
     }
 
     private static Component choiceText(VisibleDialogueChoice choice) {
-        return choice.textKey().map(Component::translatable).orElseGet(() -> Component.literal(choice.text()));
+        return choice.textKey()
+                .map(key -> Component.translatableWithFallback(key, choice.text()))
+                .orElseGet(() -> Component.literal(choice.text()));
     }
 
     private static Component choiceLabel(VisibleDialogueChoice choice) {
@@ -407,6 +541,40 @@ public final class DialogueScreen extends Screen {
             case ACTION -> Component.empty().append(Component.literal("(")).append(inner).append(Component.literal(")" + suffix)).withStyle(ChatFormatting.GOLD);
             case THOUGHT -> Component.empty().append(Component.literal("\u3010")).append(inner).append(Component.literal("\u3011" + suffix)).withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC);
         };
+    }
+
+    private int scaledLineHeight() {
+        return Math.max(LINE_HEIGHT, (int) Math.ceil(this.font.lineHeight * ClientDialogueSettings.fontScale()) + 2);
+    }
+
+    private int splitWidth(int width) {
+        return Math.max(1, (int) Math.floor(width / ClientDialogueSettings.fontScale()));
+    }
+
+    private void drawScaledText(GuiGraphicsExtractor graphics, Component text, int x, int y, int color) {
+        double scale = ClientDialogueSettings.fontScale();
+        if (Math.abs(scale - 1.0D) < 0.001D) {
+            graphics.text(this.font, text, x, y, color);
+            return;
+        }
+        graphics.pose().pushMatrix();
+        graphics.pose().translate((float) x, (float) y);
+        graphics.pose().scale((float) scale);
+        graphics.text(this.font, text, 0, 0, color);
+        graphics.pose().popMatrix();
+    }
+
+    private void drawScaledText(GuiGraphicsExtractor graphics, net.minecraft.util.FormattedCharSequence text, int x, int y, int color) {
+        double scale = ClientDialogueSettings.fontScale();
+        if (Math.abs(scale - 1.0D) < 0.001D) {
+            graphics.text(this.font, text, x, y, color);
+            return;
+        }
+        graphics.pose().pushMatrix();
+        graphics.pose().translate((float) x, (float) y);
+        graphics.pose().scale((float) scale);
+        graphics.text(this.font, text, 0, 0, color);
+        graphics.pose().popMatrix();
     }
 
     private record HistoryEntry(String nodeId, String speaker, String text, Optional<String> textKey) {

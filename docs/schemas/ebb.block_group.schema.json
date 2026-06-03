@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/ebb/block_group.schema.json",
+  "title": "Ebb Block Group Interaction",
+  "type": "object",
+  "required": ["dialogue"],
+  "properties": {
+    "id": { "type": "string" },
+    "dimension": { "type": "string" },
+    "dialogue": { "type": "string" },
+    "blocks": { "type": "array" },
+    "boxes": { "type": "array" },
+    "interaction_point": { "$ref": "#/$defs/vec3" },
+    "anchor": { "$ref": "#/$defs/vec3" },
+    "highlight": { "$ref": "#/$defs/highlight" }
+  },
+  "anyOf": [ { "required": ["blocks"] }, { "required": ["boxes"] } ],
+  "$defs": {
+    "vec3": { "type": "array", "prefixItems": [ { "type": "number" }, { "type": "number" }, { "type": "number" } ], "minItems": 3, "maxItems": 3 },
+    "highlight": {
+      "type": "object",
+      "properties": {
+        "color": { "type": "string" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "far_opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "render_mode": { "enum": ["outline", "merged", "bounds"] },
+        "priority": { "type": "integer" }
+      }
+    }
+  }
+}

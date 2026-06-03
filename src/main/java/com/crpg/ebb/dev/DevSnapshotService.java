@@ -2,25 +2,34 @@ package com.crpg.ebb.dev;
 
 import com.crpg.ebb.attribute.AttributeRegistry;
 import com.crpg.ebb.chime.ChimeRegistry;
+import com.crpg.ebb.chime.ChimeResolver;
 import com.crpg.ebb.data.JsonDataRegistry;
 import com.crpg.ebb.data.NarrativeDataRegistries;
+import com.crpg.ebb.dialogue.DialogueDefinition;
+import com.crpg.ebb.dialogue.DialogueNode;
 import com.crpg.ebb.dialogue.DialogueRegistry;
+import com.crpg.ebb.dialogue.DialogueSession;
 import com.crpg.ebb.dialogue.DialogueService;
+import com.crpg.ebb.conflict.ConflictDefinition;
 import com.crpg.ebb.feat.FeatRegistry;
 import com.crpg.ebb.conflict.ConflictRegistry;
+import com.crpg.ebb.conflict.ConflictService;
 import com.crpg.ebb.interaction.BlockGroupIndex;
 import com.crpg.ebb.interaction.InteractionSettings;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.investigation.InvestigationRegistry;
 import com.crpg.ebb.journal.JournalEntryRegistry;
+import com.crpg.ebb.network.sync.InteractionSyncService;
 import com.crpg.ebb.quest.QuestBranchRegistry;
 import com.crpg.ebb.relationship.RelationshipRegistry;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
 import com.crpg.ebb.state.NarrativeSavedData;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class DevSnapshotService {
     private DevSnapshotService() {
@@ -63,6 +72,9 @@ public final class DevSnapshotService {
         lines.addAll(narrativeState.relationshipDebugLines(96));
         lines.add("");
         lines.addAll(narrativeState.investigationDebugLines(96));
+        appendConflictCatalog(lines, server, narrativeState);
+        appendSecurityDiagnostics(lines);
+        appendChimeTriggerDebug(lines, server, narrativeState);
         DialogueDebugDumper.appendDialogueTrees(lines);
         DialogueDebugDumper.appendEntityBindings(lines);
         DialogueDebugDumper.appendRoutines(lines);
@@ -84,6 +96,83 @@ public final class DevSnapshotService {
         appendMessages(lines, "Investigation validation", InvestigationRegistry.validationMessages());
         appendMessages(lines, "Conflict validation", ConflictRegistry.validationMessages());
         return lines;
+    }
+
+    private static void appendSecurityDiagnostics(List<String> lines) {
+        lines.add("");
+        lines.add("P29 multiplayer/packet diagnostics:");
+        lines.add("- dialogue_security_events=" + DialogueService.securityEventSnapshot());
+        lines.add("- missing_client_mod_diagnostics:");
+        InteractionSyncService.missingClientModDiagnosticLines().forEach(line -> lines.add("  " + line));
+    }
+
+    private static void appendConflictCatalog(List<String> lines, MinecraftServer server, NarrativeSavedData narrativeState) {
+        lines.add("");
+        lines.add("Conflict phase/status catalog:");
+        List<ConflictDefinition> definitions = ConflictRegistry.orderedDefinitions();
+        if (definitions.isEmpty()) {
+            lines.add("- none");
+            return;
+        }
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        for (ConflictDefinition definition : definitions) {
+            lines.add("- " + definition.debugSummary());
+            lines.add("  phases=" + definition.phases());
+            if (!definition.phaseDescriptions().isEmpty()) {
+                definition.phaseDescriptions().forEach((phase, description) -> lines.add("  phase." + phase + "=" + description));
+            }
+            if (!definition.leverageClues().isEmpty()) {
+                lines.add("  leverage_clues=" + definition.leverageClues());
+            }
+            if (!definition.outcomes().isEmpty()) {
+                lines.add("  outcomes=" + definition.outcomes().stream()
+                        .map(outcome -> outcome.debugSummary())
+                        .toList());
+            }
+            if (players.isEmpty()) {
+                lines.add("  status=no_online_players");
+            } else {
+                for (ServerPlayer player : players) {
+                    lines.add("  status." + player.getName().getString() + "="
+                            + ConflictService.statusLine(narrativeState, player.getUUID(), definition.id()));
+                }
+            }
+        }
+    }
+
+    private static void appendChimeTriggerDebug(List<String> lines, MinecraftServer server, NarrativeSavedData narrativeState) {
+        lines.add("");
+        lines.add("Chime trigger debug:");
+        List<ServerPlayer> players = server.getPlayerList().getPlayers();
+        if (players.isEmpty()) {
+            lines.add("- no online players");
+            return;
+        }
+        for (ServerPlayer player : players) {
+            String playerName = player.getName().getString();
+            Optional<DialogueSession> maybeSession = DialogueService.currentSessionForPlayer(player.getUUID());
+            if (maybeSession.isEmpty()) {
+                lines.add("- " + playerName + ": no active dialogue; Chime reasons require a current dialogue node");
+                continue;
+            }
+            DialogueSession session = maybeSession.get();
+            Optional<DialogueDefinition> maybeDefinition = DialogueRegistry.byId(session.dialogueId());
+            if (maybeDefinition.isEmpty()) {
+                lines.add("- " + playerName + ": active dialogue " + session.dialogueId() + " is no longer loaded");
+                continue;
+            }
+            DialogueDefinition definition = maybeDefinition.get();
+            Optional<DialogueNode> maybeNode = definition.node(session.nodeId());
+            if (maybeNode.isEmpty()) {
+                lines.add("- " + playerName + ": active node " + session.nodeId() + " is missing in " + session.dialogueId());
+                continue;
+            }
+            DialogueNode node = maybeNode.get();
+            lines.add("- " + playerName + ": dialogue=" + session.dialogueId() + " node=" + node.id()
+                    + " chime_tags=" + node.chimeTags());
+            ChimeResolver.explain(definition, node, narrativeState, player.getUUID(), player.level().getOverworldClockTime())
+                    .forEach(reason -> lines.add("  - " + reason));
+        }
     }
 
     private static void appendMessages(List<String> lines, String heading, List<String> messages) {

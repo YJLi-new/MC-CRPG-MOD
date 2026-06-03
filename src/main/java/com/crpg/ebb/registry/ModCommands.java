@@ -483,10 +483,12 @@ public final class ModCommands {
                 + " name=" + npc.getName().getString()), false);
         source.sendSuccess(() -> Component.literal("- routine_id=" + npc.routineId().map(Identifier::toString).orElse("-")), false);
         source.sendSuccess(() -> Component.literal("- narrative_key=" + npc.narrativeStateKey()
+                + " visual_role=" + npc.visualRole()
                 + " pose=" + npc.narrativePose()
                 + " animation=" + npc.narrativeAnimation()), false);
         source.sendSuccess(() -> Component.literal("- path_key=" + (npc.routinePathKey().isBlank() ? "-" : npc.routinePathKey())
                 + " path_index=" + npc.routinePathIndex()), false);
+        source.sendSuccess(() -> Component.literal("- " + npc.routineDebugSummary()), false);
         source.sendSuccess(() -> Component.literal("- pos=" + npc.position()
                 + " navigation_done=" + npc.getNavigation().isDone()), false);
 
@@ -619,6 +621,7 @@ public final class ModCommands {
         }
         npc.setRoutineId(routineId);
         npc.setNarrativeStateKey(narrativeKeyForRoutine(routineId));
+        npc.setVisualRole(narrativeTagForRoutine(routineId));
         npc.addTag("ebb.npc");
         npc.addTag("ebb.npc." + routineId.getPath().replace('/', '.'));
         npc.addTag("ebb.npc." + narrativeTagForRoutine(routineId));

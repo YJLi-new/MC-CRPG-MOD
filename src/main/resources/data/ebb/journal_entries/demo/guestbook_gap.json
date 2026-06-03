@@ -1,0 +1,11 @@
+{
+  "title": "Torn Guestbook Page",
+  "category": "clue",
+  "quest": "ebb:demo/minor_guestbook_gap",
+  "text": "住客簿缺页的纤维还夹在装订线里。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_guestbook_gap"
+  ]
+}

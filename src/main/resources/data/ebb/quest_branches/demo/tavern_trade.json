@@ -1,0 +1,19 @@
+{
+  "title": "交易路线",
+  "kind": "major",
+  "description": "把走廊秘密变成交易筹码，让每个人付出刚好能承受的代价。",
+  "take_root_text": "交易路线扎根：你学会了让真相以账目的形式移动。",
+  "grant_feats": [
+    "ebb:demo/hard_bargain",
+    "ebb:demo/ledger_skeptic"
+  ],
+  "take_root_effects": [
+    {
+      "type": "set_story_var",
+      "scope": "player",
+      "layer": "major",
+      "id": "trade_compromise",
+      "value": 1
+    }
+  ]
+}

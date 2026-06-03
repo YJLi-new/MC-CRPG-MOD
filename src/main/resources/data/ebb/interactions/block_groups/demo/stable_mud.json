@@ -1,0 +1,27 @@
+{
+  "dimension": "minecraft:overworld",
+  "dialogue": "ebb:demo/stable_mud_dialogue",
+  "blocks": [
+    [
+      14,
+      64,
+      3
+    ],
+    [
+      14,
+      64,
+      4
+    ]
+  ],
+  "interaction_point": [
+    14.5,
+    64.2,
+    3.5
+  ],
+  "highlight": {
+    "color": "#7ad9ff",
+    "opacity": 0.45,
+    "render_mode": "merged",
+    "priority": 80
+  }
+}

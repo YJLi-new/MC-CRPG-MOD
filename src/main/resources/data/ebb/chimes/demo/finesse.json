@@ -1,0 +1,24 @@
+{
+  "name": "Finesse",
+  "source_attribute": "dexterity",
+  "min_score": 1,
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Tactile precision. Reads hands, timing, object placement, exits, and the tiny motions before a lie moves.",
+  "speaker_style": "quick",
+  "cooldown_ticks": 200,
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_finesse"
+  ],
+  "lines": [
+    "他的拇指擦过柜台边缘的划痕。手知道路线，嘴还在假装迷路。",
+    "真正的小动作从来不小，它只是不愿意被看见。",
+    "手指先于嘴巴承认了路线。",
+    "别碰证词，碰它旁边的沉默。",
+    "门缝里有比钥匙更轻的东西。"
+  ]
+}

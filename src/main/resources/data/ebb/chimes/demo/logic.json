@@ -1,0 +1,24 @@
+{
+  "name": "Logic",
+  "source_attribute": "intelligence",
+  "min_score": 1,
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Cold reconstruction. Builds timelines, contradictions, constraints, and the smallest explanation that still fits.",
+  "speaker_style": "analytic",
+  "cooldown_ticks": 200,
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_logic"
+  ],
+  "lines": [
+    "若钥匙一直在柜台下，门却从里面回应，那么“锁住”不是这件事的起点。",
+    "把每个人的说法当成账本，少的那一行最诚实。",
+    "如果窗户能作证，它会先抱怨时间。",
+    "矛盾不需要喊，它只需要排在一起。",
+    "一把不存在的钥匙仍能打开很多谎。"
+  ]
+}

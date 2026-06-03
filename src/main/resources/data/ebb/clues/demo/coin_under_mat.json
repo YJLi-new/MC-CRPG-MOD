@@ -1,0 +1,9 @@
+{
+  "title": "Coin Under Mat",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/coin_under_mat",
+  "text": "门垫下的硬币不是小费，是记号。",
+  "check_modifiers": {
+    "luck": 1
+  }
+}

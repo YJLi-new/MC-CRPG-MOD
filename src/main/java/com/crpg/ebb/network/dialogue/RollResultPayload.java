@@ -10,7 +10,9 @@ public record RollResultPayload(
         int total,
         boolean success,
         boolean critical,
-        String outcome
+        String outcome,
+        boolean showDc,
+        boolean showRoll
 ) {
     public static final int MAX_ATTRIBUTE_LENGTH = 64;
     public static final int MAX_OUTCOME_LENGTH = 64;
@@ -24,6 +26,8 @@ public record RollResultPayload(
         buffer.writeBoolean(success);
         buffer.writeBoolean(critical);
         buffer.writeUtf(outcome, MAX_OUTCOME_LENGTH);
+        buffer.writeBoolean(showDc);
+        buffer.writeBoolean(showRoll);
     }
 
     public static RollResultPayload read(RegistryFriendlyByteBuf buffer) {
@@ -35,12 +39,17 @@ public record RollResultPayload(
                 buffer.readVarInt(),
                 buffer.readBoolean(),
                 buffer.readBoolean(),
-                buffer.readUtf(MAX_OUTCOME_LENGTH)
+                buffer.readUtf(MAX_OUTCOME_LENGTH),
+                buffer.readBoolean(),
+                buffer.readBoolean()
         );
     }
 
     public String summary() {
-        return attribute + " d20=" + dieRoll + " + " + attributeScore + " => " + total
-                + " vs DC " + dc + " (" + outcome + ")";
+        String roll = showRoll
+                ? "d20=" + dieRoll + " + " + attributeScore + " => " + total
+                : "hidden roll";
+        String difficulty = showDc ? "DC " + dc : "hidden DC";
+        return attribute + " " + roll + " vs " + difficulty + " (" + outcome + ")";
     }
 }

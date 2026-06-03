@@ -2,8 +2,23 @@
   "name": "Dread",
   "source_attribute": "luck",
   "min_score": 1,
-  "trigger_tags": ["innkeeper.read"],
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Ominous pattern-recognition. Speaks in consequences, bad odds, and the cost of pretending not to notice.",
   "speaker_style": "warning",
   "cooldown_ticks": 200,
-  "lines": ["空气像一块湿布盖在这句话上。你已经听见了后果，只是还没发生。"]
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_dread"
+  ],
+  "lines": [
+    "空气像一块湿布盖在这句话上。你已经听见了后果，只是还没发生。",
+    "坏运气有时候只是案子提前伸手。",
+    "如果所有路都太顺，说明有人把岔路收起来了。",
+    "恐惧不是预言，是一张很会记账的收据。",
+    "这次别赢得太干净，干净会反咬。"
+  ]
 }

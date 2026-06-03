@@ -1,0 +1,11 @@
+{
+  "title": "Spilled Ale Map",
+  "category": "clue",
+  "quest": "ebb:demo/minor_guestbook_gap",
+  "text": "洒出的麦酒沿桌缝画出楼梯路线。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_guestbook_gap"
+  ]
+}

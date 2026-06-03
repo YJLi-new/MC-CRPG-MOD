@@ -1,0 +1,11 @@
+{
+  "title": "Kitchen Manifest Rewrite",
+  "category": "clue",
+  "quest": "ebb:demo/minor_cook_manifest",
+  "text": "厨房货单的墨迹有两层，后一层把一只箱子改成了两只。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_cook_manifest"
+  ]
+}

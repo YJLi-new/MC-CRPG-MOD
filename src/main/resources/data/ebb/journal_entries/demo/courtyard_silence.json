@@ -1,0 +1,11 @@
+{
+  "title": "Courtyard Silence",
+  "category": "clue",
+  "quest": "ebb:demo/minor_stable_mud",
+  "text": "院子里每个人都记得没听见什么。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_stable_mud"
+  ]
+}

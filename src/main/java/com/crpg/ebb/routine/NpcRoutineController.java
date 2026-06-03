@@ -1,5 +1,10 @@
 package com.crpg.ebb.routine;
 
+import com.crpg.ebb.dialogue.DialogueDefinition;
+import com.crpg.ebb.dialogue.DialogueNode;
+import com.crpg.ebb.dialogue.DialogueNodeType;
+import com.crpg.ebb.dialogue.DialogueRegistry;
+import com.crpg.ebb.dialogue.DialogueSession;
 import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.npc.EbbNpcEntity;
 import net.minecraft.resources.Identifier;
@@ -9,6 +14,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Comparator;
+import java.util.Locale;
 import java.util.Optional;
 
 public final class NpcRoutineController {
@@ -16,24 +22,29 @@ public final class NpcRoutineController {
     }
 
     public static void tick(EbbNpcEntity npc, ServerLevel level) {
+        if (applyConversationFocus(npc, level)) {
+            return;
+        }
+        npc.endConversationFocus();
+
         Optional<Identifier> routineId = npc.routineId();
         if (routineId.isEmpty()) {
+            npc.setRoutineDebug("no_routine", "-", "-");
             return;
         }
         Optional<NpcRoutineDefinition> routine = NpcRoutineRegistry.byId(routineId.get());
         if (routine.isEmpty()) {
+            npc.setRoutineDebug("missing_routine", routineId.get().toString(), "-");
             return;
         }
 
-        if (applyConversationFocus(npc, level)) {
-            return;
-        }
         applyMovement(npc, level, routine.get());
         applyLookAtPlayer(npc, level, routine.get().lookAtPlayer());
     }
 
     private static boolean applyConversationFocus(EbbNpcEntity npc, ServerLevel level) {
-        Optional<ServerPlayer> player = DialogueService.activeConversationPlayerForEntity(npc.getUUID())
+        Optional<DialogueSession> session = DialogueService.activeConversationSessionForEntity(npc.getUUID());
+        Optional<ServerPlayer> player = session.map(DialogueSession::playerUuid)
                 .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
                 .filter(found -> found.level() == level && !found.isSpectator());
         if (player.isEmpty()) {
@@ -41,20 +52,34 @@ public final class NpcRoutineController {
         }
         npc.getNavigation().stop();
         npc.getLookControl().setLookAt(player.get(), 12.0F, npc.getMaxHeadXRot());
+        String animation = session.map(NpcRoutineController::conversationAnimationFor).orElse("talk");
+        npc.beginConversationFocus(animation);
+        npc.setRoutineDebug(
+                "conversation_focus",
+                player.get().getName().getString() + ":" + animation,
+                session.map(value -> value.dialogueId() + "/" + value.nodeId()).orElse("-")
+        );
         return true;
     }
 
     private static void applyMovement(EbbNpcEntity npc, ServerLevel level, NpcRoutineDefinition routine) {
-        routine.stepForTime(level.getOverworldClockTime()).ifPresent(step -> {
+        long dayTime = level.getOverworldClockTime();
+        Optional<NpcRoutineDefinition.Step> maybeStep = routine.stepForTime(dayTime);
+        if (maybeStep.isEmpty()) {
+            npc.setRoutineDebug("no_step", routine.id().toString(), Long.toString(Math.floorMod(dayTime, 24000L)));
+            return;
+        }
+        NpcRoutineDefinition.Step step = maybeStep.get();
             applyStepMetadata(npc, step);
-            String action = step.action().toLowerCase(java.util.Locale.ROOT);
+            String action = step.action().toLowerCase(Locale.ROOT);
+            String pathKey = routine.id() + ":" + step.startTime() + "-" + step.endTime() + ":" + step.action();
+            int pathIndex = npc.routinePathIndex(pathKey, step.path().size());
+            Vec3 destination = step.destinationAt(pathIndex);
+            npc.setRoutineDebug(action, targetSummary(destination, step), pathKey + "#" + pathIndex);
             if ("wait".equals(action)) {
                 npc.getNavigation().stop();
                 return;
             }
-            String pathKey = routine.id() + ":" + step.startTime() + "-" + step.endTime() + ":" + step.action();
-            int pathIndex = npc.routinePathIndex(pathKey, step.path().size());
-            Vec3 destination = step.destinationAt(pathIndex);
             if ("play_animation".equals(action) || "set_pose".equals(action)) {
                 if (destination == null) {
                     npc.getNavigation().stop();
@@ -90,7 +115,6 @@ public final class NpcRoutineController {
             } else {
                 npc.getNavigation().stop();
             }
-        });
     }
 
     private static void applyStepMetadata(EbbNpcEntity npc, NpcRoutineDefinition.Step step) {
@@ -102,6 +126,35 @@ public final class NpcRoutineController {
         if ("set_pose".equalsIgnoreCase(step.action()) && step.pose().isEmpty()) {
             npc.setNarrativePose("scripted");
         }
+    }
+
+    private static String conversationAnimationFor(DialogueSession session) {
+        Optional<DialogueDefinition> definition = DialogueRegistry.byId(session.dialogueId());
+        Optional<DialogueNode> node = definition.flatMap(value -> value.node(session.nodeId()));
+        if (node.isEmpty()) {
+            return "nervous_idle";
+        }
+        DialogueNode current = node.get();
+        String speaker = current.speaker().toLowerCase(Locale.ROOT);
+        String nodeId = current.id().toLowerCase(Locale.ROOT);
+        String text = current.text().toLowerCase(Locale.ROOT);
+        if (current.type() == DialogueNodeType.END || nodeId.contains("end") || nodeId.contains("leave")) {
+            return "dismiss";
+        }
+        if (nodeId.contains("failure") || text.contains("失败") || text.contains("谨慎")) {
+            return "nervous_idle";
+        }
+        if (speaker.contains("inner") || speaker.contains("narrator")) {
+            return "think";
+        }
+        return "talk";
+    }
+
+    private static String targetSummary(Vec3 destination, NpcRoutineDefinition.Step step) {
+        String target = destination == null
+                ? "-"
+                : String.format(Locale.ROOT, "%.1f,%.1f,%.1f", destination.x, destination.y, destination.z);
+        return step.look().map(look -> target + " look=" + look).orElse(target);
     }
 
     private static void applyLookAtPlayer(EbbNpcEntity npc, ServerLevel level, NpcRoutineDefinition.LookAtPlayer config) {

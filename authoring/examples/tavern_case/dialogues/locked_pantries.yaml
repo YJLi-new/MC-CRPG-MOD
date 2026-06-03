@@ -1,0 +1,39 @@
+id: tavern_case/locked_pantries
+version: 1
+entry: start
+tags: [example, tavern_case]
+nodes:
+  start:
+    speaker: narrator
+    text: "柜门里传来一声很轻的碰撞。"
+    choices:
+      - id: listen
+        kind: THOUGHT
+        label: "【先听，再动手。】"
+        effects:
+          - type: set_flag
+            scope: player
+            key: tavern_case_listened
+        next: heard
+      - id: pry
+        kind: ACTION
+        label: "（撬开柜门。）"
+        roll:
+          ability: dexterity
+          dc: 12
+          success: opened
+          failure: bent_tool
+          failure_effects:
+            - type: set_flag
+              scope: player
+              key: tavern_case_bent_tool
+  heard:
+    speaker: narrator
+    text: "不是老鼠。是金属被布包着滑动的声音。"
+    next: start
+  opened:
+    speaker: narrator
+    text: "锁簧一松，柜门自己吐出一枚生锈的钥匙。"
+  bent_tool:
+    speaker: narrator
+    text: "工具弯了，但柜门缝里露出足够的证据：里面有钥匙。"

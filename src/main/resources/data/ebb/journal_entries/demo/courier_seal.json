@@ -1,0 +1,11 @@
+{
+  "title": "Courier Seal Bent Twice",
+  "category": "clue",
+  "quest": "ebb:demo/minor_courier_route",
+  "text": "信使封蜡被压过两次，第二次更急。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_courier_route"
+  ]
+}

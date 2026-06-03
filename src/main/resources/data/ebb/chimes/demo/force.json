@@ -1,0 +1,24 @@
+{
+  "name": "Force",
+  "source_attribute": "strength",
+  "min_score": 1,
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Physical leverage without default violence. Counts hinges, shoulders, weight, and who controls space.",
+  "speaker_style": "pressure",
+  "cooldown_ticks": 200,
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_force"
+  ],
+  "lines": [
+    "这不是要不要踹门的问题。问题是每个人都在按住一扇比木头更重的门。",
+    "力气不是答案；它只是让假答案更快裂开。",
+    "肩膀记得门闩，门闩记得谁怕它响。",
+    "把重量放在问题上，而不是人身上。",
+    "如果你推，先推叙述里最松的那块木板。"
+  ]
+}

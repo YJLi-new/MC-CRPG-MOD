@@ -37,11 +37,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class DialogueService {
     private static final String SYNTHETIC_NEXT_CHOICE_ID = "__ebb_continue";
     private static final Map<UUID, DialogueSession> SESSIONS = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> PLAYER_TO_SESSION = new ConcurrentHashMap<>();
+    private static final Map<String, AtomicInteger> SECURITY_EVENTS = new ConcurrentHashMap<>();
     private static final long SESSION_TIMEOUT_TICKS = 20L * 60L * 5L;
     private static int tickCounter;
 
@@ -69,11 +71,17 @@ public final class DialogueService {
             return;
         }
 
+        Optional<UUID> entityUuid = target instanceof EntityTarget entityTarget ? Optional.of(entityTarget.entityUuid()) : Optional.empty();
+        if (entityUuid.isPresent() && entityReservedByAnotherPlayer(entityUuid.get(), player.getUUID())) {
+            recordSecurityEvent("entity_dialogue_busy");
+            responseSender.sendPacket(new InteractionDeniedPayload(target.id(), "entity_dialogue_busy"));
+            return;
+        }
+
         closeExistingSession(player.getUUID());
 
         long gameTime = player.level().getGameTime();
         UUID conversationId = UUID.randomUUID();
-        Optional<UUID> entityUuid = target instanceof EntityTarget entityTarget ? Optional.of(entityTarget.entityUuid()) : Optional.empty();
         DialogueSession session = new DialogueSession(
                 conversationId,
                 player.getUUID(),
@@ -92,16 +100,17 @@ public final class DialogueService {
     }
 
     public static void choose(ServerPlayer player, ChooseDialogueOptionPayload payload, PacketSender responseSender) {
-        DialogueSession session = SESSIONS.get(payload.conversationId());
-        if (session == null || !session.playerUuid().equals(player.getUUID())) {
-            responseSender.sendPacket(new DialogueClosePayload(payload.conversationId(), "missing_or_expired_session"));
-            return;
-        }
         long gameTime = player.level().getGameTime();
-        if (gameTime - session.lastTouchedGameTime() > SESSION_TIMEOUT_TICKS) {
-            close(session, responseSender, "session_timeout");
+        ChoicePacketValidation preflight = validateChoicePacket(player.getUUID(), payload.conversationId(), gameTime);
+        if (!preflight.allowed()) {
+            if ("session_timeout".equals(preflight.reason()) && preflight.session().isPresent()) {
+                close(preflight.session().get(), responseSender, preflight.reason());
+            } else {
+                responseSender.sendPacket(new DialogueClosePayload(payload.conversationId(), preflight.reason()));
+            }
             return;
         }
+        DialogueSession session = preflight.session().orElseThrow();
 
         Optional<DialogueDefinition> definition = DialogueRegistry.byId(session.dialogueId());
         if (definition.isEmpty()) {
@@ -128,6 +137,7 @@ public final class DialogueService {
             return;
         }
         if (choice.isEmpty()) {
+            recordSecurityEvent("invalid_choice");
             DialogueSession touched = session.touch(gameTime);
             SESSIONS.put(touched.conversationId(), touched);
             sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("invalid_choice:" + payload.choiceId()), currentDayTime(player));
@@ -140,6 +150,7 @@ public final class DialogueService {
             return;
         }
         if (!conditionsMet(choice.get(), state, player.getUUID(), currentDayTime(player))) {
+            recordSecurityEvent("choice_unavailable");
             DialogueSession touched = session.touch(gameTime);
             SESSIONS.put(touched.conversationId(), touched);
             sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("choice_unavailable:" + payload.choiceId()), currentDayTime(player));
@@ -148,6 +159,7 @@ public final class DialogueService {
         if (choice.get().type() == ChoiceType.ACTION && choice.get().revalidateTarget()) {
             InteractionValidationResult validation = InteractionService.validateSessionTarget(player, session);
             if (!validation.allowed()) {
+                recordSecurityEvent("action_target_invalid:" + validation.reason());
                 DialogueSession touched = session.touch(gameTime);
                 SESSIONS.put(touched.conversationId(), touched);
                 sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("action_target_invalid:" + validation.reason()), currentDayTime(player));
@@ -185,6 +197,8 @@ public final class DialogueService {
             remove(session);
             EbbMod.LOGGER.debug("Closed dialogue session {} for {}: {}",
                     payload.conversationId(), player.getName().getString(), payload.reason());
+        } else {
+            recordSecurityEvent(session == null ? "close_missing_session" : "close_session_player_mismatch");
         }
     }
 
@@ -216,10 +230,51 @@ public final class DialogueService {
         return conversationId == null ? Optional.empty() : Optional.ofNullable(SESSIONS.get(conversationId));
     }
 
+    public static ChoicePacketValidation validateChoicePacket(UUID playerUuid, UUID conversationId, long gameTime) {
+        DialogueSession session = SESSIONS.get(conversationId);
+        if (session == null) {
+            recordSecurityEvent("missing_or_expired_session");
+            return new ChoicePacketValidation(false, "missing_or_expired_session", Optional.empty());
+        }
+        if (!session.playerUuid().equals(playerUuid)) {
+            recordSecurityEvent("session_player_mismatch");
+            return new ChoicePacketValidation(false, "session_player_mismatch", Optional.of(session));
+        }
+        if (gameTime - session.lastTouchedGameTime() > SESSION_TIMEOUT_TICKS) {
+            recordSecurityEvent("session_timeout");
+            return new ChoicePacketValidation(false, "session_timeout", Optional.of(session));
+        }
+        return new ChoicePacketValidation(true, "ok", Optional.of(session));
+    }
+
+    public static boolean entityReservedByAnotherPlayer(UUID entityUuid, UUID playerUuid) {
+        return SESSIONS.values().stream()
+                .anyMatch(session -> session.entityUuid().filter(entityUuid::equals).isPresent()
+                        && !session.playerUuid().equals(playerUuid));
+    }
+
+    public static Map<String, Integer> securityEventSnapshot() {
+        Map<String, Integer> snapshot = new java.util.LinkedHashMap<>();
+        SECURITY_EVENTS.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> snapshot.put(entry.getKey(), entry.getValue().get()));
+        return Map.copyOf(snapshot);
+    }
+
+    public static void clearSecurityEventSnapshot() {
+        SECURITY_EVENTS.clear();
+    }
+
     public static Optional<UUID> activeConversationPlayerForEntity(UUID entityUuid) {
         return SESSIONS.values().stream()
                 .filter(session -> session.entityUuid().filter(entityUuid::equals).isPresent())
                 .map(DialogueSession::playerUuid)
+                .findFirst();
+    }
+
+    public static Optional<DialogueSession> activeConversationSessionForEntity(UUID entityUuid) {
+        return SESSIONS.values().stream()
+                .filter(session -> session.entityUuid().filter(entityUuid::equals).isPresent())
                 .findFirst();
     }
 
@@ -286,7 +341,9 @@ public final class DialogueService {
                 total,
                 success,
                 critical,
-                outcome
+                outcome,
+                check.showDc(),
+                check.showRoll()
         );
         EbbMod.LOGGER.info("Dialogue roll {} choice {} for {}: d20 {} + {} = {} vs DC {} -> {}",
                 choice.check().map(DialogueCheck::attribute).orElse(check.attribute()),
@@ -365,7 +422,7 @@ public final class DialogueService {
             Optional<String> statusMessage,
             long dayTime
     ) {
-        Optional<String> combinedStatus = combineStatus(statusMessage, ChimeResolver.resolve(definition, node, state, session.playerUuid()));
+        Optional<String> combinedStatus = combineStatus(statusMessage, ChimeResolver.resolve(definition, node, state, session.playerUuid(), dayTime));
         return new OpenDialoguePayload(
                 session.conversationId(),
                 definition.id(),
@@ -388,7 +445,7 @@ public final class DialogueService {
             Optional<String> statusMessage,
             long dayTime
     ) {
-        Optional<String> combinedStatus = combineStatus(statusMessage, ChimeResolver.resolve(definition, node, state, session.playerUuid()));
+        Optional<String> combinedStatus = combineStatus(statusMessage, ChimeResolver.resolve(definition, node, state, session.playerUuid(), dayTime));
         responseSender.sendPacket(new DialogueUpdatePayload(
                 session.conversationId(),
                 definition.id(),
@@ -420,6 +477,16 @@ public final class DialogueService {
 
     private static long currentDayTime(ServerPlayer player) {
         return ((ServerLevel) player.level()).getOverworldClockTime();
+    }
+
+    private static void recordSecurityEvent(String reason) {
+        SECURITY_EVENTS.computeIfAbsent(reason, ignored -> new AtomicInteger()).incrementAndGet();
+    }
+
+    public record ChoicePacketValidation(boolean allowed, String reason, Optional<DialogueSession> session) {
+        public ChoicePacketValidation {
+            session = session == null ? Optional.empty() : session;
+        }
     }
 
     private record ChoiceResolution(

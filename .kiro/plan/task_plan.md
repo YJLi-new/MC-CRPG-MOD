@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Architecture-plan implementation has started from `C:\Users\lanla\Downloads\minecraft_disco_crpg_mod_goal_architecture_plan.md`. P20/P21 documentation consolidation and baseline audit guardrails are implemented and verified. P22 interaction/highlight polish has begun: synced highlight styles, merged block outlines, concise F3 target-reason/style overlay, and profile refresh are implemented; automated validation is being refreshed before push, and full GUI relaunch visual proof for the new P22 styling remains next. The previous GUI final visual pass remains valid evidence: the separate PCL/Fabric `26.1.2-Fabric-Ebb-Test` profile loaded jar `23540536daaeda7e054813ee10fa4ce653fca1085876fce058f8a2819e3e3ec3` and passed runtime + GUI verification for commands, four distinct role NPC dialogues, and all eight block-group dialogues.
+Phase 32 K-key Ebb menu and live dialogue background is complete: K opens the mod menu, dialogue screens no longer darken the non-panel gameplay view, static/Gradle/smoke/GameTest validation passed, the separate Fabric test profile was refreshed, and Windows GUI retest passed with 282 steps / 0 failures.
 
 ## Phases
 
@@ -201,8 +201,124 @@ Architecture-plan implementation has started from `C:\Users\lanla\Downloads\mine
 - [x] Add demo authoring data and docs for `highlight` style fields.
 - [x] Extend `scripts/goal_static_audit.py` with P22 guardrails.
 - [x] Build, validate data, smoke check, and GameTest after P22 code changes.
-- [ ] Close/relaunch the Windows test client and run GUI visual proof against the refreshed P22 jar.
-- **Status:** in_progress; code/data/docs/tests complete, P22 GUI relaunch proof pending.
+- [x] Close/relaunch the Windows test client and run GUI visual proof against the refreshed P22 jar.
+- **Status:** complete
+
+
+### Phase 22: Architecture Plan P23 Dialogue UI and Reading Rhythm Upgrade
+- [x] Re-audit current `DialogueScreen` history, status, choice layout, style rendering, localization fallback, and keyboard input surfaces.
+- [x] Improve scrollable history log with clear current node focus.
+- [x] Ensure status/roll/chime/clue/quest echo area never overlaps choices at multiple GUI scales.
+- [x] Add/verify distinct visual treatment for spoken dialogue, action, thought, chime passive inserts, roll results, and take-root moments.
+- [x] Add optional hidden-DC / hidden-roll display modes in data if missing.
+- [x] Add feasible player-facing font scale/text speed controls or document deferral with settings contract.
+- [x] Add keyboard navigation for choices.
+- [x] Add localization fallback for missing `text_key` translations.
+- [x] Verify with build/data/static/JUnit/GameTest/smoke and GUI route proof.
+- **Status:** complete
+
+
+### Phase 23: Architecture Plan P24 Authoring and Validation Hardening
+- [x] Expand `docs/json_authoring_guide.md` with a complete reference table for all conditions/effects.
+- [x] Add JSON Schema files if not present, or generate schema docs from parsers.
+- [x] Extend `compile_authoring_sources.py` to emit line/file diagnostics for bad YAML/JSON.
+- [x] Add a failure-forward lint rule: high-stakes checked choices require failure branch/effects.
+- [x] Add reference validation for dialogue IDs, node IDs, quest IDs, feat IDs, chime IDs, journal/clue IDs, routine IDs, and relationship IDs.
+- [x] Add example authoring pack under `authoring/examples/tavern_case/`.
+- **Status:** complete
+
+
+### Phase 24: Architecture Plan P25 Quest Tree / Take Root / Feat Maturation
+- [x] Upgrade Quest Tree UI from basic list/tree into a more legible branch map.
+- [x] Make Major vs Minor branch distinction visible.
+- [x] Show Take Root as a special moment with text, color, and granted feat summary.
+- [x] Improve feat loadout UI: unlocked, active, passive, source quest, modifiers.
+- [x] Add conflict/quest/history filters to Journal and Quest screens.
+- [x] Add tests ensuring major branches cannot Take Root twice.
+- **Status:** complete
+
+
+### Phase 25: Architecture Plan P26 Chime / Inner Voice Expansion
+- [x] Expand current four Chimes into a clearer initial set of 8 attribute voices.
+- [x] Give each Chime a tone guide and trigger tags.
+- [x] Add one passive and one active thought route per Chime in demo content.
+- [x] Add cooldown/one-shot tuning so Chimes do not spam repeated nodes.
+- [x] Add dev view listing why a Chime did or did not trigger.
+- **Status:** complete
+
+
+### Phase 26: Architecture Plan P27 NPC Art, Animation, and Routine Production
+- [x] Create or document temporary humanoid GeckoLib model/texture assets.
+- [x] Add role-specific visual skins for innkeeper, witness, tenant, and guard.
+- [x] Add routine action validation for invalid path/pose/animation names.
+- [x] Add routine debug overlay or command output showing current step/action/target.
+- [x] Add conversation animation hooks: talk, think, dismiss, nervous idle.
+- [x] Ensure active dialogues pause routine and restore it cleanly after close/timeout.
+- **Status:** complete
+
+
+### Phase 27: Architecture Plan P28 Investigation and Set-piece Conflict Expansion
+- [x] Formalize conflict phases: setup, pressure, turn, consequence, resolution.
+- [x] Add conflict UI status: stress, resolve, known leverage/clues.
+- [x] Let clues unlock options and modify DCs in conflict.
+- [x] Add at least two failure-forward conflict outcomes.
+- [x] Add one non-violent and one messy resolution path.
+- [x] Add tests for conflict score persistence and fail-forward paths.
+- **Status:** complete
+
+
+### Phase 28: Architecture Plan P29 Save/load, Multiplayer, and Permissions Hardening
+- [x] Add explicit saved-data migration tests for schema version increments.
+- [x] Verify new worlds and old worlds load without data loss.
+- [x] Add multiplayer session handling tests: two players talking to different NPCs, same NPC contention, disconnect mid-dialogue.
+- [x] Ensure OP-only commands are permission-gated; player self-inspection commands remain player-safe.
+- [x] Audit all server receivers for spoofing and stale target/session IDs.
+- [x] Add diagnostics for missing client mod on dedicated server if applicable.
+- **Status:** complete
+
+
+### Phase 29: Architecture Plan P30 Vertical Slice Content Expansion
+- [x] Expand the tavern case with 3 acts: discovery, pressure/investigation, confrontation/ending.
+- [x] Add at least 12 block-group investigation points.
+- [x] Add at least 6 NPCs or 4 NPCs with much deeper reactivity.
+- [x] Add at least 4 major branches and 8 minor branches.
+- [x] Add at least 12 feats.
+- [x] Add at least 8 Chimes and 40 Chime lines.
+- [x] Add at least 20 journal/clue entries.
+- [x] Add at least 3 set-piece conflicts.
+- [x] Ensure every major route has an ending placeholder or concrete ending.
+- **Status:** complete
+
+
+### Phase 30: Architecture Plan P31 Release Packaging and Player Documentation
+- [x] Create installation docs for client and dedicated server.
+- [x] Document Fabric API and GeckoLib dependency requirements.
+- [x] Create known-compatible test profile instructions.
+- [x] Add Modrinth/CurseForge metadata draft if releasing publicly.
+- [x] Add data authoring tutorial for custom story packs.
+- [x] Add a changelog.
+- [x] Add license clarity for code, data, and assets.
+- **Status:** complete
+
+
+### Phase 31: Dialogue Wait-State and GUI Automation Hotfix
+- [x] Diagnose the screenshot where DialogueScreen stayed on `等待服务器……` after choosing an option.
+- [x] Add server-side dialogue choice exception handling so failures close/ack the client instead of leaving it waiting forever.
+- [x] Add client-side dialogue choice timeout recovery and translations.
+- [x] Prevent `configure_pcl_test_client.sh` from overwriting the profile-local mod jar while the matching Minecraft JVM is running.
+- [x] Harden runtime log checks for stale classloader/ZIP errors.
+- [x] Fix GUI automation setup/viewpoints for guestbook and stable mud interactables, and make visual checks require an actual dialogue screen.
+- [x] Run Windows GUI retest against `新的世界 (1)` with 0 failures.
+- **Status:** complete
+
+
+### Phase 32: K-key Ebb Menu and Live Dialogue Background
+- [x] Add a mod-specific Ebb menu screen opened with the default `K` key.
+- [x] Provide player-safe menu actions for Journal, Quest Tree, Attributes, Dialogue Vars, and dialogue reading settings.
+- [x] Remove the full-screen dark background from interaction dialogues so the live player view remains visible outside the translucent dialogue panel.
+- [x] Add static audit and GUI automation guardrails for the K menu and live-background regression.
+- [x] Rebuild, refresh the separate Fabric test profile, and capture Windows GUI proof.
+- **Status:** complete
 
 ## Key Questions
 1. Version pins? Resolved: Minecraft `26.1.2`, Fabric Loader `0.19.2`, Fabric API `0.150.0+26.1.2`, Loom `1.17.0-alpha.13`, GeckoLib `5.5.1`; no Yarn dependency line for 26.1+.

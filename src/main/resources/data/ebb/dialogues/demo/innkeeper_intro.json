@@ -170,6 +170,166 @@
           ]
         },
         {
+          "id": "dread_chime_thought",
+          "type": "thought",
+          "text": "【Dread】把最坏的结局先摆到桌上。",
+          "next": "dread_chime_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/dread",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_dread"
+            }
+          ]
+        },
+        {
+          "id": "empathy_chime_thought",
+          "type": "thought",
+          "text": "【Empathy】先说出他正在保护什么。",
+          "next": "empathy_chime_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/empathy",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_empathy"
+            }
+          ]
+        },
+        {
+          "id": "endurance_chime_thought",
+          "type": "thought",
+          "text": "【Endurance】让沉默再多压一秒。",
+          "next": "endurance_chime_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/endurance",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_endurance"
+            }
+          ]
+        },
+        {
+          "id": "finesse_chime_thought",
+          "type": "thought",
+          "text": "【Finesse】盯住他的手，而不是他的嘴。",
+          "next": "finesse_chime_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/finesse",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_finesse"
+            }
+          ]
+        },
+        {
+          "id": "force_chime_thought",
+          "type": "thought",
+          "text": "【Force】把房间里的重量挪到你这边。",
+          "next": "force_chime_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/force",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_force"
+            }
+          ]
+        },
+        {
+          "id": "instinct_chime_thought",
+          "type": "thought",
+          "text": "【Instinct】顺着那一下不自然的停顿追问。",
+          "next": "instinct_chime_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/instinct",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_instinct"
+            }
+          ]
+        },
+        {
+          "id": "logic_chime_thought",
+          "type": "thought",
+          "text": "【Logic】重排钥匙、门和敲击的顺序。",
+          "next": "logic_chime_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/logic",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_logic"
+            }
+          ]
+        },
+        {
+          "id": "rhetoric_insight",
+          "type": "thought",
+          "text": "【Rhetoric】换个问法：钥匙会让谁失去控制权？",
+          "next": "rhetoric_line",
+          "conditions": [
+            {
+              "type": "flag",
+              "scope": "player",
+              "id": "chime:ebb:demo/rhetoric",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "type": "add_thought",
+              "id": "ebb:demo/thought_rhetoric"
+            }
+          ]
+        },
+        {
           "id": "trusted_followup",
           "type": "dialogue",
           "text": "你刚才确实帮了我。现在能说真话了吗？",
@@ -193,20 +353,6 @@
             {
               "type": "has_feat",
               "id": "ebb:demo/tavern_authority"
-            }
-          ]
-        },
-        {
-          "id": "rhetoric_insight",
-          "type": "thought",
-          "text": "换个问法：钥匙会让谁失去控制权？",
-          "next": "rhetoric_line",
-          "conditions": [
-            {
-              "type": "flag",
-              "scope": "player",
-              "id": "chime:ebb:demo/rhetoric",
-              "value": true
             }
           ]
         },
@@ -428,6 +574,90 @@
           "id": "back",
           "type": "thought",
           "text": "回到谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "dread_chime_line": {
+      "speaker": "inner voice",
+      "text": "如果他继续沉默，后果会替他说话。把这个坏预感当作地图，而不是恐吓。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这条内心路线带回谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "empathy_chime_line": {
+      "speaker": "inner voice",
+      "text": "他把拒绝说得很硬，是因为软的部分已经被问过太多次。先碰那一处。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这条内心路线带回谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "endurance_chime_line": {
+      "speaker": "inner voice",
+      "text": "谈话里有一种体力活：不急着填补空白，让对方先承认自己撑不住。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这条内心路线带回谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "finesse_chime_line": {
+      "speaker": "inner voice",
+      "text": "手指比台词诚实。柜台边缘、钥匙位置、收回手的速度，全都在给你第二套证词。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这条内心路线带回谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "force_chime_line": {
+      "speaker": "inner voice",
+      "text": "力量不是把门撞开；力量是让所有人突然意识到，这扇门已经占用了太多空间。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这条内心路线带回谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "instinct_chime_line": {
+      "speaker": "inner voice",
+      "text": "那一瞬间的停顿不是犹豫，是身体替他检查退路。顺着这个检查问下去。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这条内心路线带回谈话。",
+          "next": "start"
+        }
+      ]
+    },
+    "logic_chime_line": {
+      "speaker": "inner voice",
+      "text": "把事实按时间放回去：钥匙在外，敲击在内，恐惧在两者之间迟到。",
+      "choices": [
+        {
+          "id": "back",
+          "type": "thought",
+          "text": "把这条内心路线带回谈话。",
           "next": "start"
         }
       ]

@@ -1,0 +1,8 @@
+{
+  "title": "住客簿缺口",
+  "kind": "minor",
+  "description": "找出住客簿里被撕掉的一页。",
+  "grant_feats": [
+    "ebb:demo/ledger_skeptic"
+  ]
+}

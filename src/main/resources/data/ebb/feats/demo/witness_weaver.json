@@ -1,0 +1,10 @@
+{
+  "display_name": "Witness Weaver",
+  "description": "You braid partial testimony into something others can follow.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "charisma": 1,
+    "intelligence": 1
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "display_name": "Kitchen Truce",
+  "description": "You can make a tense room accept a practical compromise.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "charisma": 1
+  }
+}

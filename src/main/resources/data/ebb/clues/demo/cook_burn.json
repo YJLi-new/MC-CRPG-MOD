@@ -1,0 +1,10 @@
+{
+  "title": "Cook Burned Palm",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/cook_burn",
+  "text": "厨子的手心烫伤像是抓过热金属扣。",
+  "check_modifiers": {
+    "empathy": 1,
+    "wisdom": 1
+  }
+}

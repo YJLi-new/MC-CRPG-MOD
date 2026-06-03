@@ -26,7 +26,8 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class NarrativeSavedData extends SavedData {
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int LEGACY_SCHEMA_VERSION = 1;
     public static final Codec<NarrativeSavedData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.unboundedMap(Codec.STRING, PlayerNarrativeState.CODEC).optionalFieldOf("players", Map.of()).forGetter(NarrativeSavedData::playersForCodec),
             Codec.STRING.listOf().optionalFieldOf("world_flags", List.of()).forGetter(NarrativeSavedData::worldFlagsForCodec),
@@ -35,7 +36,7 @@ public final class NarrativeSavedData extends SavedData {
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("world_story_major_vars", Map.of()).forGetter(NarrativeSavedData::worldStoryMajorVariablesForCodec),
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("world_story_minor_vars", Map.of()).forGetter(NarrativeSavedData::worldStoryMinorVariablesForCodec),
             Codec.STRING.listOf().optionalFieldOf("world_npc_state_tags", List.of()).forGetter(NarrativeSavedData::worldNpcStateTagsForCodec),
-            Codec.INT.optionalFieldOf("version", CURRENT_SCHEMA_VERSION).forGetter(NarrativeSavedData::versionForCodec)
+            Codec.INT.optionalFieldOf("version", LEGACY_SCHEMA_VERSION).forGetter(NarrativeSavedData::versionForCodec)
     ).apply(instance, NarrativeSavedData::new));
 
     public static final SavedDataType<NarrativeSavedData> TYPE = new SavedDataType<>(
@@ -75,7 +76,9 @@ public final class NarrativeSavedData extends SavedData {
         this.worldStoryMajorVariables.putAll(worldStoryMajorVariables);
         this.worldStoryMinorVariables.putAll(worldStoryMinorVariables);
         this.worldNpcStateTags.addAll(worldNpcStateTags);
-        this.version = Math.max(1, version);
+        int loadedVersion = Math.max(LEGACY_SCHEMA_VERSION, version);
+        migrateLoadedData(loadedVersion);
+        this.version = CURRENT_SCHEMA_VERSION;
     }
 
     public static NarrativeSavedData get(MinecraftServer server) {
@@ -349,6 +352,14 @@ public final class NarrativeSavedData extends SavedData {
 
     public void setConflictState(UUID playerUuid, String conflictId, String state) {
         setNarrativeState(playerUuid, narrativeStateKey("conflict", conflictId), state);
+    }
+
+    public String getConflictPhase(UUID playerUuid, String conflictId) {
+        return player(playerUuid).narrativeStates().getOrDefault(narrativeStateKey("conflict_phase", conflictId), "not_started");
+    }
+
+    public void setConflictPhase(UUID playerUuid, String conflictId, String phase) {
+        setNarrativeState(playerUuid, narrativeStateKey("conflict_phase", conflictId), phase);
     }
 
     public int getConflictScore(UUID playerUuid, String scoreKind, String conflictId) {
@@ -699,6 +710,43 @@ public final class NarrativeSavedData extends SavedData {
 
     private static String conflictScoreKey(String kind, String id) {
         return normalize(kind) + ":" + normalizeId(id);
+    }
+
+    private void migrateLoadedData(int loadedVersion) {
+        if (loadedVersion < 2) {
+            migrateConflictPhasesFromLegacyStates();
+        }
+    }
+
+    private void migrateConflictPhasesFromLegacyStates() {
+        for (PlayerNarrativeState player : players.values()) {
+            List<Map.Entry<String, String>> legacyConflictStates = player.narrativeStates().entrySet().stream()
+                    .filter(entry -> entry.getKey().startsWith("conflict:"))
+                    .filter(entry -> !entry.getKey().startsWith("conflict_phase:"))
+                    .toList();
+            for (Map.Entry<String, String> entry : legacyConflictStates) {
+                String conflictId = entry.getKey().substring("conflict:".length());
+                String phaseKey = narrativeStateKey("conflict_phase", conflictId);
+                player.narrativeStates().putIfAbsent(phaseKey, inferConflictPhaseFromLegacyState(player, conflictId, entry.getValue()));
+            }
+        }
+    }
+
+    private static String inferConflictPhaseFromLegacyState(PlayerNarrativeState player, String conflictId, String conflictState) {
+        String normalizedState = normalize(conflictState == null ? "" : conflictState);
+        if (normalizedState.startsWith("failed")) {
+            return "consequence";
+        }
+        if (normalizedState.startsWith("resolved")) {
+            return "resolution";
+        }
+        if (player.conflictScores().getOrDefault(conflictScoreKey("resolve", conflictId), 0) > 0) {
+            return "turn";
+        }
+        if (player.conflictScores().getOrDefault(conflictScoreKey("stress", conflictId), 0) > 0) {
+            return "pressure";
+        }
+        return "setup";
     }
 
     private void setNarrativeState(UUID playerUuid, String key, String value) {

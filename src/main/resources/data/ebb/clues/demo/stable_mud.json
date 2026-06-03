@@ -1,0 +1,9 @@
+{
+  "title": "Stable Mud on Upper Floor",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/stable_mud",
+  "text": "楼上的泥不是雨水带来的，是马厩后门的红土。",
+  "check_modifiers": {
+    "perception": 1
+  }
+}

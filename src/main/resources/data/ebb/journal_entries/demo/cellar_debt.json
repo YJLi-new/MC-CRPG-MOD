@@ -1,0 +1,11 @@
+{
+  "title": "Cellar Debt Mark",
+  "category": "clue",
+  "quest": "ebb:demo/minor_cellar_debt",
+  "text": "地窖账本里有一笔债务被画了门闩形状的记号。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_cellar_debt"
+  ]
+}

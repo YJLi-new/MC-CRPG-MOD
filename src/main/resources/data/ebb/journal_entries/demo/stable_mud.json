@@ -1,0 +1,11 @@
+{
+  "title": "Stable Mud on Upper Floor",
+  "category": "clue",
+  "quest": "ebb:demo/minor_stable_mud",
+  "text": "楼上的泥不是雨水带来的，是马厩后门的红土。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_stable_mud"
+  ]
+}

@@ -39,18 +39,24 @@ EXPECTED_BLOCK_GROUPS = {
     "tenant_luggage.json",
     "cellar_hatch.json",
     "back_door.json",
+    "stairwell_dust.json",
+    "kitchen_manifest.json",
+    "guestbook_torn_page.json",
+    "stable_mud.json",
 }
 ROLE_EXPECTATIONS = {
     "innkeeper": ("ebb:demo/innkeeper_intro", {"ebb.npc.demo.innkeeper", "ebb.npc.demo.innkeeper_day", "ebb.npc.innkeeper", "ebb.npc.innkeeper_day"}),
     "witness": ("ebb:demo/witness_intro", {"ebb.npc.demo.witness", "ebb.npc.demo.witness_day", "ebb.npc.witness", "ebb.npc.witness_day"}),
     "tenant": ("ebb:demo/tenant_intro", {"ebb.npc.demo.tenant", "ebb.npc.demo.tenant_day", "ebb.npc.tenant", "ebb.npc.tenant_day"}),
     "guard": ("ebb:demo/guard_intro", {"ebb.npc.demo.guard", "ebb.npc.demo.guard_day", "ebb.npc.guard", "ebb.npc.guard_day"}),
+    "cook": ("ebb:demo/cook_intro", {"ebb.npc.demo.cook", "ebb.npc.demo.cook_day", "ebb.npc.cook", "ebb.npc.cook_day"}),
+    "courier": ("ebb:demo/courier_intro", {"ebb.npc.demo.courier", "ebb.npc.demo.courier_day", "ebb.npc.courier", "ebb.npc.courier_day"}),
 }
 SAVE_BLOCKS = {
     (0, 64, 4): "minecraft:oak_planks",
     (0, 65, 4): "minecraft:oak_planks",
     (2, 64, 1): "minecraft:lectern",
-    (1, 65, 0): "minecraft:oak_sign",
+    (1, 65, 0): "minecraft:oak_planks",
     (-2, 64, 6): "minecraft:glass",
     (4, 65, 6): "minecraft:gray_wool",
     (8, 64, 3): "minecraft:chest",
@@ -103,6 +109,71 @@ def audit_sources() -> None:
         fail("Client synced interaction data is not cleared at INIT")
     if "ClientPlayConnectionEvents.JOIN.register" in client_net:
         fail("Client synced interaction data is still cleared at JOIN, which can clear login sync payloads")
+    packets = read_text("src/main/java/com/crpg/ebb/network/ModPackets.java")
+    for needle in ["handleDialogueChoice", "DialogueClosePayload(payload.conversationId(), \"server_error\")"]:
+        if needle not in packets:
+            fail(f"ModPackets missing dialogue choice exception close guard: {needle}")
+    screen = read_text("src/client/java/com/crpg/ebb/client/gui/dialogue/DialogueScreen.java")
+    for needle in ["WAITING_TIMEOUT_MS", "message.ebb.dialogue_choice_timeout", "waitingStartedAtMillis"]:
+        if needle not in screen:
+            fail(f"DialogueScreen missing wait-state timeout guard: {needle}")
+    if "extractTransparentBackground(graphics)" in screen:
+        fail("DialogueScreen still darkens the world with extractTransparentBackground(graphics)")
+    menu_screen = read_text("src/client/java/com/crpg/ebb/client/gui/menu/EbbMenuScreen.java")
+    for needle in [
+        "screen.ebb.menu.title",
+        "sendCommandAndClose(\"ebb journal\")",
+        "sendCommandAndClose(\"ebb quest\")",
+        "sendCommandAndClose(\"ebb attributes\")",
+        "sendCommandAndClose(\"ebb vars\")",
+        "ClientDialogueSettings.fontScaleLabel()",
+        "ClientDialogueSettings.textSpeedLabel()",
+        "GLFW.GLFW_KEY_K",
+        "isPauseScreen()",
+    ]:
+        if needle not in menu_screen:
+            fail(f"EbbMenuScreen missing K-menu evidence: {needle}")
+    if "extractTransparentBackground" in menu_screen:
+        fail("EbbMenuScreen must not draw an opaque/black full-screen background")
+    key_mappings = read_text("src/client/java/com/crpg/ebb/client/input/ClientKeyMappings.java")
+    for needle in ["key.ebb.menu", "GLFW.GLFW_KEY_K", "new EbbMenuScreen()", "client.screen instanceof EbbMenuScreen"]:
+        if needle not in key_mappings:
+            fail(f"ClientKeyMappings missing K menu binding evidence: {needle}")
+    for lang in ["src/main/resources/assets/ebb/lang/en_us.json", "src/main/resources/assets/ebb/lang/zh_cn.json"]:
+        text = read_text(lang)
+        if "message.ebb.dialogue_choice_timeout" not in text:
+            fail(f"{lang} missing dialogue choice timeout translation")
+        for needle in ["key.ebb.menu", "screen.ebb.menu.title", "screen.ebb.menu.journal", "screen.ebb.menu.status.ready"]:
+            if needle not in text:
+                fail(f"{lang} missing K-menu translation: {needle}")
+    configure = read_text("scripts/configure_pcl_test_client.sh")
+    for needle in ["profile_running_pids", "Refusing to refresh", "ZipFile invalid LOC header"]:
+        if needle not in configure:
+            fail(f"configure_pcl_test_client.sh missing running-client guard: {needle}")
+    runtime_check = read_text("scripts/check_pcl_runtime_loaded.py")
+    for needle in ["FATAL_LOG_PATTERNS", "ZipFile invalid LOC header", "Failed to load class file"]:
+        if needle not in runtime_check:
+            fail(f"check_pcl_runtime_loaded.py missing fatal-log guard: {needle}")
+    env = read_text("tools/gui_automation/python/ebb_gui_env.py")
+    if "RuntimeCounts(dialogues=19, block_groups=12, entity_bindings=14, npc_routines=7)" not in env:
+        fail("GUI env expected runtime counts are not updated to the P30/P31 content set")
+    gui_runner = read_text("scripts/gui_e2e_run.py")
+    for forbidden in ["oak_sign[facing", "setblock 4 64 8 minecraft:oak_sign", "\"stable_mud\": \"14.5 64 1.5"]:
+        if forbidden in gui_runner:
+            fail(f"GUI runner still contains stale/invalid setup/viewpoint text: {forbidden}")
+    for needle in [
+        "/execute unless block 4 64 8 minecraft:lectern run setblock 4 64 8 minecraft:lectern",
+        '"guestbook_torn_page": "4.5 64 7.0 0 5"',
+        '"stable_mud": "14.5 67 3.5 0 90"',
+        "dialogue_cyan_pixels",
+        'env.windows_gui("press", "--title", args.window_title, "--key", "k")',
+        "k_menu_open.png",
+        "gui_k_menu",
+        "_assert_live_world_background",
+        "top_band_luminance",
+    ]:
+        if needle not in gui_runner:
+            fail(f"GUI runner missing stable visual regression guard/setup: {needle}")
     for needle in [
         "ClientBlockGroupIndex.rebuild(payload.definitions())",
         "EntityBindingRegistry.syncFromServer(payload.definitions(), payload.settings())",
@@ -294,7 +365,7 @@ def main(argv: Iterable[str]) -> int:
 
     print(
         "GuiRetestIssueAudit passed: commands, INIT sync clear, role bindings, "
-        f"8 block groups, build jar, profile={profile_status}, save={save_status}"
+        f"12 block groups, 6 role NPC bindings, build jar, profile={profile_status}, save={save_status}"
     )
     return 0
 

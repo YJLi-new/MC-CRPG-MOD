@@ -1,0 +1,11 @@
+{
+  "title": "Key Echo Without Key",
+  "category": "clue",
+  "quest": "ebb:demo/minor_key_echo",
+  "text": "没有钥匙，大家却都用钥匙的词谈论门。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_key_echo"
+  ]
+}

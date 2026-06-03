@@ -121,6 +121,30 @@ def click_relative(title_regex: str, x: int, y: int, clicks: int = 1) -> dict[st
     return {"window": window, "relative": [x, y], "clicks": clicks}
 
 
+
+def close_window(title_regex: str, force: bool = False) -> dict[str, object]:
+    pyautogui, win32con, win32gui, win32process = _import_gui_deps()
+    windows = find_windows(title_regex)
+    closed: list[dict[str, object]] = []
+    for window in windows:
+        hwnd = int(window["hwnd"])
+        _thread_id, pid = win32process.GetWindowThreadProcessId(hwnd)
+        win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+        closed.append({"hwnd": hwnd, "pid": pid, "title": window.get("title")})
+    time.sleep(1.5)
+    if force and closed:
+        try:
+            import psutil  # type: ignore
+            live_hwnd_pids = {int(w["pid"]) for w in find_windows(title_regex)}
+            for item in closed:
+                pid = int(item["pid"])
+                if pid in live_hwnd_pids and psutil.pid_exists(pid):
+                    psutil.Process(pid).kill()
+                    item["forced"] = True
+        except Exception as exc:
+            closed.append({"force_error": str(exc)})
+    return {"matched": len(windows), "closed": closed}
+
 def launch(exe: Path) -> dict[str, object]:
     _require_windows()
     proc = subprocess.Popen([str(exe)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -128,8 +152,13 @@ def launch(exe: Path) -> dict[str, object]:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["find", "focus", "screenshot", "send-text", "press", "hotkey", "click", "launch"])
+    parser.add_argument("action", choices=["find", "focus", "screenshot", "send-text", "press", "hotkey", "click", "close", "launch"])
     parser.add_argument("--title", default=r"26\.1\.2-Fabric-Ebb-Test|Minecraft")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--text")
@@ -138,6 +167,7 @@ def main() -> int:
     parser.add_argument("--x", type=int)
     parser.add_argument("--y", type=int)
     parser.add_argument("--clicks", type=int, default=1)
+    parser.add_argument("--force", action="store_true")
     parser.add_argument("--exe", type=Path)
     args = parser.parse_args()
     try:
@@ -157,6 +187,8 @@ def main() -> int:
         elif args.action == "click":
             if args.x is None or args.y is None: raise ValueError("--x and --y are required")
             result = click_relative(args.title, args.x, args.y, args.clicks)
+        elif args.action == "close":
+            result = close_window(args.title, force=args.force)
         elif args.action == "hotkey":
             result = hotkey(args.title, args.keys or [])
         else:

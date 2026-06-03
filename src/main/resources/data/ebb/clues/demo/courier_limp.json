@@ -1,0 +1,9 @@
+{
+  "title": "Courier Limp Timing",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/courier_limp",
+  "text": "信使的跛脚只在提到后巷时出现。",
+  "check_modifiers": {
+    "perception": 1
+  }
+}

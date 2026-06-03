@@ -1,0 +1,8 @@
+{
+  "title": "窗边谎言",
+  "kind": "minor",
+  "description": "证明窗边说法只是路线上好听的谎。",
+  "grant_feats": [
+    "ebb:demo/lock_memory"
+  ]
+}

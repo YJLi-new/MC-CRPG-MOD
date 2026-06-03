@@ -1,0 +1,9 @@
+{
+  "title": "Courier Seal Bent Twice",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/courier_seal",
+  "text": "信使封蜡被压过两次，第二次更急。",
+  "check_modifiers": {
+    "perception": 1
+  }
+}

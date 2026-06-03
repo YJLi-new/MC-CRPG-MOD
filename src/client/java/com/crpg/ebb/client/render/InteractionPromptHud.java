@@ -83,9 +83,14 @@ public final class InteractionPromptHud {
             lines.add("detail=" + clip(reasonDetail, 96));
         }
         int x = graphics.guiWidth() / 2;
-        int y = graphics.guiHeight() / 2 + 34;
+        int maxWidth = Math.max(80, graphics.guiWidth() - 24);
+        // Keep the Ebb-only F3 diagnostics out of Minecraft's vanilla debug
+        // text blocks.  With auto GUI scaling, guiHeight is much smaller than
+        // the raw screenshot height, so this intentionally sits close to the
+        // hotbar instead of near the center prompt.
+        int y = Math.max(8, graphics.guiHeight() - 46);
         for (int i = 0; i < lines.size(); i++) {
-            Component text = Component.literal(lines.get(i));
+            Component text = Component.literal(clipToWidth(lines.get(i), maxWidth - 8, font));
             int width = font.width(text);
             int lineY = y + i * 10;
             graphics.fill(x - width / 2 - 4, lineY - 2, x + (width + 1) / 2 + 4, lineY + 10, BACKGROUND);
@@ -98,5 +103,17 @@ public final class InteractionPromptHud {
             return text;
         }
         return text.substring(0, Math.max(0, maxChars - 1)) + "…";
+    }
+
+    private static String clipToWidth(String text, int maxWidth, Font font) {
+        if (font.width(text) <= maxWidth) {
+            return text;
+        }
+        String ellipsis = "…";
+        int end = text.length();
+        while (end > 0 && font.width(text.substring(0, end) + ellipsis) > maxWidth) {
+            end--;
+        }
+        return text.substring(0, Math.max(0, end)) + ellipsis;
     }
 }

@@ -18,11 +18,17 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class InteractionSyncService {
     private static final int ENTITY_TARGET_SYNC_INTERVAL_TICKS = 20;
     private static final double ENTITY_TARGET_SYNC_RADIUS = 64.0D;
+    private static final Map<UUID, Set<String>> MISSING_CLIENT_MOD_PAYLOADS = new ConcurrentHashMap<>();
     private static int entityTargetSyncTickCounter;
 
     private InteractionSyncService() {
@@ -35,6 +41,7 @@ public final class InteractionSyncService {
                 syncInteractionDataToAll(server);
             }
         });
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> MISSING_CLIENT_MOD_PAYLOADS.clear());
         ServerTickEvents.END_SERVER_TICK.register(InteractionSyncService::onServerTick);
     }
 
@@ -52,17 +59,19 @@ public final class InteractionSyncService {
 
     public static void syncBlockGroups(ServerPlayer player) {
         if (!ServerPlayNetworking.canSend(player, BlockGroupSyncPayload.TYPE)) {
-            EbbMod.LOGGER.debug("Skipping block-group sync to {}; client does not advertise {}", player.getName().getString(), BlockGroupSyncPayload.TYPE.id());
+            recordMissingClientPayload(player, BlockGroupSyncPayload.TYPE.id().toString());
             return;
         }
+        markPayloadPresent(player, BlockGroupSyncPayload.TYPE.id().toString());
         ServerPlayNetworking.send(player, new BlockGroupSyncPayload(new ArrayList<>(BlockGroupIndex.definitions().values())));
     }
 
     public static void syncEntityBindings(ServerPlayer player) {
         if (!ServerPlayNetworking.canSend(player, EntityBindingSyncPayload.TYPE)) {
-            EbbMod.LOGGER.debug("Skipping entity-binding sync to {}; client does not advertise {}", player.getName().getString(), EntityBindingSyncPayload.TYPE.id());
+            recordMissingClientPayload(player, EntityBindingSyncPayload.TYPE.id().toString());
             return;
         }
+        markPayloadPresent(player, EntityBindingSyncPayload.TYPE.id().toString());
         ServerPlayNetworking.send(player, new EntityBindingSyncPayload(
                 new ArrayList<>(EntityBindingRegistry.definitions().values()),
                 InteractionSettings.snapshot()
@@ -71,9 +80,10 @@ public final class InteractionSyncService {
 
     public static void syncEntityTargets(ServerPlayer player) {
         if (!ServerPlayNetworking.canSend(player, EntityTargetSyncPayload.TYPE)) {
-            EbbMod.LOGGER.debug("Skipping entity-target sync to {}; client does not advertise {}", player.getName().getString(), EntityTargetSyncPayload.TYPE.id());
+            recordMissingClientPayload(player, EntityTargetSyncPayload.TYPE.id().toString());
             return;
         }
+        markPayloadPresent(player, EntityTargetSyncPayload.TYPE.id().toString());
 
         if (InteractionSettings.enableDebugEntityFallback()) {
             // In debug fallback mode the client intentionally predicts any pickable entity via the synced settings.
@@ -107,6 +117,41 @@ public final class InteractionSyncService {
             }
         }
         ServerPlayNetworking.send(player, new EntityTargetSyncPayload(syncedTargets));
+    }
+
+    public static Map<UUID, Set<String>> missingClientModDiagnostics() {
+        Map<UUID, Set<String>> snapshot = new LinkedHashMap<>();
+        MISSING_CLIENT_MOD_PAYLOADS.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> snapshot.put(entry.getKey(), Set.copyOf(entry.getValue())));
+        return Map.copyOf(snapshot);
+    }
+
+    public static List<String> missingClientModDiagnosticLines() {
+        if (MISSING_CLIENT_MOD_PAYLOADS.isEmpty()) {
+            return List.of("- none");
+        }
+        return MISSING_CLIENT_MOD_PAYLOADS.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> "- " + entry.getKey() + " missing_client_payloads=" + entry.getValue())
+                .toList();
+    }
+
+    private static void recordMissingClientPayload(ServerPlayer player, String payloadId) {
+        MISSING_CLIENT_MOD_PAYLOADS.computeIfAbsent(player.getUUID(), ignored -> ConcurrentHashMap.newKeySet()).add(payloadId);
+        EbbMod.LOGGER.warn("Skipping Ebb sync payload {} to {}; client does not advertise it. If this is a dedicated server, the player may be missing the Ebb client mod.",
+                payloadId, player.getName().getString());
+    }
+
+    private static void markPayloadPresent(ServerPlayer player, String payloadId) {
+        Set<String> missing = MISSING_CLIENT_MOD_PAYLOADS.get(player.getUUID());
+        if (missing == null) {
+            return;
+        }
+        missing.remove(payloadId);
+        if (missing.isEmpty()) {
+            MISSING_CLIENT_MOD_PAYLOADS.remove(player.getUUID());
+        }
     }
 
     private static void onServerTick(MinecraftServer server) {

@@ -1,0 +1,21 @@
+{
+  "match": {
+    "entity_type": "ebb:npc",
+    "tags": [
+      "ebb.npc.demo.courier",
+      "ebb.npc.demo.courier_day",
+      "ebb.npc.courier",
+      "ebb.npc.courier_day"
+    ]
+  },
+  "dialogue": "ebb:demo/courier_intro",
+  "interaction_range": 2.5,
+  "highlight_range": 10.0,
+  "priority": 640,
+  "highlight": {
+    "color": "#ffd27a",
+    "opacity": 0.55,
+    "render_mode": "outline",
+    "priority": 120
+  }
+}

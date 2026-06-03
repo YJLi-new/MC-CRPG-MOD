@@ -2,8 +2,23 @@
   "name": "Rhetoric",
   "source_attribute": "charisma",
   "min_score": 1,
-  "trigger_tags": ["innkeeper.read"],
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Argument architecture. Finds leverage in wording, audience, framing, and who loses narrative control.",
   "speaker_style": "argument",
   "cooldown_ticks": 200,
-  "lines": ["别问钥匙。问谁会因为钥匙被交出来而失去叙事控制。"]
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_rhetoric"
+  ],
+  "lines": [
+    "别问钥匙。问谁会因为钥匙被交出来而失去叙事控制。",
+    "房间不是听你声音大；它听谁先给了结论。",
+    "把问题说成每个人都已经在想的句子。",
+    "一句话若太干净，通常刚擦过血。",
+    "让他否认第二次，第二次会更像答案。"
+  ]
 }

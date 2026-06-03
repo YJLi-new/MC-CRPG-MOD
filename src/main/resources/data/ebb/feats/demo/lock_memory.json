@@ -1,0 +1,10 @@
+{
+  "display_name": "Lock Memory",
+  "description": "Doors and latches stay in your head after everyone else moves on.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "perception": 1,
+    "luck": 1
+  }
+}

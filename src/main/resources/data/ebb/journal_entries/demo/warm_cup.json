@@ -1,0 +1,11 @@
+{
+  "title": "Warm Cup in Empty Room",
+  "category": "clue",
+  "quest": "ebb:demo/minor_cook_manifest",
+  "text": "空房里的杯子还温着，说明“离开”刚刚发生。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_cook_manifest"
+  ]
+}

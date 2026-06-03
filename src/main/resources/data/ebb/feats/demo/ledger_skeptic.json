@@ -1,0 +1,9 @@
+{
+  "display_name": "Ledger Skeptic",
+  "description": "You distrust clean numbers and gain a small edge reading cooked accounts.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "intelligence": 1
+  }
+}

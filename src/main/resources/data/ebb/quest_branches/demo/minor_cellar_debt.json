@@ -1,0 +1,8 @@
+{
+  "title": "地窖债务",
+  "kind": "minor",
+  "description": "把地窖账本里的债务和门锁联系起来。",
+  "grant_feats": [
+    "ebb:demo/hard_bargain"
+  ]
+}

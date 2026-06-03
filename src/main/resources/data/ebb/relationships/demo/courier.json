@@ -1,0 +1,6 @@
+{
+  "display_name": "Back-alley Courier",
+  "narrative_key": "ebb:demo/courier",
+  "default_score": 0,
+  "tags": ["support_npc", "courier", "tavern"]
+}

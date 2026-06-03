@@ -984,3 +984,364 @@
   - Hashes rechecked: build/profile jar `37188b09af534900f2024bd32cc6795e059c5cf319f7edd032dfd1d54a7b2c8d`; sources jar `42473d388a1b577652ee656da6abac5e9f61f2612c4c314953911aa3c034d351`.
 - Remaining:
   - This does not close the P22 GUI proof checkbox; a fresh Windows client close/relaunch and visual check are still needed for that item.
+
+
+### Phase 21 / P22 final GUI proof and overlay placement fix
+- **Status:** complete.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Reviewed the first P22 F3 proof screenshots and found the centered Ebb debug lines still visually collided with vanilla debug text on small-window/auto-GUI-scale clients.
+  - Moved the F3-only Ebb diagnostics near the hotbar and clipped lines by pixel width, preserving the normal center interaction prompt.
+  - Rebuilt, refreshed the separate Fabric test profile, fully closed/relaunched `26.1.2-Fabric-Ebb-Test`, and entered `新的世界 (1)` for proof against the new jar.
+- Verification:
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/configure_pcl_test_client.sh` -> refreshed separate Fabric test profile.
+  - `scripts/check_pcl_runtime_loaded.py` -> passed with jar `0d66613edc03b54684e1cca4a7c38d36829899cab06b37e6ff48874cb08ca15e`, `dialogues=13`, `block_groups=8`, `entity_bindings=10`, `npc_routines=5`.
+  - Screenshots captured: `build/gui-e2e/p22_locked_door_prompt_proof.png`, `p22_locked_door_f3_debug_proof.png`, `p22_innkeeper_prompt_proof.png`, `p22_innkeeper_f3_debug_proof.png`.
+  - Visual review: locked-door block group shows merged cyan outline and `style=merged`; innkeeper bound entity shows outline prompt and `style=outline`; F3 diagnostics are readable near the hotbar and no longer cross the vanilla debug-chart text.
+- Next:
+  - Start P23 dialogue UI and reading rhythm upgrade.
+
+
+### Phase 22 / P23 dialogue UI foundation
+- **Status:** in_progress; first code/docs/tests slice complete.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Audited `DialogueScreen`, dialogue payloads, check parsing, roll summaries, and authoring docs against GOAL P23.
+  - Added `text_key` fallback via `Component.translatableWithFallback` so missing translations fall back to literal author text.
+  - Added current-history focus marker/styling in the scrollable dialogue log.
+  - Added keyboard navigation for visible choices: number keys 1-5, Enter, Page/Arrow up/down for pages, and Home/End for history scroll.
+  - Added hidden DC / hidden roll display controls to `DialogueCheck`, `VisibleDialogueChoice`, and `RollResultPayload` without changing server-authoritative resolution.
+  - Updated authoring docs and `goal_static_audit.py`, and added JUnit coverage for hidden DC/roll player-facing summaries.
+- Verification:
+  - First compile attempt found Minecraft 26.1.2 `Screen.keyPressed` uses `KeyEvent` instead of the older int/signature; fixed against local deobf API.
+  - `python3 scripts/goal_static_audit.py` -> passed, including P23 foundation guardrails.
+  - `scripts/gradle-local.sh --no-daemon test` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/configure_pcl_test_client.sh` -> refreshed separate Fabric test profile.
+  - P23 profile/build jar hash: `42640fc8f6c2fa202b02eb91ae8c11a2cd8b997b757b99b3ec32d868259a0538`; sources jar hash `7b3d802e4bff9bb6fc9718bd9b70deef538e3d21000a0fcd2f4f4f1e96662e61`.
+- Remaining:
+  - P23 still needs final status/choice overlap proof at multiple GUI scales, a decision/implementation for font scale and text speed settings, and GUI route comfort proof before it can be marked complete.
+
+### Phase 22 / P23 foundation smoke verification
+- **Status:** passed; P23 remains in progress.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Verification:
+  - `python3 scripts/goal_static_audit.py` -> passed, including P23 foundation guardrails.
+  - `scripts/run_smoke_checks.sh` -> passed, including build, authoring compile, DeepResearchSmoke, ThirdReviewStaticAudit, DeepResearchStaticAudit, GoalStaticAudit, and GuiRetestIssueAudit.
+  - `git diff --check` -> passed.
+- Note:
+  - The separate test profile has the P23 jar on disk, but the currently open Minecraft process was last proven for the P22 jar. Relaunch is required before judging P23 GUI changes in-game.
+
+### Phase 22 / P23 dialogue UI settings and multi-scale proof
+- **Status:** code/profile/GUI proof complete; final validation suite pending in current turn.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Added `ClientDialogueSettings` with profile-local `config/ebb-client.json` persistence for `dialogue_font_scale` and `dialogue_text_speed`.
+  - Initialized client settings from `EbbClient` and added dialogue-panel controls: `A-`, `A+`, and text-speed cycling.
+  - Scaled/wrapped body/history/status text using the selected font scale, added typed reveal based on text speed, and kept status echoes scissored above the choice buttons.
+  - Preserved distinct dialogue/action/thought styling and status colors for roll results, Chime inserts, clue/journal/quest/feat/take-root, and relationship/routine/conflict echoes.
+  - Reviewed GUI screenshots and found the settings buttons could visually overlap the dialogue id/node title; fixed the header by clipping the title to a lane beside the settings controls.
+  - Rebuilt and refreshed the separate PCL/Fabric test profile with jar `89c54c83518a07493ed21a377a0a4bae3ba4fd4ccfd7c7ba7c86e28c0671a6f9`.
+- GUI/runtime evidence:
+  - Scale 3 screenshots: `build/gui-e2e/p23_scale3_dialogue_open.png`, `p23_scale3_roll_status.png`, `p23_scale3_settings_changed.png`.
+  - Scale 2 screenshots: `build/gui-e2e/p23_scale2_dialogue_open.png`, `p23_scale2_roll_status.png`.
+  - Header-fix proof after the refreshed jar: `build/gui-e2e/p23_headerfix_scale2_dialogue_open.png`.
+  - `scripts/check_pcl_runtime_loaded.py` passed after relaunch with runtime counts `dialogues=13`, `block_groups=8`, `entity_bindings=10`, `npc_routines=5`.
+  - Profile settings proof: `config/ebb-client.json` contains `dialogue_font_scale=1.1` and `dialogue_text_speed=fast` after GUI control use.
+- Verification already run before final docs update:
+  - `scripts/gradle-local.sh --no-daemon test` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/configure_pcl_test_client.sh` -> refreshed separate Fabric test profile.
+- Remaining:
+  - Re-run post-documentation `goal_static_audit`, data validation, smoke checks, GameTest, and `git diff --check`; then mark P23 complete if all pass.
+
+### Phase 22 / P23 final validation closure
+- **Status:** complete.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Verification:
+  - `python3 scripts/goal_static_audit.py` -> passed with P20/P21/P22/P23 guardrails, including font-scale/text-speed settings and scissored status rendering.
+  - `python3 scripts/deep_research_static_audit.py` -> passed.
+  - `python3 scripts/third_review_static_audit.py` -> passed.
+  - `scripts/compile_authoring_sources.py --clean` -> compiled generated authoring data with 0 errors.
+  - `scripts/gradle-local.sh --no-daemon test` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` -> passed, including GoalStaticAudit and GuiRetestIssueAudit.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> 6 required GameTests passed; BUILD SUCCESSFUL.
+  - `scripts/run_gui_automation_smoke.sh` -> passed.
+  - `python3 scripts/gui_e2e_run.py --scenario runtime_check` -> wrote `build/gui-e2e/runtime-check-report.json`.
+  - `scripts/check_pcl_runtime_loaded.py` -> passed with jar `89c54c83518a07493ed21a377a0a4bae3ba4fd4ccfd7c7ba7c86e28c0671a6f9` and runtime counts `13/8/10/5`.
+  - `git diff --check` -> passed.
+- Artifact hashes:
+  - build/profile jar: `89c54c83518a07493ed21a377a0a4bae3ba4fd4ccfd7c7ba7c86e28c0671a6f9`.
+  - sources jar: `6b9fb41c0052116400a4c1dfee438cfb7904f87d6961bed506714381f4519322`.
+- Next:
+  - Start P24 authoring and validation hardening.
+
+### Phase 23 / P24 authoring and validation hardening
+- **Status:** complete.
+- **Time:** 2026-06-02 Asia/Shanghai
+- Actions taken:
+  - Expanded `docs/json_authoring_guide.md` with complete condition/effect reference tables and P24 validation workflow notes.
+  - Added starter JSON Schema files under `docs/schemas/` for dialogues, block groups, entity bindings, and chimes.
+  - Hardened `scripts/compile_authoring_sources.py` so bad YAML/JSON emits file:line:column diagnostics.
+  - Added `scripts/p24_authoring_validation.py` for cross-registry dialogue/interaction/quest/feat/chime/journal/clue/routine/relationship/scene/conflict reference checks plus high-stakes failure-forward lint.
+  - Added `authoring/examples/tavern_case/` with dialogue, block-group interactable, NPC binding, and routine examples; it compiles cleanly.
+  - Wired P24 validation, example compilation, and malformed-YAML diagnostic regression into `scripts/run_smoke_checks.sh`.
+  - Fixed a real content bug found by the new validator: `witness_intro` had `witness.read` chime tags with no matching chime trigger; `instinct` and `empathy` now include `witness.read`.
+- Verification:
+  - `python3 scripts/goal_static_audit.py` -> passed with P24 guardrails.
+  - `scripts/compile_authoring_sources.py --clean` -> compiled generated authoring data with 0 errors.
+  - `scripts/compile_authoring_sources.py --source authoring/examples/tavern_case --out build/generated/ebb_authoring_examples/tavern_case/data/ebb --clean` -> compiled example pack with 0 errors.
+  - `scripts/p24_authoring_validation.py` -> passed bundled + generated roots.
+  - `scripts/p24_authoring_validation.py build/generated/ebb_authoring_examples/tavern_case/data/ebb` -> passed example pack.
+  - `scripts/gradle-local.sh --no-daemon test` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` -> passed, including P24 validator/example/diagnostic checks.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> 6 required GameTests passed; BUILD SUCCESSFUL.
+  - `git diff --check` -> passed.
+- Artifact hashes:
+  - build/profile jar: `2a3cf218c500fc58a2e9c987cd0f423da6c438cbe4d045c79e466d976f43eca9`.
+  - sources jar: `6125d476c2b3867630045dee169144702fbb8ebb800d9271ae83a9b970253179`.
+- Next:
+  - Start P25 Quest Tree / Take Root / Feat maturation.
+
+### Phase 24 / P25 Quest Tree, Take Root, and Feat maturation
+- **Status:** complete.
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Upgraded `QuestTreeService` output from a flat list into a branch map with `◆ MAJOR`, `◇ MINOR`, quest state, descriptions, `★ TAKE ROOT` text, grants, and a feat loadout section.
+  - Upgraded `QuestTreeScreen` with All/Major/Minor/Feats/Take Root filters and distinct colors for major, minor, Take Root, feat loadout, and active feat lines.
+  - Added feat source-quest and check-modifier visibility in the quest/feat view while keeping the existing line-list packet shape.
+  - Added category tags to `JournalService` output and All/Clues/Leads/Quests/Scenes filters plus category colors to `JournalScreen`.
+  - Added a special `TAKE_ROOT_STATUS_COLOR` for dialogue status echoes beginning with `take_root:`.
+  - Added `majorQuestCannotTakeRootTwice` JUnit coverage for major-branch Take Root idempotency and duplicate feat/slot prevention.
+- Verification:
+  - `python3 scripts/goal_static_audit.py` -> passed with P25 guardrails.
+  - `scripts/gradle-local.sh --no-daemon test` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` -> passed, including P24/P25 static guardrails and GUI retest issue audit.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> 6 required GameTests passed; BUILD SUCCESSFUL.
+  - `git diff --check` -> passed.
+- Artifact hashes:
+  - build/profile jar: `12e2019548e6ffb50db6c5f2d661d49fe8264f2ecc2efc858a0ee86f6d46fb5f`.
+  - sources jar: `5815ee98f9ac0d26afc9c8e34b73796b17dd18e7c776122a2320d08af8b896f3`.
+- Next:
+  - Start P26 Chime / inner voice expansion.
+
+
+### Phase 25 / Architecture P26 Completion Update
+- **Status:** complete
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Expanded bundled demo Chimes to eight DND-8 attribute voices: Force, Finesse, Endurance, Logic, Empathy, Rhetoric, Instinct, and Dread.
+  - Added `tone_guide`, `active_thoughts`, `one_shot_per_node`, and `one_shot_global` parsing to `ChimeDefinition`.
+  - Added server-time cooldown and explicit node/global one-shot anti-spam to `ChimeResolver`, while preserving player `chime:<id>` flags for dialogue conditions.
+  - Added `ChimeResolver.explain(...)` and `/ebb dev` snapshot Chime trigger debug lines so OP/dev view lists ready/skip reasons for active dialogue nodes.
+  - Added one active thought route per Chime to `ebb:demo/innkeeper_intro`, each gated by the matching chime flag and adding the matching thought id.
+  - Updated chime JSON Schema, authoring guide, static audit, smoke checks, JUnit coverage, and current status docs.
+  - Rebuilt and refreshed the separate PCL/Fabric test profile with jar `cd3239b53a576cf68599b6886eb32df0af079f3859f74c06bd6b4c32047596a6`.
+- Verification:
+  - `python3 scripts/goal_static_audit.py` → passed P26 guardrails.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → passed including P26 smoke/static checks and GuiRetestIssueAudit.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+  - `git diff --check` → passed.
+- Next:
+  - Start Architecture P27: NPC art, animation, and routine production.
+
+
+### Phase 26 / Architecture P27 Completion Update
+- **Status:** complete
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Added role-aware GeckoLib NPC renderer/model data with temporary humanoid textures for innkeeper, witness, tenant, and guard.
+  - Added NPC visual-role persistence/inference from routine/narrative key.
+  - Added conversation animation hooks (`talk`, `think`, `dismiss`, `nervous_idle`) and routine `fidget` animation while preserving idle/walk.
+  - Added routine validation for allowed actions, path shape, pose names, and animation names; invalid steps are rejected with messages.
+  - Added routine debug state and `/ebb routine inspect` output for visual role, action, target, step key, path index, and conversation focus.
+  - Hardened dialogue focus so NPCs pause movement, look at the player, set conversation pose/animation, and restore previous routine pose/animation when focus ends.
+  - Updated authoring docs, current status, static audits, smoke checks, JUnit coverage, and the separate Fabric test profile.
+- Verification:
+  - `python3 scripts/goal_static_audit.py` → passed P27 guardrails.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → passed including P27 static/smoke checks and GuiRetestIssueAudit.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+  - `git diff --check` → passed.
+- Artifact hashes:
+  - build/profile jar: `5caede905791192f8987eb97927ad5e05d51b3bd74204333e92584864543a225`.
+  - sources jar: `23c1578907b68174de0b62db07a9529d29eeebd47028ddd45a310075a43601d7`.
+- Next:
+  - Start Architecture P28: Investigation and set-piece conflict expansion.
+
+### P28 Validation Note
+- **Time:** 2026-06-03 Asia/Shanghai
+- Error: Ran `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` and `scripts/run_smoke_checks.sh` in parallel. Both tried to own Gradle `:test` binary result files and failed with `NoSuchFileException ... build/test-results/test/binary/*`.
+- Resolution plan: do not repeat in parallel; rerun Gradle/JUnit and smoke sequentially after cleaning test result artifacts if needed.
+
+### Phase 27 / Architecture P28 Completion Update
+- **Status:** complete
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Formalized set-piece conflicts with phases `setup`, `pressure`, `turn`, `consequence`, `resolution`, phase descriptions, leverage clue ids, and named outcomes.
+  - Added `ConflictOutcomeDefinition`, persisted conflict phase helpers, `ConflictService.applyOutcome`, status-line helpers, and known-leverage summaries.
+  - Added `apply_conflict_outcome` dialogue effect and client dialogue labels for conflict status/stress/resolve/outcome echoes.
+  - Expanded `/ebb dev` snapshots with a conflict phase/status catalog including player status lines, leverage clues, phases, and outcomes.
+  - Expanded the hallway confrontation demo with clue-gated routes, clue-modified checks, quiet nonviolent resolution, messy resolution, and two failure-forward outcomes.
+  - Added conflict JSON schema, authoring docs, authoring validator outcome-reference checks, static audit guardrails, JUnit, and smoke coverage.
+  - Refreshed the separate `26.1.2-Fabric-Ebb-Test` profile with the P28 jar.
+- Validation:
+  - `python3 scripts/goal_static_audit.py` → passed P28 guardrails.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `rm -rf build/test-results/test build/reports/tests/test && scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → passed, including P28 smoke/static checks and GuiRetestIssueAudit.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+  - `scripts/configure_pcl_test_client.sh` → profile refreshed; jar SHA-256 `01f617f760d35081afbd9872c3bbecffed71264384c169ddc9dd55474837ac24`.
+- Notes:
+  - A failed validation attempt came from running Gradle `:test` via JUnit and smoke scripts in parallel, causing both to contend over `build/test-results/test/binary/*`; sequential reruns passed. Avoid parallel Gradle test/smoke invocations.
+- Next:
+  - Architecture P29 Save/load, multiplayer, and permissions hardening.
+
+### Phase 28 / Architecture P29 Completion Update
+- **Status:** complete
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Incremented narrative saved-data schema to v2 and added v1 migration for missing conflict phase states inferred from legacy conflict state and stress/resolve scores.
+  - Added JUnit coverage proving legacy saves preserve conflict state/score/scene data, gain conflict phase, retain defaults, and re-encode with the current version.
+  - Added dialogue choice packet preflight for conversation UUID, player UUID, and timeout before effects can run.
+  - Added same-entity dialogue contention protection (`entity_dialogue_busy`) and diagnostics for spoofed/stale/missing/invalid/unavailable/action-invalid packets.
+  - Added dedicated-server missing-client-mod diagnostics for Ebb sync payloads and surfaced them in `/ebb dev` snapshots with dialogue security counters.
+  - Added command-permission regression checks preserving OP-only admin commands and player-safe self-inspection commands.
+  - Refreshed the separate `26.1.2-Fabric-Ebb-Test` profile with the P29 jar.
+- Validation:
+  - `python3 scripts/goal_static_audit.py` → passed P29 guardrails.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → passed with P29 static/smoke coverage and GuiRetestIssueAudit.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+  - `scripts/configure_pcl_test_client.sh` → profile refreshed; jar SHA-256 `9bba5b7f63f2ad696cd8204b5ec6940b4268a92be99f994c903e3792f384da5c`.
+- Next:
+  - Architecture P30 Vertical slice content expansion.
+
+
+### Phase 29 / Architecture P30 Completion Update
+- **Status:** complete
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Expanded the tavern case into a 3-act vertical slice covering discovery, pressure/investigation, and confrontation/ending.
+  - Added four block-group investigation points for 12 total, plus cook/courier NPC routines, role bindings, custom-name fallbacks, dialogues, placeholder textures, and relationship definitions for six role NPCs total.
+  - Added two major quest branches, eight minor branches, eight new feats, 16 journal entries, 16 clue definitions, and two additional set-piece conflicts.
+  - Expanded all eight Chimes to five passive lines each, reaching 40 total Chime lines.
+  - Added trade/mercy ending placeholders so every major route has a concrete placeholder route endpoint.
+  - Added docs/current-status authoring notes, static audit guardrails, JUnit content-count coverage, and smoke coverage.
+  - Fixed a real P30 authoring-validation bug discovered by smoke: cook/courier dialogue failure effects referenced missing relationship ids, so `ebb:demo/cook` and `ebb:demo/courier` relationships were added.
+  - Refreshed the separate `26.1.2-Fabric-Ebb-Test` profile with the P30 jar.
+- Validation:
+  - `python3 scripts/goal_static_audit.py` → passed P30 guardrails.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → passed with P30 static/smoke coverage and GuiRetestIssueAudit.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+  - `scripts/configure_pcl_test_client.sh` → profile refreshed; jar SHA-256 `9e0a016757b91f0636814723c9ab0be3b21c71cae5bafac042fab1b074aaa2ed`.
+- Artifact hashes:
+  - build/profile jar: `9e0a016757b91f0636814723c9ab0be3b21c71cae5bafac042fab1b074aaa2ed`.
+  - sources jar: `b39391ab8820808ecf95598752d654dc275ab3d98408fcf92fbdfb3b1c3b9618`.
+- Next:
+  - Start Architecture P31: release packaging and player documentation.
+
+
+### Phase 30 / Architecture P31 Completion Update
+- **Status:** complete
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Added `docs/installation.md` covering client setup, dedicated server setup, Java 25, Fabric Loader/API, GeckoLib requirements, missing-client diagnostics, troubleshooting, and the separate `26.1.2-Fabric-Ebb-Test` profile workflow.
+  - Added `docs/release_metadata_draft.md` with shared alpha release copy and Modrinth/CurseForge draft fields.
+  - Added `docs/story_pack_tutorial.md` showing a minimal custom block-group + dialogue + d20 check + failure-forward + journal/clue pack.
+  - Added `CHANGELOG.md` for the `0.1.0-dev` alpha vertical-slice state.
+  - Added `LICENSE.md` clarifying code/scripts under MIT and bundled story data/placeholder Ebb assets under CC BY-NC-SA 4.0, with third-party/platform content excluded.
+  - Updated `README.md`, `docs/current_status.md`, and `scripts/goal_static_audit.py` with P31 guardrails and links.
+- Validation:
+  - `python3 scripts/goal_static_audit.py` → passed P31 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed with P31 static/smoke coverage and GuiRetestIssueAudit.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+- Notes:
+  - P31 only changed docs/static-audit/release packaging files, so the built/profile jar hash remains `9e0a016757b91f0636814723c9ab0be3b21c71cae5bafac042fab1b074aaa2ed`.
+- Next:
+  - Run final diff/status checks and decide whether to commit/push if requested.
+
+
+### Phase 31 / Dialogue wait-state and GUI automation hotfix
+- **Status:** complete
+- **Time:** 2026-06-03 Asia/Shanghai
+- Actions taken:
+  - Diagnosed the persistent `等待服务器……` screen to a stale in-memory mod jar/classloader state after the test-profile jar was overwritten while Minecraft was still running.
+  - Added `ModPackets.handleDialogueChoice(...)` so any unhandled server choice error logs and sends `DialogueClosePayload(..., server_error)` rather than leaving the client waiting.
+  - Added `DialogueScreen` waiting timeout recovery and localized timeout text.
+  - Added a running-profile guard to `scripts/configure_pcl_test_client.sh`; verified it exits `2` while the matching Minecraft process is open.
+  - Updated `scripts/check_pcl_runtime_loaded.py` to fail on stale ZIP/classloader errors and updated runtime-count expectations to `dialogues=19, block_groups=12, entity_bindings=14, npc_routines=7`.
+  - Fixed GUI runner setup commands to avoid invalid `oak_sign[facing=south]`, ensure the guestbook block exists as a lectern placeholder, use stable target viewpoints for guestbook/stable mud, and mark block/NPC interactions failed unless a cyan dialogue screen appears.
+  - Closed/relaunched the Windows client from the separate `26.1.2-Fabric-Ebb-Test` profile, entered `新的世界 (1)`, and reran full GUI automation.
+- Validation:
+  - `scripts/configure_pcl_test_client.sh` while Minecraft PID was running → refused with exit code `2`.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → passed after updated audit/docs.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+  - `scripts/gui_retest_issue_audit.py --save-path '/mnt/e/MC/PCL/.minecraft/versions/26.1.2-Fabric-Ebb-Test/saves/新的世界 (1)' --require-save` → passed.
+  - `scripts/check_pcl_runtime_loaded.py` → passed with jar `954262dea77f6507cffa82ae088e47d69f82979ba9a94917a01d4f61b185723d` and runtime counts `19/12/14/7`; no stale ZIP/class/server task fatal hits.
+  - `python3 scripts/gui_e2e_run.py --scenario gui_retest --gui --gui-wait 1.4` → `build/gui-e2e/gui-retest-report.json`, 270 steps, 0 failures.
+  - Key GUI evidence: `role_innkeeper_after_choice_1.png`, `block_guestbook_torn_page_dialogue.png`, `block_stable_mud_dialogue.png`.
+  - `git diff --check` → passed.
+- Artifact hashes:
+  - build/profile jar: `954262dea77f6507cffa82ae088e47d69f82979ba9a94917a01d4f61b185723d`.
+  - sources jar: `d9c3b9031495b242e0baff913bcd8371bf8773cfc7b38cb645408f0d4e2af83f`.
+
+### PostToolUse hook cwd compatibility fix
+- **Status:** complete.
+- **Time:** 2026-06-03 Asia/Shanghai.
+- Confirmed `/mnt/e/MC/SIMMC2_1-21-8` was missing and likely caused `No such file or directory` hook/tool startup failures.
+- Created `/mnt/e/MC/SIMMC2_1-21-8` and symlinked `CRPG_MOD` to `/mnt/e/MC/PCL/CRPG_MOD`. Verified `CRPG_MOD/.kiro/plan` is reachable from the compatibility cwd.
+
+### Phase 32 / K-key Ebb menu and live dialogue background implementation
+- **Status:** in progress.
+- **Time:** 2026-06-03 Asia/Shanghai.
+- Added `EbbMenuScreen` under client GUI menu, opened with default `K`, with Journal/Quest/Attributes/Vars shortcuts and dialogue reading setting controls.
+- Added `key.ebb.menu` binding in `ClientKeyMappings` and English/Chinese translations.
+- Removed `DialogueScreen.extractTransparentBackground(graphics)` so interaction dialogue leaves the live player view visible outside the panel.
+- Added static audit guardrails in `goal_static_audit.py` and `gui_retest_issue_audit.py`; GUI runner now captures `k_menu_open.png` and checks top-band luminance for black-overlay regressions.
+- Preliminary build before audit-script changes: `scripts/gradle-local.sh --no-daemon build` succeeded; build jar SHA-256 `25e896a4bc2847d3c941287c356f44eb650bc33c423c317f63567a0f164d2757`.
+- Next: rerun build/validate/smoke/GameTest after audit/doc changes, refresh the separate test profile, and run Windows GUI proof.
+
+### Phase 32 / automated validation checkpoint
+- **Status:** passed.
+- **Time:** 2026-06-03 Asia/Shanghai.
+- `python3 -m py_compile scripts/gui_e2e_run.py scripts/gui_retest_issue_audit.py scripts/goal_static_audit.py` → passed.
+- `python3 scripts/goal_static_audit.py` → passed including P32 K-menu/live-background guardrails.
+- `python3 scripts/gui_retest_issue_audit.py --skip-profile` → passed.
+- `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+- `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+- `scripts/run_smoke_checks.sh` → passed including P32 static/gui guardrails.
+- `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+- `git diff --check` → passed.
+- `python3 scripts/gui_e2e_run.py --scenario dry_run` → passed; Node high-version adapter self-test OK.
+- Artifact hashes: build jar `25e896a4bc2847d3c941287c356f44eb650bc33c423c317f63567a0f164d2757`; sources jar `7ac5bfe332c460160430979da80afd15d4e9bb692ee7f7afbe266502f245b2eb`.
+- Next: close/relaunch or refresh Windows `26.1.2-Fabric-Ebb-Test`, then run GUI proof for K menu and dialogue live background.
+
+### Phase 32 / K-key Ebb menu and live dialogue background completion
+- **Status:** complete.
+- **Time:** 2026-06-03 Asia/Shanghai.
+- Closed the running Windows Minecraft client PID 3432, refreshed the separate `26.1.2-Fabric-Ebb-Test` profile, and relaunched via the captured Java command line.
+- Profile jar and build jar now match: `25e896a4bc2847d3c941287c356f44eb650bc33c423c317f63567a0f164d2757`.
+- `scripts/check_pcl_runtime_loaded.py` → passed with runtime counts dialogues=19, block_groups=12, entity_bindings=14, npc_routines=7.
+- `python3 scripts/gui_e2e_run.py --scenario gui_retest --gui --gui-wait 1.4` → `build/gui-e2e/gui-retest-report.json`, 282 steps, 0 failures.
+- P32 GUI evidence: `build/gui-e2e/k_menu_open.png` shows K-menu; `build/gui-e2e/role_innkeeper_dialogue.png` and block dialogue screenshots show visible live-world background outside the dialogue panel.
+- `python3 scripts/gui_retest_issue_audit.py --save-path ... --require-save` → passed with matching profile jar.

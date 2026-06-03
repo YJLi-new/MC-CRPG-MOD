@@ -1,0 +1,25 @@
+{
+  "steps": [
+    {
+      "time": [
+        0,
+        24000
+      ],
+      "action": "stand",
+      "pos": [
+        15.5,
+        64.0,
+        2.5
+      ],
+      "pose": "listening",
+      "animation": "idle",
+      "teleport_distance": 32.0
+    }
+  ],
+  "look_at_player": {
+    "enabled": true,
+    "range": 5.0,
+    "max_yaw_speed": 8.0,
+    "requires_line_of_sight": true
+  }
+}

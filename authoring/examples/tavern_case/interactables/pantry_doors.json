@@ -1,0 +1,9 @@
+{
+  "id": "tavern_case/pantry_doors",
+  "targetType": "block_group",
+  "dimension": "minecraft:overworld",
+  "blocks": [[14, 64, 2], [15, 64, 2]],
+  "interaction_point": [14.5, 64.5, 2.5],
+  "dialogue": "tavern_case/locked_pantries",
+  "highlight": { "color": "#64E6FF", "render_mode": "merged" }
+}

@@ -1,0 +1,9 @@
+{
+  "title": "Warm Cup in Empty Room",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/warm_cup",
+  "text": "空房里的杯子还温着，说明“离开”刚刚发生。",
+  "check_modifiers": {
+    "wisdom": 1
+  }
+}

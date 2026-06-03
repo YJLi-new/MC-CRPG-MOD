@@ -49,11 +49,25 @@ public final class ModPackets {
                 context.server().executeIfPossible(() -> handleInteractionRequest(payload, context.player(), context.responseSender()))
         );
         ServerPlayNetworking.registerGlobalReceiver(ChooseDialogueOptionPayload.TYPE, (payload, context) ->
-                context.server().executeIfPossible(() -> DialogueService.choose(context.player(), payload, context.responseSender()))
+                context.server().executeIfPossible(() -> handleDialogueChoice(payload, context.player(), context.responseSender()))
         );
         ServerPlayNetworking.registerGlobalReceiver(CloseDialogueRequestPayload.TYPE, (payload, context) ->
                 context.server().executeIfPossible(() -> DialogueService.closeFromClient(context.player(), payload))
         );
+    }
+
+    private static void handleDialogueChoice(
+            ChooseDialogueOptionPayload payload,
+            ServerPlayer player,
+            net.fabricmc.fabric.api.networking.v1.PacketSender responseSender
+    ) {
+        try {
+            DialogueService.choose(player, payload, responseSender);
+        } catch (Throwable throwable) {
+            EbbMod.LOGGER.error("Unhandled Ebb dialogue choice failure for {} conversation={} choice={}",
+                    player.getName().getString(), payload.conversationId(), payload.choiceId(), throwable);
+            responseSender.sendPacket(new DialogueClosePayload(payload.conversationId(), "server_error"));
+        }
     }
 
     private static void handleInteractionRequest(

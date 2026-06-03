@@ -340,3 +340,95 @@ Still needs explicit or implicit confirmation:
 ## 2026-06-02 — Architecture plan P20/P21 first-gap analysis
 - Finding: The uploaded architecture/product plan is not just a recap of P2-P8; its active roadmap starts at P20/P21. The earliest concrete gaps in the current repo were missing root `GOAL.md`, missing root `README.md`/`AGENTS.md`, no `docs/architecture.md`, no authoritative `docs/current_status.md`, and old historical docs that still said GUI retest was pending without a current supersession note.
 - Decision: Implement P20/P21 first before feature expansion. This makes the repo self-explanatory and adds machine guardrails for version pins, required data directories, current artifact hashes, failure-forward checked choices, and major Take-Root consequences.
+
+
+## 2026-06-02 — P22 F3 overlay must respect vanilla debug layout at scaled resolutions
+- Finding: Centered F3-only Ebb target diagnostics were technically present but collided with vanilla `Debug Charts` text in the 26.1.2 test client's small-window/auto-GUI-scale mode.
+- Decision: Keep the normal interaction prompt centered, but render F3 diagnostics close to the hotbar with pixel-width clipping. This keeps reason/style/id/dialogue evidence readable without turning regular play into denial/debug spam.
+
+## 2026-06-02 — P23 reading settings should stay client-local and non-authoritative
+- Finding: Font scale and text speed are player comfort preferences, not narrative state. Persisting them as profile-local `config/ebb-client.json` keeps server-authoritative dialogue checks/effects untouched and works for both singleplayer and dedicated clients.
+- Decision: Add `ClientDialogueSettings` under client sources, initialize it from `EbbClient`, and expose only dialogue-panel controls (`A-`, `A+`, speed cycle). Body/history/status text scales and wraps; vanilla choice buttons remain normal widgets for stable click/keyboard behavior.
+
+## 2026-06-02 — Mutable GUI save makes one-shot Chime screenshot proof unreliable
+- Finding: The current `新的世界 (1)` GUI save has already consumed several one-shot Chime triggers during earlier route testing, so repeated attempts to capture a fresh Chime insert screenshot opened later route nodes instead.
+- Decision: Treat Chime visual handling as a static/code-audited P23 item for this phase (`CHIME_STATUS_COLOR` and `[Chime:]` status routing) while using multi-scale GUI screenshots to prove the shared status/roll/clue/quest/take-root echo area clips above choices.
+
+## 2026-06-02 — Settings controls must not compete with the dialogue heading
+- Finding: The first P23 GUI screenshots proved settings persistence and status layout, but the top-left settings buttons could visually collide with the centered dialogue id/node heading in small-window GUI-scale modes.
+- Decision: Render the dialogue id/node heading in a clipped lane to the right of the settings buttons. This keeps author/debug context visible without sacrificing the new player-facing controls.
+
+## 2026-06-02 — P24 first audit: validation exists but is split across parser/runtime layers
+- Finding: Dialogue node-local references and failure-forward checks already exist in `DialogueDefinition`, and runtime registries expose validation messages, but P24 cross-registry references (quest/feat/chime/journal/clue/routine/relationship/conflict IDs mentioned from dialogue effects/conditions) are not yet centralized in a single validation pass.
+- Decision: Add a P24 authoring validation layer rather than scattering all cross-registry checks into individual parsers. It should run from data validation/smoke/static audit and produce author-facing messages without changing demo runtime data unless intentional.
+
+## 2026-06-02 — P24 compiler diagnostics need source context, not just semantic messages
+- Finding: `compile_authoring_sources.py` currently reports semantic errors with source filenames and node/choice ids, but YAML/JSON parse exceptions are not wrapped with line/column context and compiler output does not consistently classify file/line diagnostics.
+- Decision: Extend the compiler with structured diagnostic helpers that include source file and parser line/column when PyYAML/JSON exposes them, then add a regression fixture/check for bad authoring input.
+
+## 2026-06-02 — P25 first audit: payloads are line-based, so first maturation should preserve network shape
+- Finding: `QuestTreePayload` and `JournalPayload` are already stable line-list packets; changing them into rich DTOs would create more network/code churn than needed for the first P25 pass.
+- Decision: Keep line-list payload compatibility and improve server-generated semantic prefixes plus client-side filters/colors/cards. This upgrades legibility and feat/Take-Root visibility without destabilizing packet codecs.
+
+### 2026-06-03 P26 Chime Audit
+- Existing Chime parser supports only name/source attribute/min score/trigger tags/speaker style/cooldown/lines; no tone guide, explicit one-shot fields, or active thought metadata yet.
+- Existing resolver has per-dialogue-node one-shot flags but does not use `cooldown_ticks`; `DialogueService` already computes `dayTime` and can pass it to an overloaded resolver.
+- Bundled data currently has 4 Chimes (`dread`, `empathy`, `instinct`, `rhetoric`) over luck/wisdom/perception/charisma; P26 needs 8 voices covering all DND-8 attributes.
+- Dialogue open/update resolves Chime before computing visible choices, so chime-triggered active thought choices can appear on the same node once the resolver sets `chime:<id>`.
+- NarrativeSavedData already supports player variables and flags, so cooldown can be stored as player variables like `chime_last_tick:<id>` while one-shot remains flag-based.
+- Attribute data confirms the DND-8 keys used by this project: strength, dexterity, constitution, intelligence, wisdom, charisma, perception, luck.
+- ChimeRegistry keeps ordered resolution by identifier string; P26 tests should isolate a single attribute at a time when asserting a specific Chime fires.
+- The innkeeper start node can safely host all 8 active Chime thought choices; visible choices are paged by the dialogue UI and conditions keep inactive routes hidden until the resolver sets the corresponding chime flag.
+- First P26 static audit run failed because the new smoke guardrail looked at `scripts/run_smoke_checks.sh` instead of the Java smoke source where the P26 assertions live. Adjusting audit source target rather than duplicating smoke strings in the shell wrapper.
+- P26 dev chime-reason build attempt failed because `ServerLevel` in Minecraft 26.1.2 exposes `getOverworldClockTime()` for this project's day-time checks, not `getDayTime()`. Fixed DevSnapshotService to use the same clock source as DialogueService.
+
+### 2026-06-03 P27 NPC/Routine Audit
+- Current `EbbNpcEntity` persists routine id, narrative key, pose, and animation, but renderer uses one default GeckoLib model/texture and no role-specific skin selection.
+- Current `NpcRoutineDefinition` accepts free-form action/pose/animation strings and does not validate invalid routine actions or animation names beyond vector parsing.
+- Current `NpcRoutineController` already pauses movement/look routine during active dialogue focus, but it does not store/restore previous routine animation after focus, nor expose current step/action/target debug state.
+- Current GeckoLib assets are placeholder one-texture NPC assets with idle/walk only; P27 needs documented/temporary humanoid role skins and conversation animation hooks.
+- First P27 custom animation controller compile failed because Java inferred GeckoLib's animation test animatable as `GeoAnimatable`; fixed by explicitly parameterizing `AnimationController<EbbNpcEntity>`.
+- First P27 JUnit compile failed because the test referenced `NpcRoutineDefinition` without importing it; added the missing import.
+- P27 smoke initially failed legacy ThirdReviewStaticAudit because routine focus now uses `DialogueService.activeConversationSessionForEntity` to select conversation animations, while the audit still required the older player-only method string. Updated the audit to the richer session-based focus contract.
+
+## P28 audit start — 2026-06-03
+- Current conflict runtime is still minimal: `ConflictDefinition` only has title/scene/stressLimit/resolveGoal/failureState/successState; `ConflictService` only supports start/addStress/addResolve and returns terse `conflict_*` echoes.
+- Existing demo `hallway_confrontation.json` has no formal phases, leverage clues, or outcome catalog; `guard_intro.json` does route success/failure via conflict stress/resolve but does not expose a full status/leverage model yet.
+- Existing smoke/JUnit assertions expect legacy terminal states `failed_forward` and `resolved`, so P28 should preserve those compatibility states while adding richer phase/status/outcome semantics around them.
+- Dialogue runtime already supports `clue_found`, `conflict_state`, `scene_phase`, and success/failure check effects, so P28 can extend `ConflictService` and demo data without inventing a parallel dialogue path.
+- `NarrativeSavedData` persists conflict state in narrative states and conflict stress/resolve scores in `conflict_scores`; this is sufficient for P28 score persistence if the service exposes phase/status helpers and outcome application.
+- Existing investigation clues already carry check modifiers by DND-8 attribute; P28 should explicitly surface those known clues as leverage and include demo choices whose visibility/DC behavior depends on them.
+- Dev snapshot currently only lists conflict registry summary/messages and saved-state debug lines; P28 can add a dedicated conflict catalog/status section so OPs can inspect phases, leverage, and outcomes without a separate UI rewrite.
+- There is no conflict JSON schema yet; adding one under `docs/schemas` will make the new phase/leverage/outcome contract explicit alongside existing dialogue/chime/entity/block schemas.
+
+## P29 audit start — 2026-06-03
+- `NarrativeSavedData` already stores a schema `version` and optional codec defaults, but `CURRENT_SCHEMA_VERSION` is still 1 and there are no explicit migration/default tests for older saved data missing newer fields such as story vars, relationship/clue/conflict maps, or conflict phase states.
+- Dialogue networking already validates player/session ownership, timeouts, invalid choices, conditions, and action target revalidation. It closes sessions on disconnect/respawn/leave/level change, but same-NPC contention is not explicit and stale/spoofed packet denials are not currently exposed as testable counters/reasons.
+- Commands use Fabric permission predicates for OP-level dev/dialogue/routine/export/summon/attribute admin commands, while player-facing self-inspection commands (`/ebb vars`, `/ebb journal`, `/ebb quest`, `/ebb attributes`) remain accessible; P29 should add regression tests rather than loosening this.
+
+## P30 content-count audit — 2026-06-03
+- Current bundled demo counts before P30 expansion: block_groups=8, entity_bindings=10, npc_routines=5, quest_branches=2, feats=4, chimes=8, journal_entries=4, clues=5, conflicts=1, dialogues=13.
+- P30 can be satisfied by data expansion without new engine features: add 4 block groups, 2 role NPC bindings/routines/dialogues, 2 major + 8 minor quest branches, 8 feats, expand existing 8 chimes to 5 lines each, add at least 15 journal/clue pairs, 2 conflicts, and ending placeholders for the new major branches.
+- Existing parsers tolerate simple JSON: quest branches need title/kind and major take_root_text; feats need display/description/modifiers; journal entries need text; clues can link journal entries; block groups require dialogue/blocks/interaction_point; entity bindings can match `ebb:npc` tags; routines can use simple stand steps.
+
+
+## P30 validation finding — 2026-06-03
+- Finding: P30 smoke/reference validation caught a real cross-registry content bug introduced by new support NPCs: `cook_intro` and `courier_intro` used `add_relation` effects for `ebb:demo/cook` and `ebb:demo/courier` before matching relationship definitions existed. Added relationship JSON files instead of removing the effects so NPC reactivity remains represented in the data model.
+
+
+## P31 release-packaging audit — 2026-06-03
+- Finding: P31 can be completed as documentation/static-guardrail work without changing the game jar. The jar/profile hash remains the P30 hash while install docs, release metadata, story-pack tutorial, changelog, and license clarity become the release-facing contract.
+- Decision: Keep Modrinth/CurseForge metadata as a tracked draft rather than an upload artifact, because screenshots, final version naming, and legal license review should happen immediately before public submission.
+
+
+### 2026-06-03 — Dialogue wait-state root cause and GUI automation correction
+- Screenshot symptom: after choosing a dialogue option, the UI displayed `等待服务器……` indefinitely.
+- Runtime evidence: the old `latest.log` contained `ZipFile invalid LOC header`, `Failed to load class file for DialogueService$ChoiceResolution`, and `[Server thread/ERROR]: Error executing task on Server`.
+- Root cause: the profile-local Ebb jar had been overwritten while the Minecraft JVM was still running; the artifact on disk was valid afterwards, but the already-running classloader kept stale ZIP offsets.
+- Fixes: server choice receiver now catches failures and sends `DialogueClosePayload(..., server_error)`, client dialogue choices time out/re-enable after 10s, `configure_pcl_test_client.sh` refuses profile refresh while the matching Java process is alive, and runtime log checks flag stale classloader ZIP/class errors.
+- GUI automation issue from follow-up screenshot: setup used invalid `minecraft:oak_sign[facing=south]` and viewpoints for `guestbook_torn_page`/`stable_mud` missed the actual raycast target. The runner now uses valid/idempotent setup commands, a lectern placeholder for the guestbook block, closer guestbook view, top-down stable-mud view, and dialogue-screen cyan-border assertions.
+
+### 2026-06-03 PostToolUse hook cwd failure
+- Symptom: tool/hook startup could fail with `No such file or directory (os error 2)` when using the session default cwd.
+- Finding: `/mnt/e/MC/SIMMC2_1-21-8` from the turn environment did not exist, while the active project is `/mnt/e/MC/PCL/CRPG_MOD`.
+- Fix: created compatibility root `/mnt/e/MC/SIMMC2_1-21-8` and symlinked `CRPG_MOD -> /mnt/e/MC/PCL/CRPG_MOD`, so hooks/tools launched from the old cwd can resolve the project plan.

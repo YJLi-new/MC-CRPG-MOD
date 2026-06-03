@@ -1,6 +1,7 @@
 package com.crpg.ebb;
 
 import com.crpg.ebb.attribute.AttributeRegistry;
+import com.crpg.ebb.chime.ChimeDefinition;
 import com.crpg.ebb.chime.ChimeRegistry;
 import com.crpg.ebb.chime.ChimeResolver;
 import com.crpg.ebb.conflict.ConflictRegistry;
@@ -9,17 +10,23 @@ import com.crpg.ebb.dialogue.DialogueDefinition;
 import com.crpg.ebb.dialogue.DialogueEffect;
 import com.crpg.ebb.dialogue.DialogueNodeType;
 import com.crpg.ebb.dialogue.DialogueRegistry;
+import com.crpg.ebb.dialogue.DialogueService;
+import com.crpg.ebb.dialogue.DialogueSession;
 import com.crpg.ebb.dialogue.RollMode;
 import com.crpg.ebb.feat.FeatRegistry;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.InteractionTargetType;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.investigation.InvestigationRegistry;
 import com.crpg.ebb.journal.JournalEntryRegistry;
 import com.crpg.ebb.journal.JournalService;
+import com.crpg.ebb.network.dialogue.RollResultPayload;
+import com.crpg.ebb.network.dialogue.VisibleDialogueChoice;
 import com.crpg.ebb.quest.QuestBranchRegistry;
 import com.crpg.ebb.quest.TakeRootService;
 import com.crpg.ebb.relationship.RelationshipRegistry;
 import com.crpg.ebb.registry.ModCommands;
+import com.crpg.ebb.routine.NpcRoutineDefinition;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
 import com.crpg.ebb.state.NarrativeSavedData;
 import com.crpg.ebb.story.StoryVarLayer;
@@ -33,11 +40,13 @@ import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -76,7 +85,7 @@ final class DeepResearchDataTest {
         assertTrue(NpcRoutineRegistry.size() >= 5, "bundled routines should load");
         assertTrue(QuestBranchRegistry.size() >= 2, "bundled quest branches should load");
         assertTrue(FeatRegistry.size() >= 4, "bundled feats should load");
-        assertTrue(ChimeRegistry.size() >= 4, "bundled chimes should load");
+        assertTrue(ChimeRegistry.size() >= 8, "bundled P26 chimes should load all eight voices");
         assertTrue(JournalEntryRegistry.size() >= 4, "bundled journal entries should load");
         assertTrue(RelationshipRegistry.size() >= 4, "bundled relationships should load");
         assertTrue(InvestigationRegistry.clueCount() >= 5, "bundled clues should load");
@@ -104,6 +113,24 @@ final class DeepResearchDataTest {
         java.util.ArrayList<String> messages = new java.util.ArrayList<>();
         assertTrue(DialogueDefinition.parse(Identifier.parse("ebb:test/no_failure"), invalidNoFailure, messages).isEmpty());
         assertTrue(messages.stream().anyMatch(message -> message.contains("failing forward")), messages::toString);
+    }
+
+    @Test
+    void hiddenDcAndHiddenRollAffectPlayerFacingSummaries() {
+        JsonObject dialogue = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"text":"x","choices":[
+                  {"id":"hidden","type":"action","text":"hidden","next":"done","check":{"attribute":"empathy","dc":15,"hidden_dc":true,"hidden_roll":true,"success":"done","failure":"done"}}
+                ]},"done":{"text":"done"}}}
+                """).getAsJsonObject();
+        DialogueDefinition definition = DialogueDefinition.parse(Identifier.parse("ebb:test/hidden_roll"), dialogue, new java.util.ArrayList<>()).orElseThrow();
+        var choice = definition.node("start").orElseThrow().choice("hidden").orElseThrow();
+
+        assertFalse(choice.check().orElseThrow().showDc());
+        assertFalse(choice.check().orElseThrow().showRoll());
+        assertEquals("empathy DC ? hidden roll", VisibleDialogueChoice.fromChoice(choice).checkSummary().orElseThrow());
+
+        RollResultPayload result = new RollResultPayload("empathy", 15, 12, 3, 15, true, false, "success", false, false);
+        assertEquals("empathy hidden roll vs hidden DC (success)", result.summary());
     }
 
     @Test
@@ -219,6 +246,24 @@ final class DeepResearchDataTest {
     }
 
     @Test
+    void majorQuestCannotTakeRootTwice() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        QuestBranchRegistry.rebuild(load(bundled.resolve("quest_branches")));
+        FeatRegistry.rebuild(load(bundled.resolve("feats")));
+
+        NarrativeSavedData state = new NarrativeSavedData();
+        UUID player = UUID.randomUUID();
+        String first = TakeRootService.completeBranch(state, player, "ebb:demo/tavern_public").orElseThrow();
+        String second = TakeRootService.completeBranch(state, player, "ebb:demo/tavern_public").orElseThrow();
+
+        assertTrue(first.contains("take_root:"), "first completion should include Take Root text");
+        assertTrue(second.contains("quest_already_take_rooted:ebb:demo/tavern_public"), "second completion should be idempotent");
+        assertEquals("take_rooted", state.getQuestState(player, "ebb:demo/tavern_public"));
+        assertEquals(2, state.unlockedFeatIds(player).size(), "second Take Root must not duplicate feat grants");
+        assertEquals(2, state.activeFeatIds(player).size(), "second Take Root must not duplicate active slots");
+    }
+
+    @Test
     void chimesResolveFromBuildAndUnlockPassiveInsightPath() throws Exception {
         Path bundled = Path.of("src/main/resources/data/ebb");
         DialogueRegistry.rebuild(load(bundled.resolve("dialogues")));
@@ -236,6 +281,94 @@ final class DeepResearchDataTest {
         assertTrue(chime.contains("Rhetoric"), chime);
         assertTrue(state.hasPlayerFlag(player, "chime:ebb:demo/rhetoric"));
         assertTrue(start.choice("rhetoric_insight").orElseThrow().conditions().getFirst().matches(state, player));
+    }
+
+    @Test
+    void p26ChimeSetCoversEightAttributesAndActiveThoughtRoutes() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        DialogueRegistry.rebuild(load(bundled.resolve("dialogues")));
+        AttributeRegistry.rebuild(load(bundled.resolve("attributes")));
+        ChimeRegistry.rebuild(load(bundled.resolve("chimes")));
+
+        assertEquals(Set.of(
+                "strength",
+                "dexterity",
+                "constitution",
+                "intelligence",
+                "wisdom",
+                "charisma",
+                "perception",
+                "luck"
+        ), ChimeRegistry.definitions().values().stream()
+                .map(ChimeDefinition::sourceAttribute)
+                .collect(java.util.stream.Collectors.toSet()));
+
+        DialogueDefinition innkeeper = DialogueRegistry.byId(Identifier.parse("ebb:demo/innkeeper_intro")).orElseThrow();
+        var start = innkeeper.node("start").orElseThrow();
+        Map<String, String> chimeAttribute = new LinkedHashMap<>();
+        chimeAttribute.put("dread", "luck");
+        chimeAttribute.put("empathy", "wisdom");
+        chimeAttribute.put("endurance", "constitution");
+        chimeAttribute.put("finesse", "dexterity");
+        chimeAttribute.put("force", "strength");
+        chimeAttribute.put("instinct", "perception");
+        chimeAttribute.put("logic", "intelligence");
+        chimeAttribute.put("rhetoric", "charisma");
+
+        for (Map.Entry<String, String> entry : chimeAttribute.entrySet()) {
+            Identifier chimeId = Identifier.parse("ebb:demo/" + entry.getKey());
+            ChimeDefinition definition = ChimeRegistry.byId(chimeId).orElseThrow();
+            assertFalse(definition.toneGuide().isBlank(), chimeId + " should define a tone guide");
+            assertFalse(definition.triggerTags().isEmpty(), chimeId + " should define trigger tags");
+            assertTrue(definition.cooldownTicks() > 0, chimeId + " should tune cooldown");
+            assertTrue(definition.oneShotPerNode(), chimeId + " should be one-shot per node");
+            assertFalse(definition.activeThoughtIds().isEmpty(), chimeId + " should link an active thought route");
+
+            NarrativeSavedData state = new NarrativeSavedData();
+            UUID player = UUID.randomUUID();
+            state.setAttribute(player, entry.getValue(), 1);
+            assertTrue(ChimeResolver.explain(innkeeper, start, state, player, 1000L).stream()
+                    .anyMatch(line -> line.contains(chimeId.toString()) && line.contains("ready")),
+                    "dev chime explain should show why " + chimeId + " can trigger");
+            String passive = ChimeResolver.resolve(innkeeper, start, state, player, 1000L).orElseThrow();
+            assertTrue(passive.contains(definition.name()), passive);
+            assertTrue(state.hasPlayerFlag(player, "chime:" + chimeId));
+
+            String choiceId = "rhetoric".equals(entry.getKey()) ? "rhetoric_insight" : entry.getKey() + "_chime_thought";
+            var routeChoice = start.choice(choiceId).orElseThrow();
+            assertTrue(routeChoice.conditions().getFirst().matches(state, player), "active route should unlock for " + chimeId);
+            assertTrue(routeChoice.effects().stream().anyMatch(effect -> effect.type() == DialogueEffect.EffectType.ADD_THOUGHT),
+                    "active route should add a thought for " + chimeId);
+            routeChoice.effects().forEach(effect -> effect.apply(state, player));
+            assertTrue(state.hasPlayerFlag(player, "thought:" + definition.activeThoughtIds().getFirst()));
+        }
+    }
+
+    @Test
+    void chimeCooldownPreventsRepeatedPassiveInsertsAcrossNodes() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        AttributeRegistry.rebuild(load(bundled.resolve("attributes")));
+        ChimeRegistry.rebuild(load(bundled.resolve("chimes")));
+
+        JsonObject synthetic = JsonParser.parseString("""
+                {"start":"a","nodes":{
+                  "a":{"text":"a","chime_tags":["innkeeper.read"],"choices":[{"id":"to_b","type":"dialogue","text":"b","next":"b"}]},
+                  "b":{"text":"b","chime_tags":["innkeeper.read"],"choices":[{"id":"to_a","type":"dialogue","text":"a","next":"a"}]}
+                }}
+                """).getAsJsonObject();
+        DialogueDefinition definition = DialogueDefinition.parse(Identifier.parse("ebb:test/chime_cooldown"), synthetic, new java.util.ArrayList<>()).orElseThrow();
+        NarrativeSavedData state = new NarrativeSavedData();
+        UUID player = UUID.randomUUID();
+        state.setAttribute(player, "strength", 1);
+
+        assertTrue(ChimeResolver.resolve(definition, definition.node("a").orElseThrow(), state, player, 1000L).orElseThrow().contains("Force"));
+        assertTrue(ChimeResolver.explain(definition, definition.node("b").orElseThrow(), state, player, 1050L).stream()
+                .anyMatch(line -> line.contains("ebb:demo/force") && line.contains("skip:cooldown_remaining_")),
+                "dev chime explain should show cooldown skip reasons");
+        assertTrue(ChimeResolver.resolve(definition, definition.node("b").orElseThrow(), state, player, 1050L).isEmpty(),
+                "same voice should respect cooldown even on a different node");
+        assertTrue(ChimeResolver.resolve(definition, definition.node("b").orElseThrow(), state, player, 1300L).orElseThrow().contains("Force"),
+                "voice should be available again after cooldown on an unseen node");
     }
 
     @Test
@@ -300,6 +433,35 @@ final class DeepResearchDataTest {
     }
 
     @Test
+    void p27RoutineValidationAndConversationAnimationNamesAreExplicit() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        NpcRoutineRegistry.rebuild(load(bundled.resolve("npc_routines")));
+        assertEquals(0, NpcRoutineRegistry.validationMessages().size(), "bundled routines should pass P27 validation");
+        assertTrue(NpcRoutineDefinition.ALLOWED_ACTIONS.contains("walk_path"));
+        assertTrue(NpcRoutineDefinition.ALLOWED_ANIMATIONS.contains("talk"));
+        assertTrue(NpcRoutineDefinition.ALLOWED_ANIMATIONS.contains("think"));
+        assertTrue(NpcRoutineDefinition.ALLOWED_ANIMATIONS.contains("dismiss"));
+        assertTrue(NpcRoutineDefinition.ALLOWED_ANIMATIONS.contains("nervous_idle"));
+        assertTrue(NpcRoutineDefinition.ALLOWED_POSES.contains("conversation"));
+
+        java.util.ArrayList<String> messages = new java.util.ArrayList<>();
+        JsonObject invalid = JsonParser.parseString("""
+                {"steps":[
+                  {"time":[0,1000],"action":"moonwalk","pos":[0,64,0]},
+                  {"time":[1000,2000],"action":"walk_path","path":[[0,64,0]],"animation":"idle"},
+                  {"time":[2000,3000],"action":"stand","pos":[0,64,0],"pose":"impossible_pose"},
+                  {"time":[3000,4000],"action":"play_animation","pos":[0,64,0],"animation":"spin_forever"}
+                ]}
+                """).getAsJsonObject();
+        var parsed = NpcRoutineDefinition.parse(Identifier.parse("ebb:test/invalid_routine"), invalid, messages).orElseThrow();
+        assertTrue(parsed.steps().isEmpty(), "invalid routine steps should be rejected rather than silently used");
+        assertTrue(messages.stream().anyMatch(message -> message.contains("action \"moonwalk\" is invalid")), messages::toString);
+        assertTrue(messages.stream().anyMatch(message -> message.contains("path must contain at least two waypoints")), messages::toString);
+        assertTrue(messages.stream().anyMatch(message -> message.contains("pose \"impossible_pose\" is invalid")), messages::toString);
+        assertTrue(messages.stream().anyMatch(message -> message.contains("animation \"spin_forever\" is invalid")), messages::toString);
+    }
+
+    @Test
     void investigationCluesModifyChecksAndConflictFailsForward() throws Exception {
         Path bundled = Path.of("src/main/resources/data/ebb");
         JournalEntryRegistry.rebuild(load(bundled.resolve("journal_entries")));
@@ -338,6 +500,215 @@ final class DeepResearchDataTest {
     }
 
     @Test
+    void p28ConflictPhasesLeverageOutcomesPersistAndFailForward() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        InvestigationRegistry.rebuildClues(load(bundled.resolve("clues")));
+        ConflictRegistry.rebuild(load(bundled.resolve("conflicts")));
+        Identifier conflictId = Identifier.parse("ebb:demo/hallway_confrontation");
+        var definition = ConflictRegistry.byId(conflictId).orElseThrow();
+
+        assertEquals(java.util.List.of("setup", "pressure", "turn", "consequence", "resolution"), definition.phases());
+        assertTrue(definition.leverageClues().contains(Identifier.parse("ebb:demo/witness_knock_pattern")));
+        assertTrue(definition.outcomes().stream().anyMatch(outcome -> outcome.isNonViolentKind() && outcome.state().equals("resolved_nonviolent")));
+        assertTrue(definition.outcomes().stream().anyMatch(outcome -> outcome.isMessyKind() && outcome.state().equals("resolved_messy")));
+        assertTrue(definition.outcomes().stream().filter(outcome -> outcome.isFailureForwardKind()).count() >= 2,
+                "P28 requires at least two failure-forward conflict outcomes");
+
+        NarrativeSavedData state = new NarrativeSavedData();
+        UUID player = UUID.randomUUID();
+        parseEffect("{\"type\":\"reveal_clue\",\"id\":\"ebb:demo/door_scratches\"}").apply(state, player);
+        parseEffect("{\"type\":\"reveal_clue\",\"id\":\"ebb:demo/witness_knock_pattern\"}").apply(state, player);
+
+        String startStatus = ConflictService.start(state, player, conflictId.toString()).orElseThrow();
+        assertEquals("active", state.getConflictState(player, conflictId.toString()));
+        assertEquals("setup", state.getConflictPhase(player, conflictId.toString()));
+        assertTrue(startStatus.contains("stress=0/3"), startStatus);
+        assertTrue(startStatus.contains("resolve=0/2"), startStatus);
+        assertTrue(startStatus.contains("leverage=door_scratches+witness_knock_pattern")
+                || startStatus.contains("leverage=witness_knock_pattern+door_scratches"), startStatus);
+
+        ConflictService.addResolve(state, player, conflictId.toString(), 1);
+        assertEquals(1, state.getConflictScore(player, "resolve", conflictId.toString()));
+        assertEquals("turn", state.getConflictPhase(player, conflictId.toString()));
+
+        ConflictService.applyOutcome(state, player, conflictId.toString(), "public_pressure_fail");
+        assertEquals("failed_forward_public", state.getConflictState(player, conflictId.toString()));
+        assertEquals("consequence", state.getConflictPhase(player, conflictId.toString()));
+
+        ConflictService.start(state, player, conflictId.toString());
+        ConflictService.applyOutcome(state, player, conflictId.toString(), "quiet_resolve");
+        assertEquals("resolved_nonviolent", state.getConflictState(player, conflictId.toString()));
+        assertEquals("resolution", state.getConflictPhase(player, conflictId.toString()));
+
+        ConflictService.start(state, player, conflictId.toString());
+        ConflictService.applyOutcome(state, player, conflictId.toString(), "messy_resolve");
+        assertEquals("resolved_messy", state.getConflictState(player, conflictId.toString()));
+        assertEquals("resolution", state.getConflictPhase(player, conflictId.toString()));
+
+        ConflictService.start(state, player, conflictId.toString());
+        ConflictService.addStress(state, player, conflictId.toString(), 3);
+        assertEquals("failed_forward", state.getConflictState(player, conflictId.toString()));
+        assertEquals("consequence", state.getConflictPhase(player, conflictId.toString()));
+    }
+
+    @Test
+    void p29SavedDataMigrationAddsConflictPhaseAndPreservesLegacyState() {
+        UUID player = UUID.randomUUID();
+        JsonObject legacy = JsonParser.parseString("""
+                {
+                  "version": 1,
+                  "players": {
+                    "%s": {
+                      "narrative_states": {
+                        "conflict:ebb:demo/hallway_confrontation": "failed_forward",
+                        "scene:ebb:demo/locked_room": "messy"
+                      },
+                      "conflict_scores": {
+                        "stress:ebb:demo/hallway_confrontation": 3
+                      }
+                    }
+                  }
+                }
+                """.formatted(player)).getAsJsonObject();
+        NarrativeSavedData migrated = NarrativeSavedData.CODEC.parse(JsonOps.INSTANCE, legacy)
+                .resultOrPartial(message -> {
+                    throw new AssertionError(message);
+                })
+                .orElseThrow();
+
+        assertEquals(NarrativeSavedData.CURRENT_SCHEMA_VERSION, migrated.schemaVersion());
+        assertEquals("failed_forward", migrated.getConflictState(player, "ebb:demo/hallway_confrontation"));
+        assertEquals("consequence", migrated.getConflictPhase(player, "ebb:demo/hallway_confrontation"));
+        assertEquals("messy", migrated.getScenePhase(player, "ebb:demo/locked_room"));
+        assertEquals(3, migrated.getConflictScore(player, "stress", "ebb:demo/hallway_confrontation"));
+        assertEquals(com.crpg.ebb.state.PlayerNarrativeState.DEFAULT_ATTRIBUTE_POINTS, migrated.getAttributePoints(player),
+                "older saves without attribute_points should keep safe defaults");
+
+        JsonObject encoded = NarrativeSavedData.CODEC.encodeStart(JsonOps.INSTANCE, migrated)
+                .resultOrPartial(message -> {
+                    throw new AssertionError(message);
+                })
+                .orElseThrow().getAsJsonObject();
+        assertEquals(NarrativeSavedData.CURRENT_SCHEMA_VERSION, encoded.get("version").getAsInt());
+        JsonObject playerJson = encoded.getAsJsonObject("players").getAsJsonObject(player.toString());
+        assertEquals("consequence", playerJson.getAsJsonObject("narrative_states")
+                .get("conflict_phase:ebb:demo/hallway_confrontation").getAsString());
+    }
+
+    @Test
+    void p29DialogueSessionPreflightRejectsSpoofedStaleAndContendedSessions() throws Exception {
+        DialogueService.clearAll("p29_test");
+        DialogueService.clearSecurityEventSnapshot();
+        Map<UUID, DialogueSession> sessions = privateStaticMap(DialogueService.class, "SESSIONS");
+        Map<UUID, UUID> playerToSession = privateStaticMap(DialogueService.class, "PLAYER_TO_SESSION");
+        sessions.clear();
+        playerToSession.clear();
+
+        UUID conversation = UUID.randomUUID();
+        UUID playerOne = UUID.randomUUID();
+        UUID playerTwo = UUID.randomUUID();
+        UUID entity = UUID.randomUUID();
+        DialogueSession session = new DialogueSession(
+                conversation,
+                playerOne,
+                Identifier.parse("ebb:demo/guard_intro"),
+                Identifier.parse("ebb:demo/guard_ebb_npc"),
+                InteractionTargetType.ENTITY,
+                java.util.Optional.of(entity),
+                "start",
+                100L
+        );
+        sessions.put(conversation, session);
+        playerToSession.put(playerOne, conversation);
+
+        assertTrue(DialogueService.validateChoicePacket(playerOne, conversation, 101L).allowed());
+        assertEquals("session_player_mismatch", DialogueService.validateChoicePacket(playerTwo, conversation, 101L).reason());
+        assertEquals("missing_or_expired_session", DialogueService.validateChoicePacket(playerOne, UUID.randomUUID(), 101L).reason());
+        assertEquals("session_timeout", DialogueService.validateChoicePacket(playerOne, conversation, 20L * 60L * 6L).reason());
+        assertTrue(DialogueService.entityReservedByAnotherPlayer(entity, playerTwo));
+        assertFalse(DialogueService.entityReservedByAnotherPlayer(entity, playerOne));
+        Map<String, Integer> security = DialogueService.securityEventSnapshot();
+        assertTrue(security.getOrDefault("session_player_mismatch", 0) >= 1, security::toString);
+        assertTrue(security.getOrDefault("missing_or_expired_session", 0) >= 1, security::toString);
+        assertTrue(security.getOrDefault("session_timeout", 0) >= 1, security::toString);
+
+        DialogueService.clearAll("p29_test_cleanup");
+        DialogueService.clearSecurityEventSnapshot();
+    }
+
+    @Test
+    void p29CommandPermissionSurfaceKeepsAdminAndSelfInspectionSplit() throws Exception {
+        String commands = Files.readString(Path.of("src/main/java/com/crpg/ebb/registry/ModCommands.java"));
+        for (String adminPermission : java.util.List.of(
+                "command.dev",
+                "command.dialogue",
+                "command.routine",
+                "command.export",
+                "command.summon_npc",
+                "command.attributes.grant",
+                "command.attributes.set",
+                "command.attributes.reset"
+        )) {
+            assertTrue(commands.contains("EbbMod.id(\"" + adminPermission + "\")"),
+                    "admin command should remain permission-gated: " + adminPermission);
+        }
+        assertTrue(commands.contains("Commands.literal(\"vars\")\n                        .executes"),
+                "player self vars command should remain executable without OP branch");
+        assertTrue(commands.contains("Commands.literal(\"journal\")\n                        .executes"),
+                "journal self-inspection should remain player-safe");
+        assertTrue(commands.contains("Commands.literal(\"quest\")\n                        .executes"),
+                "quest self-inspection should remain player-safe");
+        assertTrue(commands.contains("Commands.literal(\"spend\")"),
+                "attribute spending should remain player-facing while grant/set/reset stay OP-gated");
+    }
+
+    @Test
+    void p30VerticalSliceContentExpansionMeetsMinimumCounts() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        DialogueRegistry.rebuild(load(bundled.resolve("dialogues")));
+        BlockGroupIndex.rebuild(load(bundled.resolve("interactions/block_groups")));
+        EntityBindingRegistry.rebuild(load(bundled.resolve("interactions/entity_bindings")));
+        NpcRoutineRegistry.rebuild(load(bundled.resolve("npc_routines")));
+        QuestBranchRegistry.rebuild(load(bundled.resolve("quest_branches")));
+        FeatRegistry.rebuild(load(bundled.resolve("feats")));
+        ChimeRegistry.rebuild(load(bundled.resolve("chimes")));
+        JournalEntryRegistry.rebuild(load(bundled.resolve("journal_entries")));
+        InvestigationRegistry.rebuildClues(load(bundled.resolve("clues")));
+        ConflictRegistry.rebuild(load(bundled.resolve("conflicts")));
+
+        assertTrue(BlockGroupIndex.groupCount() >= 12, "P30 requires at least 12 block-group investigation points");
+        assertTrue(EntityBindingRegistry.size() >= 14, "P30 adds cook/courier tag and name bindings");
+        assertTrue(NpcRoutineRegistry.size() >= 7, "P30 adds cook and courier routines");
+        long majorBranches = QuestBranchRegistry.orderedDefinitions().stream()
+                .filter(branch -> branch.kind() == com.crpg.ebb.quest.QuestBranchKind.MAJOR)
+                .count();
+        long minorBranches = QuestBranchRegistry.orderedDefinitions().stream()
+                .filter(branch -> branch.kind() == com.crpg.ebb.quest.QuestBranchKind.MINOR)
+                .count();
+        assertTrue(majorBranches >= 4, "P30 requires at least 4 major branches");
+        assertTrue(minorBranches >= 8, "P30 requires at least 8 minor branches");
+        assertTrue(FeatRegistry.size() >= 12, "P30 requires at least 12 feats");
+        assertTrue(ChimeRegistry.size() >= 8, "P30 keeps at least 8 chimes");
+        int chimeLines = ChimeRegistry.orderedDefinitions().stream().mapToInt(chime -> chime.lines().size()).sum();
+        assertTrue(chimeLines >= 40, "P30 requires at least 40 chime lines");
+        assertTrue(JournalEntryRegistry.size() >= 20, "P30 requires at least 20 journal entries");
+        assertTrue(InvestigationRegistry.clueCount() >= 20, "P30 requires at least 20 clues");
+        assertTrue(ConflictRegistry.size() >= 3, "P30 requires at least 3 set-piece conflicts");
+        for (String id : java.util.List.of(
+                "ebb:demo/cook_intro",
+                "ebb:demo/courier_intro",
+                "ebb:demo/kitchen_manifest_dialogue",
+                "ebb:demo/stable_mud_dialogue"
+        )) {
+            assertTrue(DialogueRegistry.byId(Identifier.parse(id)).isPresent(), "P30 dialogue should load: " + id);
+        }
+        DialogueDefinition ending = DialogueRegistry.byId(Identifier.parse("ebb:demo/back_door_dialogue")).orElseThrow();
+        for (String node : java.util.List.of("public_end", "quiet_end", "messy_end", "trade_end", "mercy_end")) {
+            assertTrue(ending.node(node).isPresent(), "each major/messy route needs an ending placeholder: " + node);
+        }
+    }
+
+    @Test
     void playableVerticalSliceMeetsContentMinimums() throws Exception {
         Path bundled = Path.of("src/main/resources/data/ebb");
         DialogueRegistry.rebuild(load(bundled.resolve("dialogues")));
@@ -364,7 +735,7 @@ final class DeepResearchDataTest {
         assertTrue(NpcRoutineRegistry.size() >= 5, "four role routines plus innkeeper backroom should be present");
         assertTrue(QuestBranchRegistry.size() >= 2, "two major branches should be present");
         assertTrue(FeatRegistry.size() >= 4, "four feats should be present");
-        assertTrue(ChimeRegistry.size() >= 4, "four chimes should be present");
+        assertTrue(ChimeRegistry.size() >= 8, "P26 eight chimes should be present");
         assertTrue(InvestigationRegistry.clueCount() >= 5, "investigation clues should be present");
         assertTrue(ConflictRegistry.size() >= 1, "one set-piece conflict should be present");
         DialogueDefinition ending = DialogueRegistry.byId(Identifier.parse("ebb:demo/back_door_dialogue")).orElseThrow();
@@ -480,5 +851,12 @@ final class DeepResearchDataTest {
         CommandNode<CommandSourceStack> child = root.getChild(name);
         assertNotNull(child, "command node should exist: " + name);
         return child;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <K, V> Map<K, V> privateStaticMap(Class<?> owner, String fieldName) throws Exception {
+        Field field = owner.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (Map<K, V>) field.get(null);
     }
 }

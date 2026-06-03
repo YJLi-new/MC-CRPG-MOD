@@ -42,6 +42,16 @@ PATTERNS = {
     "npc_routines": re.compile(r"Loaded (\d+) npc routine JSON definition\(s\)"),
 }
 
+FATAL_LOG_PATTERNS = {
+    "bad_zip": re.compile(r"ZipFile invalid LOC header", re.IGNORECASE),
+    "class_load_failure": re.compile(r"Failed to load class file", re.IGNORECASE),
+    "server_task_error": re.compile(r"\[Server thread/ERROR\]: Error executing task on Server"),
+}
+
+
+def fatal_log_hits(text: str) -> list[str]:
+    return [name for name, pattern in FATAL_LOG_PATTERNS.items() if pattern.search(text)]
+
 
 def sha256(path: Path) -> str:
     hasher = hashlib.sha256()
@@ -72,10 +82,10 @@ def main() -> int:
                         help="PCL test profile directory")
     parser.add_argument("--build-jar", type=Path, default=DEFAULT_BUILD_JAR,
                         help="Current project build jar to compare with the profile-local installed jar")
-    parser.add_argument("--expected-dialogues", type=int, default=13)
-    parser.add_argument("--expected-block-groups", type=int, default=8)
-    parser.add_argument("--expected-entity-bindings", type=int, default=10)
-    parser.add_argument("--expected-npc-routines", type=int, default=5)
+    parser.add_argument("--expected-dialogues", type=int, default=19)
+    parser.add_argument("--expected-block-groups", type=int, default=12)
+    parser.add_argument("--expected-entity-bindings", type=int, default=14)
+    parser.add_argument("--expected-npc-routines", type=int, default=7)
     args = parser.parse_args()
 
     profile = args.profile
@@ -110,6 +120,20 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+
+    log_text = latest_log.read_bytes().decode("utf-8", "replace")
+    fatal_hits = fatal_log_hits(log_text)
+    if fatal_hits:
+        print("RuntimeLoadCheck failed: latest.log contains fatal Ebb/Minecraft runtime errors:", file=sys.stderr)
+        print(f"  profile={profile}", file=sys.stderr)
+        print(f"  latest_log={latest_log}", file=sys.stderr)
+        print(f"  hits={', '.join(fatal_hits)}", file=sys.stderr)
+        print(
+            "Action: fully close Minecraft, rebuild/refresh the profile only while closed, "
+            "relaunch 26.1.2-Fabric-Ebb-Test, enter 新的世界 (1), then re-run this check.",
+            file=sys.stderr,
+        )
+        return 1
 
     counts = parse_counts(latest_log)
     expected = RuntimeCounts(

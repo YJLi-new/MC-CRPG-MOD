@@ -1,0 +1,9 @@
+{
+  "display_name": "Hard Bargain",
+  "description": "Your threats sound like accounting, not anger.",
+  "permanent_passive": true,
+  "active_slot_candidate": true,
+  "check_modifiers": {
+    "strength": 1
+  }
+}

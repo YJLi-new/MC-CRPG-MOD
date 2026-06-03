@@ -1,0 +1,8 @@
+{
+  "title": "马厩泥痕",
+  "kind": "minor",
+  "description": "辨认从院子带进楼上的泥。",
+  "grant_feats": [
+    "ebb:demo/mud_reader"
+  ]
+}

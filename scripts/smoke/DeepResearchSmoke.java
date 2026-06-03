@@ -1,4 +1,5 @@
 import com.crpg.ebb.attribute.AttributeRegistry;
+import com.crpg.ebb.chime.ChimeDefinition;
 import com.crpg.ebb.chime.ChimeRegistry;
 import com.crpg.ebb.chime.ChimeResolver;
 import com.crpg.ebb.conflict.ConflictRegistry;
@@ -7,9 +8,12 @@ import com.crpg.ebb.dialogue.DialogueDefinition;
 import com.crpg.ebb.dialogue.DialogueEffect;
 import com.crpg.ebb.dialogue.DialogueNodeType;
 import com.crpg.ebb.dialogue.DialogueRegistry;
+import com.crpg.ebb.dialogue.DialogueService;
+import com.crpg.ebb.dialogue.DialogueSession;
 import com.crpg.ebb.dialogue.RollMode;
 import com.crpg.ebb.feat.FeatRegistry;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.InteractionTargetType;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.investigation.InvestigationRegistry;
 import com.crpg.ebb.journal.JournalEntryRegistry;
@@ -24,10 +28,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.resources.Identifier;
 
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class DeepResearchSmoke {
@@ -53,7 +59,7 @@ public final class DeepResearchSmoke {
         require(AttributeRegistry.size() == 8, "DND-8 attributes should load");
         require(QuestBranchRegistry.size() >= 2, "bundled quest branches should load");
         require(FeatRegistry.size() >= 4, "bundled feats should load");
-        require(ChimeRegistry.size() >= 4, "bundled chimes should load");
+        require(ChimeRegistry.size() >= 8, "bundled P26 chimes should load all eight attribute voices");
         require(JournalEntryRegistry.size() >= 4, "bundled journal entries should load");
         require(RelationshipRegistry.size() >= 4, "bundled relationships should load");
         require(InvestigationRegistry.clueCount() >= 5, "bundled clues should load");
@@ -95,8 +101,31 @@ public final class DeepResearchSmoke {
         require(FeatRegistry.totalCheckModifier(state, player, "charisma") >= 1, "feat modifies charisma checks");
         var innkeeper = DialogueRegistry.byId(Identifier.parse("ebb:demo/innkeeper_intro")).orElseThrow();
         var startNode = innkeeper.node("start").orElseThrow();
+        // P26 chime coverage: each attribute voice has tone/cooldown/active-route metadata.
+        Map<String, String> expectedChimeAttributes = new LinkedHashMap<>();
+        expectedChimeAttributes.put("dread", "luck");
+        expectedChimeAttributes.put("empathy", "wisdom");
+        expectedChimeAttributes.put("endurance", "constitution");
+        expectedChimeAttributes.put("finesse", "dexterity");
+        expectedChimeAttributes.put("force", "strength");
+        expectedChimeAttributes.put("instinct", "perception");
+        expectedChimeAttributes.put("logic", "intelligence");
+        expectedChimeAttributes.put("rhetoric", "charisma");
+        require(Set.copyOf(expectedChimeAttributes.values()).equals(ChimeRegistry.definitions().values().stream()
+                .map(ChimeDefinition::sourceAttribute)
+                .collect(java.util.stream.Collectors.toSet())), "P26 chimes should cover DND-8 attributes exactly");
+        for (Map.Entry<String, String> entry : expectedChimeAttributes.entrySet()) {
+            ChimeDefinition definition = ChimeRegistry.byId(Identifier.parse("ebb:demo/" + entry.getKey())).orElseThrow();
+            require(!definition.toneGuide().isBlank(), "P26 chime toneGuide present for " + entry.getKey());
+            require(definition.cooldownTicks() > 0, "P26 chime cooldownTicks present for " + entry.getKey());
+            require(definition.oneShotPerNode(), "P26 chime one-shot tuning present for " + entry.getKey());
+            require(!definition.activeThoughtIds().isEmpty(), "P26 chime active thought metadata present for " + entry.getKey());
+            String choiceId = "rhetoric".equals(entry.getKey()) ? "rhetoric_insight" : entry.getKey() + "_chime_thought";
+            require(startNode.choice(choiceId).isPresent(), "P26 active thought route exists for " + entry.getKey());
+        }
         state.setAttribute(player, "charisma", 1);
-        require(ChimeResolver.resolve(innkeeper, startNode, state, player).orElseThrow().contains("Rhetoric"), "rhetoric chime resolves from charisma build");
+        require(ChimeResolver.resolve(innkeeper, startNode, state, player, 1000L).orElseThrow().contains("Rhetoric"), "rhetoric chime resolves from charisma build");
+        require(ChimeResolver.resolve(innkeeper, startNode, state, player, 1001L).isEmpty(), "chime one-shot prevents repeated same-node passive insert");
         require(startNode.choice("rhetoric_insight").orElseThrow().conditions().getFirst().matches(state, player), "passive chime unlocks insight path");
         DialogueEffect.parse(JsonParser.parseString("{\"type\":\"add_journal_entry\",\"id\":\"ebb:demo/door_scratches\"}").getAsJsonObject(), "effect", new java.util.ArrayList<>())
                 .orElseThrow().apply(state, player);
@@ -132,6 +161,86 @@ public final class DeepResearchSmoke {
         ConflictService.start(state, player, "ebb:demo/hallway_confrontation");
         ConflictService.addResolve(state, player, "ebb:demo/hallway_confrontation", 2);
         require("resolved".equals(state.getConflictState(player, "ebb:demo/hallway_confrontation")), "conflict resolve can succeed");
+        var hallwayConflict = ConflictRegistry.byId(Identifier.parse("ebb:demo/hallway_confrontation")).orElseThrow();
+        require(hallwayConflict.phases().containsAll(java.util.List.of("setup", "pressure", "turn", "consequence", "resolution")),
+                "P28 conflict phases are formalized");
+        require(hallwayConflict.outcomes().stream().filter(outcome -> outcome.isFailureForwardKind()).count() >= 2,
+                "P28 conflict has at least two failure-forward outcomes");
+        ConflictService.start(state, player, "ebb:demo/hallway_confrontation");
+        String p28Status = ConflictService.statusLine(state, player, Identifier.parse("ebb:demo/hallway_confrontation"));
+        require(p28Status.contains("stress=0/3") && p28Status.contains("resolve=0/2") && p28Status.contains("leverage="),
+                "P28 conflict status exposes stress, resolve, and leverage");
+        ConflictService.applyOutcome(state, player, "ebb:demo/hallway_confrontation", "quiet_resolve");
+        require("resolved_nonviolent".equals(state.getConflictState(player, "ebb:demo/hallway_confrontation")),
+                "P28 quiet nonviolent conflict outcome applies");
+        ConflictService.start(state, player, "ebb:demo/hallway_confrontation");
+        ConflictService.applyOutcome(state, player, "ebb:demo/hallway_confrontation", "public_pressure_fail");
+        require("failed_forward_public".equals(state.getConflictState(player, "ebb:demo/hallway_confrontation"))
+                        && "consequence".equals(state.getConflictPhase(player, "ebb:demo/hallway_confrontation")),
+                "P28 failure-forward conflict outcome advances consequence phase");
+        JsonObject legacySave = JsonParser.parseString("""
+                {
+                  "version": 1,
+                  "players": {
+                    "%s": {
+                      "narrative_states": {"conflict:ebb:demo/hallway_confrontation": "failed_forward"},
+                      "conflict_scores": {"stress:ebb:demo/hallway_confrontation": 3}
+                    }
+                  }
+                }
+                """.formatted(player)).getAsJsonObject();
+        NarrativeSavedData migrated = NarrativeSavedData.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, legacySave)
+                .resultOrPartial(message -> {
+                    throw new IllegalStateException(message);
+                })
+                .orElseThrow();
+        require(migrated.schemaVersion() == NarrativeSavedData.CURRENT_SCHEMA_VERSION, "P29 save migration bumps schema version");
+        require("consequence".equals(migrated.getConflictPhase(player, "ebb:demo/hallway_confrontation")),
+                "P29 save migration infers conflict phase from legacy state");
+        DialogueService.clearAll("p29_smoke");
+        DialogueService.clearSecurityEventSnapshot();
+        Map<UUID, DialogueSession> sessions = privateStaticMap(DialogueService.class, "SESSIONS");
+        Map<UUID, UUID> playerToSession = privateStaticMap(DialogueService.class, "PLAYER_TO_SESSION");
+        UUID conversation = UUID.randomUUID();
+        UUID playerTwo = UUID.randomUUID();
+        UUID entity = UUID.randomUUID();
+        DialogueSession p29Session = new DialogueSession(
+                conversation,
+                player,
+                Identifier.parse("ebb:demo/guard_intro"),
+                Identifier.parse("ebb:demo/guard_ebb_npc"),
+                InteractionTargetType.ENTITY,
+                java.util.Optional.of(entity),
+                "start",
+                100L
+        );
+        sessions.put(conversation, p29Session);
+        playerToSession.put(player, conversation);
+        require(DialogueService.validateChoicePacket(player, conversation, 101L).allowed(), "P29 own session packet allowed");
+        require("session_player_mismatch".equals(DialogueService.validateChoicePacket(playerTwo, conversation, 101L).reason()),
+                "P29 spoofed session packet rejected");
+        require(DialogueService.entityReservedByAnotherPlayer(entity, playerTwo), "P29 same-NPC contention detected");
+        require(DialogueService.securityEventSnapshot().containsKey("session_player_mismatch"), "P29 security event snapshot records spoofing");
+        DialogueService.clearAll("p29_smoke_cleanup");
+        DialogueService.clearSecurityEventSnapshot();
+        require(BlockGroupIndex.groupCount() >= 12, "P30 vertical slice exposes at least 12 block-group investigation points");
+        require(EntityBindingRegistry.size() >= 14, "P30 vertical slice includes cook/courier NPC bindings");
+        require(NpcRoutineRegistry.size() >= 7, "P30 vertical slice includes cook/courier routines");
+        long p30MajorBranches = QuestBranchRegistry.orderedDefinitions().stream()
+                .filter(branch -> branch.kind() == com.crpg.ebb.quest.QuestBranchKind.MAJOR)
+                .count();
+        long p30MinorBranches = QuestBranchRegistry.orderedDefinitions().stream()
+                .filter(branch -> branch.kind() == com.crpg.ebb.quest.QuestBranchKind.MINOR)
+                .count();
+        require(p30MajorBranches >= 4 && p30MinorBranches >= 8, "P30 quest branch counts meet major/minor target");
+        require(FeatRegistry.size() >= 12, "P30 feat count meets target");
+        int p30ChimeLines = ChimeRegistry.orderedDefinitions().stream().mapToInt(chime -> chime.lines().size()).sum();
+        require(ChimeRegistry.size() >= 8 && p30ChimeLines >= 40, "P30 chime count and line count meet target");
+        require(JournalEntryRegistry.size() >= 20 && InvestigationRegistry.clueCount() >= 20, "P30 journal/clue counts meet target");
+        require(ConflictRegistry.size() >= 3, "P30 conflict count meets target");
+        require(DialogueRegistry.byId(Identifier.parse("ebb:demo/back_door_dialogue")).orElseThrow().node("trade_end").isPresent()
+                        && DialogueRegistry.byId(Identifier.parse("ebb:demo/back_door_dialogue")).orElseThrow().node("mercy_end").isPresent(),
+                "P30 ending placeholders include trade and mercy routes");
 
         Path generated = Path.of("build/generated/ebb_authoring/data/ebb");
         DialogueRegistry.rebuild(load(generated.resolve("dialogues")));
@@ -170,6 +279,13 @@ public final class DeepResearchSmoke {
             }
         }
         return map;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <K, V> Map<K, V> privateStaticMap(Class<?> owner, String fieldName) throws Exception {
+        Field field = owner.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (Map<K, V>) field.get(null);
     }
 
     private static void require(boolean condition, String message) {

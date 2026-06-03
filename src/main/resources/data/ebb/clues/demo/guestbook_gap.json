@@ -1,0 +1,9 @@
+{
+  "title": "Torn Guestbook Page",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/guestbook_gap",
+  "text": "住客簿缺页的纤维还夹在装订线里。",
+  "check_modifiers": {
+    "intelligence": 1
+  }
+}

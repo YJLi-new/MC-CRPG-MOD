@@ -1,8 +1,50 @@
 {
   "title": "Hallway Confrontation",
   "scene": "ebb:demo/locked_room",
+  "phases": [
+    { "id": "setup", "text": "Players establish the stakes and decide whether the hallway becomes a public scene." },
+    { "id": "pressure", "text": "Stress rises when accusations lack leverage or force is used badly." },
+    { "id": "turn", "text": "Known clues and social feats convert evidence into resolve." },
+    { "id": "consequence", "text": "Failure advances the scene into a messier but still playable state." },
+    { "id": "resolution", "text": "The confrontation resolves quietly, publicly, or messily." }
+  ],
+  "leverage_clues": [
+    "ebb:demo/door_scratches",
+    "ebb:demo/witness_knock_pattern",
+    "ebb:demo/tenant_false_window",
+    "ebb:demo/guard_denial",
+    "ebb:demo/bruised_shoulder"
+  ],
   "stress_limit": 3,
   "resolve_goal": 2,
   "failure_state": "failed_forward",
-  "success_state": "resolved"
+  "success_state": "resolved",
+  "outcomes": [
+    {
+      "id": "quiet_resolve",
+      "kind": "nonviolent",
+      "state": "resolved_nonviolent",
+      "text": "The guard steps aside because the evidence gives everyone a face-saving exit."
+    },
+    {
+      "id": "messy_resolve",
+      "kind": "messy",
+      "state": "resolved_messy",
+      "text": "The door opens, but the hallway remembers the threat and broken furniture."
+    },
+    {
+      "id": "public_pressure_fail",
+      "kind": "failure_forward",
+      "state": "failed_forward_public",
+      "failure_forward": true,
+      "text": "The public accusation misses, but witnesses now know which question matters."
+    },
+    {
+      "id": "guard_standoff_fail",
+      "kind": "failure_forward",
+      "state": "failed_forward",
+      "failure_forward": true,
+      "text": "The shove fails, but the bruise proves the latch is real and moves the case forward."
+    }
+  ]
 }

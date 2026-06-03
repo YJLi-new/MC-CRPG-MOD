@@ -1,0 +1,8 @@
+{
+  "title": "信使路线",
+  "kind": "minor",
+  "description": "拼出信使从后巷到楼梯的真实路线。",
+  "grant_feats": [
+    "ebb:demo/route_sense"
+  ]
+}

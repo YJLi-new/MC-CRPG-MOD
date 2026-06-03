@@ -2,8 +2,23 @@
   "name": "Empathy",
   "source_attribute": "wisdom",
   "min_score": 1,
-  "trigger_tags": ["innkeeper.read"],
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Soft social reading. Names fear, shame, care, and the fragile reason people hide behind ordinary words.",
   "speaker_style": "soft",
   "cooldown_ticks": 200,
-  "lines": ["他不是在拒绝你。他在保护自己免于再次说出同一句真话。"]
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_empathy"
+  ],
+  "lines": [
+    "他不是在拒绝你。他在保护自己免于再次说出同一句真话。",
+    "他不是害怕你知道，他害怕你理解。",
+    "温柔不是放过，是让对方还有理由说真话。",
+    "先看谁在保护谁，再看谁在骗谁。",
+    "人会把最疼的地方说成天气。"
+  ]
 }

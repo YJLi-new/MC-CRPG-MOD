@@ -1,0 +1,11 @@
+{
+  "title": "Laundry Thread on Bolt",
+  "category": "clue",
+  "quest": "ebb:demo/minor_window_lie",
+  "text": "门栓上挂着洗衣房线头。",
+  "tags": [
+    "p30",
+    "clue",
+    "minor_window_lie"
+  ]
+}

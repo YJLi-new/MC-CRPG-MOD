@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/ebb/chime.schema.json",
+  "title": "Ebb Chime",
+  "type": "object",
+  "required": ["name", "source_attribute", "trigger_tags", "tone_guide", "lines"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "display_name": { "type": "string" },
+    "source_attribute": { "type": "string" },
+    "attribute": { "type": "string" },
+    "min_score": { "type": "integer" },
+    "min_attribute_score": { "type": "integer" },
+    "trigger_tags": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "tone_guide": { "type": "string", "minLength": 1 },
+    "tone": { "type": "string" },
+    "guide": { "type": "string" },
+    "speaker_style": { "type": "string" },
+    "cooldown_ticks": { "type": "integer", "minimum": 0 },
+    "cooldown": { "type": "integer", "minimum": 0 },
+    "one_shot_per_node": { "type": "boolean" },
+    "one_shot": { "type": "boolean" },
+    "one_shot_global": { "type": "boolean" },
+    "active_thoughts": { "type": "array", "items": { "type": "string" } },
+    "active_thought": { "type": "string" },
+    "lines": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "text": { "type": "string" }
+  }
+}

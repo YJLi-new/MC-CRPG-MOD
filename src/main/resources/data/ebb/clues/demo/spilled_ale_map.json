@@ -1,0 +1,9 @@
+{
+  "title": "Spilled Ale Map",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/spilled_ale_map",
+  "text": "洒出的麦酒沿桌缝画出楼梯路线。",
+  "check_modifiers": {
+    "luck": 1
+  }
+}

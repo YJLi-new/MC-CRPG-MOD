@@ -1,6 +1,7 @@
 package com.crpg.ebb.client.input;
 
 import com.crpg.ebb.EbbMod;
+import com.crpg.ebb.client.gui.menu.EbbMenuScreen;
 import com.crpg.ebb.client.network.ClientInteractionNetworking;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -16,6 +17,12 @@ public final class ClientKeyMappings {
             GLFW.GLFW_KEY_X,
             CATEGORY
     ));
+    public static final KeyMapping MENU = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+            "key.ebb.menu",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_K,
+            CATEGORY
+    ));
 
     private ClientKeyMappings() {
     }
@@ -24,6 +31,13 @@ public final class ClientKeyMappings {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (INTERACT.consumeClick()) {
                 ClientInteractionNetworking.sendCurrentTargetInteraction(client);
+            }
+            while (MENU.consumeClick()) {
+                if (client.screen == null) {
+                    client.setScreen(new EbbMenuScreen());
+                } else if (client.screen instanceof EbbMenuScreen) {
+                    client.setScreen(null);
+                }
             }
         });
     }

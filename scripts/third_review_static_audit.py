@@ -189,7 +189,7 @@ def main() -> int:
         "NPC routine conversation focus",
         routine_controller,
         "applyConversationFocus",
-        "DialogueService.activeConversationPlayerForEntity",
+        "DialogueService.activeConversationSessionForEntity",
         "npc.getNavigation().stop()",
         "npc.getLookControl().setLookAt",
         "!config.requiresLineOfSight() || npc.hasLineOfSight(player)",

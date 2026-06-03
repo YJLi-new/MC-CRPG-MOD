@@ -1,0 +1,19 @@
+{
+  "title": "留情路线",
+  "kind": "major",
+  "description": "保留能救人的沉默，只公开足够阻止下一次伤害的部分。",
+  "take_root_text": "留情路线扎根：你学会了不把每个真相都变成武器。",
+  "grant_feats": [
+    "ebb:demo/soft_exit",
+    "ebb:demo/kitchen_truce"
+  ],
+  "take_root_effects": [
+    {
+      "type": "set_story_var",
+      "scope": "player",
+      "layer": "major",
+      "id": "mercy_withheld",
+      "value": 1
+    }
+  ]
+}

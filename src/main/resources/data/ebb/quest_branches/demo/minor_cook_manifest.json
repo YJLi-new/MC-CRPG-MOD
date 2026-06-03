@@ -1,0 +1,8 @@
+{
+  "title": "厨房货单",
+  "kind": "minor",
+  "description": "确认厨房货单在案发前被改写。",
+  "grant_feats": [
+    "ebb:demo/route_sense"
+  ]
+}

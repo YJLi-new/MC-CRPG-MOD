@@ -1,0 +1,24 @@
+{
+  "name": "Endurance",
+  "source_attribute": "constitution",
+  "min_score": 1,
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Body-first persistence. Notices fatigue, breath, pain tolerance, and how long a room can hold pressure.",
+  "speaker_style": "body",
+  "cooldown_ticks": 200,
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_endurance"
+  ],
+  "lines": [
+    "你的肩胛先于理智收紧。这里的沉默不是空白，是一段需要撑过去的重量。",
+    "忍耐不是站着不动，是知道哪种痛还在说话。",
+    "这个房间累了，累到藏不住重音。",
+    "你可以等，谎话通常比人先喘。",
+    "伤口不是弱点，是时间戳。"
+  ]
+}

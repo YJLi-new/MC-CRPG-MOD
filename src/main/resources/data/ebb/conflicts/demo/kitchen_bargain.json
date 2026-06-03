@@ -1,0 +1,60 @@
+{
+  "title": "Kitchen Bargain",
+  "scene": "ebb:demo/locked_room",
+  "phases": [
+    {
+      "id": "setup",
+      "text": "Kitchen Bargain phase: setup."
+    },
+    {
+      "id": "pressure",
+      "text": "Kitchen Bargain phase: pressure."
+    },
+    {
+      "id": "turn",
+      "text": "Kitchen Bargain phase: turn."
+    },
+    {
+      "id": "consequence",
+      "text": "Kitchen Bargain phase: consequence."
+    },
+    {
+      "id": "resolution",
+      "text": "Kitchen Bargain phase: resolution."
+    }
+  ],
+  "leverage_clues": [
+    "ebb:demo/kitchen_manifest",
+    "ebb:demo/courier_seal",
+    "ebb:demo/stable_mud",
+    "ebb:demo/key_echo"
+  ],
+  "stress_limit": 3,
+  "resolve_goal": 2,
+  "failure_state": "kitchen_failed_forward",
+  "success_state": "kitchen_resolved",
+  "outcomes": [
+    {
+      "id": "kitchen_quiet",
+      "kind": "nonviolent",
+      "state": "kitchen_resolved_quiet"
+    },
+    {
+      "id": "kitchen_messy",
+      "kind": "messy",
+      "state": "kitchen_resolved_messy"
+    },
+    {
+      "id": "kitchen_public_fail",
+      "kind": "failure_forward",
+      "state": "kitchen_failed_public",
+      "failure_forward": true
+    },
+    {
+      "id": "kitchen_private_fail",
+      "kind": "failure_forward",
+      "state": "kitchen_failed_private",
+      "failure_forward": true
+    }
+  ]
+}

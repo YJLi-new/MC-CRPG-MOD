@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/ebb/entity_binding.schema.json",
+  "title": "Ebb Entity Binding",
+  "type": "object",
+  "required": ["match", "dialogue"],
+  "properties": {
+    "match": {
+      "type": "object",
+      "properties": {
+        "uuid": { "type": "string" },
+        "tag": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "name": { "type": "string" },
+        "entity_type": { "type": "string" },
+        "entity_types": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "dialogue": { "type": "string" },
+    "interaction_range": { "type": "number", "exclusiveMinimum": 0 },
+    "highlight_range": { "type": "number", "exclusiveMinimum": 0 },
+    "priority": { "type": "integer" },
+    "highlight": { "type": "object" }
+  }
+}

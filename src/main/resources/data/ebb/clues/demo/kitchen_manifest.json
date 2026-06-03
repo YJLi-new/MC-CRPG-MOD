@@ -1,0 +1,9 @@
+{
+  "title": "Kitchen Manifest Rewrite",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/kitchen_manifest",
+  "text": "厨房货单的墨迹有两层，后一层把一只箱子改成了两只。",
+  "check_modifiers": {
+    "intelligence": 1
+  }
+}

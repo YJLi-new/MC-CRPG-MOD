@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/ebb.conflict.schema.json",
+  "title": "Ebb Set-piece Conflict",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["title"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "name": { "type": "string" },
+    "scene": { "type": "string" },
+    "stress_limit": { "type": "integer", "minimum": 1 },
+    "stressLimit": { "type": "integer", "minimum": 1 },
+    "resolve_goal": { "type": "integer", "minimum": 1 },
+    "resolveGoal": { "type": "integer", "minimum": 1 },
+    "failure_state": { "type": "string" },
+    "success_state": { "type": "string" },
+    "phases": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "enum": ["setup", "pressure", "turn", "consequence", "resolution"] },
+              "name": { "type": "string" },
+              "text": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "leverage_clues": { "type": "array", "items": { "type": "string" } },
+    "leverageClues": { "type": "array", "items": { "type": "string" } },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "state"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["nonviolent", "messy", "failure_forward", "resolution", "quiet"] },
+          "type": { "type": "string" },
+          "state": { "type": "string" },
+          "conflict_state": { "type": "string" },
+          "text": { "type": "string" },
+          "description": { "type": "string" },
+          "summary": { "type": "string" },
+          "failure_forward": { "type": "boolean" },
+          "failureForward": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

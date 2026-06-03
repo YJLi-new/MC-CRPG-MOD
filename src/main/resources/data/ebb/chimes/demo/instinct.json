@@ -2,8 +2,23 @@
   "name": "Instinct",
   "source_attribute": "perception",
   "min_score": 1,
-  "trigger_tags": ["innkeeper.read"],
+  "trigger_tags": [
+    "innkeeper.read",
+    "witness.read"
+  ],
+  "tone_guide": "Immediate sensory alarm. Speaks in posture, distance, hidden hands, eye flicks, and what changed too fast.",
   "speaker_style": "gut",
   "cooldown_ticks": 200,
-  "lines": ["他的手离柜台下方太近了。那不是害怕，是准备。"]
+  "one_shot_per_node": true,
+  "one_shot_global": false,
+  "active_thoughts": [
+    "ebb:demo/thought_instinct"
+  ],
+  "lines": [
+    "他的手离柜台下方太近了。那不是害怕，是准备。",
+    "你先知道了不对，然后才找到理由。",
+    "院子的安静像刚被训练过。",
+    "别等证据喊，它已经在偏头。",
+    "脚步声停止的地方，比脚步声更吵。"
+  ]
 }

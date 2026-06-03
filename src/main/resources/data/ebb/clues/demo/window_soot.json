@@ -1,0 +1,9 @@
+{
+  "title": "Soot on the Wrong Window",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/window_soot",
+  "text": "烟灰停在不是厨房那一侧的窗框。",
+  "check_modifiers": {
+    "perception": 1
+  }
+}

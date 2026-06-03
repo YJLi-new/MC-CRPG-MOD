@@ -1,0 +1,9 @@
+{
+  "title": "Ash Inside Latch",
+  "scene": "ebb:demo/locked_room",
+  "journal_entry": "ebb:demo/ash_in_latch",
+  "text": "门闩缝里的灰比壁炉里的灰新。",
+  "check_modifiers": {
+    "intelligence": 1
+  }
+}
