@@ -83,6 +83,13 @@ public record NpcRoutineDefinition(
                     parseStep(element.getAsJsonObject(), id, i, messages).ifPresent(steps::add);
                 }
             }
+            if (steps.isEmpty()) {
+                messages.add("npc routine " + id + ": steps must contain at least one valid step");
+                return Optional.empty();
+            }
+            if (hasOverlappingSteps(id, steps, messages)) {
+                return Optional.empty();
+            }
             LookAtPlayer lookAtPlayer = parseLookAtPlayer(json.has("look_at_player") && json.get("look_at_player").isJsonObject()
                     ? json.getAsJsonObject("look_at_player")
                     : new JsonObject());
@@ -146,7 +153,42 @@ public record NpcRoutineDefinition(
         double teleportDistance = optionalDouble(json, "teleport_distance")
                 .or(() -> optionalDouble(json, "teleportFallbackDistance"))
                 .orElse(16.0D);
+        if (teleportDistance <= 0.0D) {
+            messages.add("npc routine " + id + ": steps[" + index + "].teleport_distance must be > 0");
+            return Optional.empty();
+        }
         return Optional.of(new Step(start, end, action, pos, List.copyOf(path), look, animation, pose, teleportDistance));
+    }
+
+    private static boolean hasOverlappingSteps(Identifier id, List<Step> steps, List<String> messages) {
+        for (int i = 0; i < steps.size(); i++) {
+            for (int j = i + 1; j < steps.size(); j++) {
+                if (overlaps(steps.get(i), steps.get(j))) {
+                    messages.add("npc routine " + id + ": steps[" + i + "] overlaps steps[" + j
+                            + "] time windows; routines require deterministic non-overlapping windows");
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean overlaps(Step left, Step right) {
+        for (int[] a : intervals(left.startTime(), left.endTime())) {
+            for (int[] b : intervals(right.startTime(), right.endTime())) {
+                if (a[0] < b[1] && b[0] < a[1]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static List<int[]> intervals(int start, int end) {
+        if (start < end) {
+            return List.of(new int[]{start, end});
+        }
+        return List.of(new int[]{start, 24000}, new int[]{0, end});
     }
 
     private static LookAtPlayer parseLookAtPlayer(JsonObject json) {

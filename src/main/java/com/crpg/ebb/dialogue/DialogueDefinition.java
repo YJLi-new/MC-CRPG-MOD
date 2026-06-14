@@ -83,6 +83,18 @@ public record DialogueDefinition(
                                 + "\" has a check/roll but no failure target or fallback next; failing forward must be explicit.");
                         valid = false;
                     }
+                    if (check.success().isEmpty()
+                            && check.criticalSuccess().isEmpty()
+                            && choice.next().isEmpty()
+                            && !choice.endOnSuccess()) {
+                        messages.add("dialogue " + id + ": node \"" + node.id() + "\" choice \"" + choice.id()
+                                + "\" checked success has no success target, fallback next, or end_on_success=true; successful checks should not silently close.");
+                    }
+                    if (!choice.effects().isEmpty()
+                            && choice.effects().stream().anyMatch(DialogueEffect::isBranchSpecificPreEffectRisk)) {
+                        messages.add("dialogue " + id + ": node \"" + node.id() + "\" choice \"" + choice.id()
+                                + "\" has checked pre_effects/effects that can mutate branch-specific state before the roll; prefer success_effects/failure_effects.");
+                    }
                     valid &= validateRef(id, nodes, node.id(), choice.id(), "check.success", check.success(), messages);
                     valid &= validateRef(id, nodes, node.id(), choice.id(), "check.failure", check.failure(), messages);
                     valid &= validateRef(id, nodes, node.id(), choice.id(), "check.critical_success", check.criticalSuccess(), messages);

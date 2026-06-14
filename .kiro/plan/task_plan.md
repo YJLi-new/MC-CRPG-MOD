@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 32 K-key Ebb menu and live dialogue background is complete: K opens the mod menu, dialogue screens no longer darken the non-panel gameplay view, static/Gradle/smoke/GameTest validation passed, the separate Fabric test profile was refreshed, and Windows GUI retest passed with 282 steps / 0 failures.
+Phase 33 is complete: `ebb_codebase_review_report_2026-06-03.md` remediation has been implemented and validated; next work should refresh the separate Windows test profile and/or proceed to the next requested feature/review item.
 
 ## Phases
 
@@ -318,6 +318,20 @@ Phase 32 K-key Ebb menu and live dialogue background is complete: K opens the mo
 - [x] Remove the full-screen dark background from interaction dialogues so the live player view remains visible outside the translucent dialogue panel.
 - [x] Add static audit and GUI automation guardrails for the K menu and live-background regression.
 - [x] Rebuild, refresh the separate Fabric test profile, and capture Windows GUI proof.
+- **Status:** complete
+
+
+### Phase 33: Codebase Review Remediation — Security, Rules Semantics, Raycast Consistency, and Authoring Hardening
+- [x] Fix `/ebb dialogue vars <player>` permission leakage and add permission regression coverage.
+- [x] Add active-feat condition semantics and tests.
+- [x] Unify client/server/dev raycast policy and add interaction consistency coverage.
+- [x] Add disadvantage and roll breakdown support to d20 checks.
+- [x] Harden checked-choice success-forward / pre-effect authoring validation.
+- [x] Harden block-group targeting and duplicate membership behavior.
+- [x] Integrate retryable / white-check unlock semantics.
+- [x] Clarify or implement item/routine animation semantics and validation.
+- [x] Split large command registration into command-group classes without changing command surface.
+- [x] Repeatedly review code after each phase and complete full validation suite.
 - **Status:** complete
 
 ## Key Questions

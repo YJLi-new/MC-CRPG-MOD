@@ -231,7 +231,7 @@ def audit_p22_interaction_highlight_polish() -> None:
     require("Target debug overlay", hud, "showDebugScreen", "Ebb target:", "snapshot.reason()", "style=")
 
     service = read("src/main/java/com/crpg/ebb/interaction/InteractionService.java")
-    require("Server LOS collider policy", service, "ClipContext.Block.COLLIDER", "blocked_line_of_sight")
+    require("Server LOS collider policy", service, "InteractionRaycastPolicy.blockModeForAuthority()", "blocked_line_of_sight")
 
     locked_door = load_json(ROOT / "src/main/resources/data/ebb/interactions/block_groups/demo/locked_door.json")
     if "highlight" not in locked_door or locked_door["highlight"].get("render_mode") != "merged":
@@ -682,6 +682,7 @@ def audit_p29_save_multiplayer_permissions_hardening() -> None:
     dev = read("src/main/java/com/crpg/ebb/dev/DevSnapshotService.java")
     require("P29 dev diagnostics", dev, "P29 multiplayer/packet diagnostics", "dialogue_security_events", "missing_client_mod_diagnostics")
     commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
+    permission_guards = read("src/main/java/com/crpg/ebb/registry/commands/EbbCommandPermissionGuards.java")
     for permission in [
         "command.dev",
         "command.dialogue",
@@ -692,7 +693,7 @@ def audit_p29_save_multiplayer_permissions_hardening() -> None:
         "command.attributes.set",
         "command.attributes.reset",
     ]:
-        require("P29 OP command permission", commands, f'EbbMod.id("{permission}")')
+        require("P29 OP command permission", permission_guards, f'group("{permission}")')
     require("P29 self-inspection commands", commands, 'Commands.literal("vars")', 'Commands.literal("journal")', 'Commands.literal("quest")', 'Commands.literal("spend")')
     docs = read("docs/json_authoring_guide.md")
     require("P29 docs", docs, "P29 save/load, multiplayer, and permission hardening", "entity_dialogue_busy", "missing-client-mod diagnostics", "CURRENT_SCHEMA_VERSION = 2")
@@ -896,6 +897,105 @@ def audit_p32_k_menu_and_live_dialogue_background() -> None:
     status = read("docs/current_status.md")
     require("P32 current status", status, "K-key Ebb menu", "dialogue screen no longer darkens")
 
+
+def audit_p33_codebase_review_remediation() -> None:
+    commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
+    require(
+        "P33 command permission split",
+        commands,
+        "EbbCommandPermissionGuards.dialogue()",
+        ".then(Commands.argument(\"player\", EntityArgument.player())\n                                        .requires(EbbCommandPermissionGuards.dialogue())",
+    )
+    permission_guards = read("src/main/java/com/crpg/ebb/registry/commands/EbbCommandPermissionGuards.java")
+    require(
+        "P33 command permission helper",
+        permission_guards,
+        "Central permission surface",
+        "command.dialogue",
+        "command.attributes.reset",
+    )
+
+    condition = read("src/main/java/com/crpg/ebb/dialogue/DialogueCondition.java")
+    require("P33 active feat condition", condition, "FEAT_ACTIVE", "HAS_ACTIVE_FEAT", "isFeatActive", "active ==")
+
+    check = read("src/main/java/com/crpg/ebb/dialogue/DialogueCheck.java")
+    require("P33 disadvantage check parser", check, "boolean disadvantage", '"disadvantage"', "disadvantage ?")
+
+    dialogue_service = read("src/main/java/com/crpg/ebb/dialogue/DialogueService.java")
+    require(
+        "P33 retry/roll breakdown runtime",
+        dialogue_service,
+        "check.disadvantage()",
+        "normal_cancelled",
+        "secondRoll",
+        "baseAttribute",
+        "retryLockFlag",
+        "retryUnlockFlags",
+        "consumeRetryUnlockOrDeny",
+        "check_locked:",
+    )
+
+    roll = read("src/main/java/com/crpg/ebb/network/dialogue/RollResultPayload.java")
+    require(
+        "P33 roll payload breakdown",
+        roll,
+        "baseAttribute",
+        "staticModifier",
+        "featModifier",
+        "clueModifier",
+        "firstRoll",
+        "secondRoll",
+        "rollMode",
+        "modifierBreakdown",
+    )
+    choice = read("src/main/java/com/crpg/ebb/dialogue/DialogueChoice.java")
+    require("P33 choice authoring semantics", choice, "pre_effects", "end_on_success", "endOnSuccess")
+    definition = read("src/main/java/com/crpg/ebb/dialogue/DialogueDefinition.java")
+    require("P33 checked-choice lint", definition, "successful checks should not silently close", "branch-specific state before the roll")
+
+    raycast = read("src/main/java/com/crpg/ebb/interaction/InteractionRaycastPolicy.java")
+    require("P33 centralized raycast policy", raycast, "blockModeForPrediction", "blockModeForAuthority", "blockModeForDevInspect", "ClipContext.Block.COLLIDER")
+    detector = read("src/client/java/com/crpg/ebb/client/interaction/ClientTargetDetector.java")
+    if "ClipContext.Block.OUTLINE" in detector or "ClipContext.Block.OUTLINE" in commands:
+        raise AssertionError("P33 client/dev target detection must not use OUTLINE raycast mode")
+    require("P33 detector uses shared policy", detector, "InteractionRaycastPolicy.blockModeForPrediction()", "InteractionRaycastPolicy.fluidMode()")
+    service = read("src/main/java/com/crpg/ebb/interaction/InteractionService.java")
+    require("P33 server LOS uses nearest member", service, "nearestBlockCenter", "hasClearRayToBlockGroupPoint", "InteractionRaycastPolicy.blockModeForAuthority()")
+    block_group = read("src/main/java/com/crpg/ebb/interaction/BlockGroupDefinition.java")
+    require("P33 block group nearest center", block_group, "nearestBlockCenter", "Vec3::atCenterOf")
+    index = read("src/main/java/com/crpg/ebb/interaction/BlockGroupIndex.java")
+    require("P33 duplicate block-group invalidation", index, "findDuplicateMembership", "duplicate block membership is not allowed", "continue;")
+
+    routine = read("src/main/java/com/crpg/ebb/routine/NpcRoutineDefinition.java")
+    require("P33 routine hardening", routine, "at least one valid step", "hasOverlappingSteps", "teleport_distance must be > 0")
+    npc = read("src/main/java/com/crpg/ebb/npc/EbbNpcEntity.java")
+    require("P33 role inference for expanded NPCs", npc, "contains(\"cook\")", "contains(\"courier\")", "dialogue.talk", "dialogue.nervous_idle")
+    effect = read("src/main/java/com/crpg/ebb/dialogue/DialogueEffect.java")
+    require("P33 item placeholder/branch pre-effect docs hooks", effect, "GIVE_ITEM_PLACEHOLDER", "TAKE_ITEM_PLACEHOLDER", "isBranchSpecificPreEffectRisk")
+
+    docs = read("docs/json_authoring_guide.md")
+    require(
+        "P33 authoring docs",
+        docs,
+        "has_active_feat",
+        "disadvantage",
+        "pre_effects",
+        "end_on_success",
+        "retryable",
+        "item_placeholder_give",
+        "duplicate block membership",
+    )
+    status = read("docs/current_status.md")
+    require("P33 current status", status, "Phase 33", "codebase review remediation", "retryable check locks")
+    test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
+    require(
+        "P33 JUnit coverage",
+        test,
+        "p33ActiveFeatDisadvantageAndCheckedChoiceSemanticsAreExplicit",
+        "p33CheckedChoiceEndOnSuccessPreEffectsAndRetryLocksAreLinted",
+        "p33RaycastBlockGroupAndRoutineHardeningRegressions",
+    )
+
 def main() -> int:
     audit_p20_p21_documentation_and_baseline()
     audit_p22_interaction_highlight_polish()
@@ -909,6 +1009,7 @@ def main() -> int:
     audit_p30_vertical_slice_content_expansion()
     audit_p31_release_packaging_player_documentation()
     audit_p32_k_menu_and_live_dialogue_background()
+    audit_p33_codebase_review_remediation()
 
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")
@@ -1119,7 +1220,7 @@ def main() -> int:
     require("Authoring docs P8", docs, "Playable Tavern Vertical Slice Content Map", "eight block-group investigation points", "back door / ending placeholder")
     require("P8 completion audit", read("docs/goal_p8_vertical_slice_2026-06-01.md"), "four role NPCs", "eight interactable investigation points", "Ending placeholders")
 
-    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
+    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
     return 0
 
 

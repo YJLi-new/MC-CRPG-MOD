@@ -35,6 +35,7 @@ public record DialogueCondition(
         STORY_VAR,
         QUEST_STATE,
         HAS_FEAT,
+        FEAT_ACTIVE,
         HAS_JOURNAL_ENTRY,
         RELATION_AT_LEAST,
         NPC_STATE,
@@ -54,7 +55,8 @@ public record DialogueCondition(
                 case "SKILL_AT_LEAST", "ATTRIBUTE", "ATTRIBUTE_AT_LEAST" -> "ATTRIBUTE_AT_LEAST";
                 case "STORY_VARIABLE", "STORY_VAR_EQUALS", "STORY_VARIABLE_EQUALS", "STORY_VAR_AT_LEAST" -> "STORY_VAR";
                 case "QUEST", "QUEST_BRANCH", "QUEST_BRANCH_STATE" -> "QUEST_STATE";
-                case "FEAT", "UNLOCKED_FEAT", "HAS_ACTIVE_FEAT" -> "HAS_FEAT";
+                case "FEAT", "UNLOCKED_FEAT" -> "HAS_FEAT";
+                case "HAS_ACTIVE_FEAT", "ACTIVE_FEAT", "FEAT_ACTIVE", "SLOTTED_FEAT", "EQUIPPED_FEAT" -> "FEAT_ACTIVE";
                 case "JOURNAL", "JOURNAL_ENTRY" -> "HAS_JOURNAL_ENTRY";
                 case "CLUE", "HAS_CLUE", "CLUE_FOUND" -> "CLUE_FOUND";
                 case "RELATION", "RELATIONSHIP", "RELATIONSHIP_AT_LEAST" -> "RELATION_AT_LEAST";
@@ -216,6 +218,10 @@ public record DialogueCondition(
                 boolean actual = state.hasFeat(playerUuid, normalizeIdentifier(key));
                 yield actual == expected;
             }
+            case FEAT_ACTIVE -> {
+                boolean actual = state.isFeatActive(playerUuid, normalizeIdentifier(key));
+                yield actual == expected;
+            }
             case HAS_JOURNAL_ENTRY -> {
                 boolean actual = state.hasJournalEntry(playerUuid, normalizeIdentifier(key));
                 yield actual == expected;
@@ -265,6 +271,7 @@ public record DialogueCondition(
                     + " expected=" + expected;
             case QUEST_STATE -> "quest " + key + " == " + value.orElse("take_rooted") + " expected=" + expected;
             case HAS_FEAT -> "feat " + key + " unlocked == " + expected;
+            case FEAT_ACTIVE -> "feat " + key + " active == " + expected;
             case HAS_JOURNAL_ENTRY -> "journal " + key + " unlocked == " + expected;
             case CLUE_FOUND -> "clue " + key + " found == " + expected;
             case RELATION_AT_LEAST -> "relation " + key + " >= " + min.orElse(0) + " expected=" + expected;

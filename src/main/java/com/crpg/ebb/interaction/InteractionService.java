@@ -97,12 +97,17 @@ public final class InteractionService {
 
     private static boolean hasLineOfSightToBlockGroup(ServerPlayer player, BlockGroupDefinition definition) {
         Vec3 eye = player.getEyePosition();
-        Vec3 target = definition.interactionPoint();
+        return hasClearRayToBlockGroupPoint(player, definition, definition.nearestBlockCenter(eye))
+                || hasClearRayToBlockGroupPoint(player, definition, definition.interactionPoint());
+    }
+
+    private static boolean hasClearRayToBlockGroupPoint(ServerPlayer player, BlockGroupDefinition definition, Vec3 target) {
+        Vec3 eye = player.getEyePosition();
         BlockHitResult hit = player.level().clip(new ClipContext(
                 eye,
                 target,
-                ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE,
+                InteractionRaycastPolicy.blockModeForAuthority(),
+                InteractionRaycastPolicy.fluidMode(),
                 player
         ));
         if (hit.getType() == HitResult.Type.MISS) {
@@ -118,8 +123,8 @@ public final class InteractionService {
         BlockHitResult hit = player.level().clip(new ClipContext(
                 eye,
                 target,
-                ClipContext.Block.COLLIDER,
-                ClipContext.Fluid.NONE,
+                InteractionRaycastPolicy.blockModeForAuthority(),
+                InteractionRaycastPolicy.fluidMode(),
                 player
         ));
         return hit.getType() == HitResult.Type.MISS || eye.distanceTo(hit.getLocation()) + EPSILON >= eye.distanceTo(target);

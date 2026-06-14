@@ -42,7 +42,11 @@
         "text_key": { "type": "string" },
         "next": { "type": "string" },
         "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "pre_effects": { "$ref": "#/$defs/effects" },
         "effects": { "$ref": "#/$defs/effects" },
+        "end_on_success": { "type": "boolean" },
+        "endOnSuccess": { "type": "boolean" },
+        "revalidate_target": { "type": "boolean" },
         "check": { "$ref": "#/$defs/check" },
         "roll": { "$ref": "#/$defs/check" }
       }
@@ -56,6 +60,10 @@
         "dc": { "type": "integer", "minimum": 1 },
         "die": { "const": "d20" },
         "mode": { "enum": ["normal", "retryable", "one_shot", "NORMAL", "RETRYABLE", "ONE_SHOT"] },
+        "advantage": { "type": "boolean" },
+        "disadvantage": { "type": "boolean" },
+        "modifier": { "type": "integer" },
+        "static_modifier": { "type": "integer" },
         "success": { "type": "string" },
         "failure": { "type": "string" },
         "critical_success": { "type": "string" },

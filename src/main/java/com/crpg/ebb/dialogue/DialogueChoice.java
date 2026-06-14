@@ -20,7 +20,8 @@ public record DialogueChoice(
         List<DialogueCondition> conditions,
         List<DialogueEffect> effects,
         boolean singleUse,
-        boolean revalidateTarget
+        boolean revalidateTarget,
+        boolean endOnSuccess
 ) {
     public DialogueChoice {
         textKey = textKey == null ? Optional.empty() : textKey;
@@ -60,14 +61,17 @@ public record DialogueChoice(
         }
 
         List<DialogueCondition> conditions = parseConditions(json, path, messages);
-        List<DialogueEffect> effects = DialogueEffect.parseList(json, "effects", path, messages);
+        List<DialogueEffect> effects = parsePreEffects(json, path, messages);
         boolean singleUse = optionalBoolean(json, "once").orElse(false)
                 || check.map(DialogueCheck::mode).filter(mode -> mode == RollMode.ONE_SHOT).isPresent();
         boolean defaultRevalidateTarget = type.get() == ChoiceType.ACTION
                 && (next.isPresent() || check.isPresent() || !effects.isEmpty());
         boolean revalidateTarget = optionalBoolean(json, "revalidate_target").orElse(defaultRevalidateTarget);
+        boolean endOnSuccess = optionalBoolean(json, "end_on_success")
+                .or(() -> optionalBoolean(json, "endOnSuccess"))
+                .orElse(false);
 
-        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects, singleUse, revalidateTarget));
+        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects, singleUse, revalidateTarget, endOnSuccess));
     }
 
     public Optional<String> defaultNextNode() {
@@ -87,6 +91,9 @@ public record DialogueChoice(
         if (singleUse) {
             builder.append(" once=true");
         }
+        if (endOnSuccess) {
+            builder.append(" end_on_success=true");
+        }
         check.ifPresent(value -> builder.append(" check=").append(value.debugSummary()));
         if (!conditions.isEmpty()) {
             builder.append(" conditions=").append(conditions.stream().map(DialogueCondition::debugSummary).collect(Collectors.joining(",", "[", "]")));
@@ -95,6 +102,13 @@ public record DialogueChoice(
             builder.append(" effects(pre)=").append(effects.stream().map(DialogueEffect::debugSummary).collect(Collectors.joining(",", "[", "]")));
         }
         return builder.toString();
+    }
+
+    private static List<DialogueEffect> parsePreEffects(JsonObject json, String path, List<String> messages) {
+        List<DialogueEffect> effects = new ArrayList<>();
+        effects.addAll(DialogueEffect.parseList(json, "pre_effects", path, messages));
+        effects.addAll(DialogueEffect.parseList(json, "effects", path, messages));
+        return List.copyOf(effects);
     }
 
     private static List<DialogueCondition> parseConditions(JsonObject json, String path, List<String> messages) {

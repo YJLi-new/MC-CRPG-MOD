@@ -41,6 +41,13 @@ public record BlockGroupDefinition(
         return new BlockGroupTarget(id, dimension, blocks, interactionPoint, dialogueId, bounds);
     }
 
+    public Vec3 nearestBlockCenter(Vec3 from) {
+        return blocks.stream()
+                .map(Vec3::atCenterOf)
+                .min((left, right) -> Double.compare(from.distanceToSqr(left), from.distanceToSqr(right)))
+                .orElse(interactionPoint);
+    }
+
     public boolean expectedBlocksMatch(Level level) {
         if (expectedBlocks.isEmpty()) {
             return true;

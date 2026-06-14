@@ -6,6 +6,7 @@ import com.crpg.ebb.interaction.BlockGroupTarget;
 import com.crpg.ebb.interaction.EntityTarget;
 import com.crpg.ebb.interaction.HighlightStyle;
 import com.crpg.ebb.interaction.InteractionTarget;
+import com.crpg.ebb.interaction.InteractionRaycastPolicy;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.interaction.entity.SyncedEntityTarget;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -56,8 +57,8 @@ public final class ClientTargetDetector {
         BlockHitResult blockHit = player.level().clip(new ClipContext(
                 eye,
                 end,
-                ClipContext.Block.OUTLINE,
-                ClipContext.Fluid.NONE,
+                InteractionRaycastPolicy.blockModeForPrediction(),
+                InteractionRaycastPolicy.fluidMode(),
                 player
         ));
         double blockDistanceSqr = hitDistanceSqr(eye, blockHit);

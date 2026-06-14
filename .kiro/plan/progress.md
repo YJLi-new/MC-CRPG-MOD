@@ -1345,3 +1345,35 @@
 - `python3 scripts/gui_e2e_run.py --scenario gui_retest --gui --gui-wait 1.4` → `build/gui-e2e/gui-retest-report.json`, 282 steps, 0 failures.
 - P32 GUI evidence: `build/gui-e2e/k_menu_open.png` shows K-menu; `build/gui-e2e/role_innkeeper_dialogue.png` and block dialogue screenshots show visible live-world background outside the dialogue panel.
 - `python3 scripts/gui_retest_issue_audit.py --save-path ... --require-save` → passed with matching profile jar.
+
+### Phase 33 / review report intake
+- **Status:** started.
+- **Time:** 2026-06-03 Asia/Shanghai.
+- Read `C:\Users\lanla\Downloads\ebb_codebase_review_report_2026-06-03.md`.
+- Mapped actionable H/M/L findings to Phase 33: permissions, active feats, raycast policy, disadvantage/roll breakdowns, checked-choice validation, block-group duplicate/LOS hardening, retryable checks, item/routine semantics, and command architecture split.
+
+### Phase 33 / codebase review remediation completion
+- **Status:** complete.
+- **Time:** 2026-06-03 Asia/Shanghai.
+- Implemented review report remediation items:
+  - Added `EbbCommandPermissionGuards` and fixed nested `/ebb dialogue vars <player>` permission guard while preserving player self-inspection commands.
+  - Added `FEAT_ACTIVE` / `has_active_feat` semantics backed by `NarrativeSavedData.isFeatActive`.
+  - Added `disadvantage`, advantage/disadvantage cancel-out, raw roll fields, and attribute/static/feat/clue roll breakdowns in `RollResultPayload`.
+  - Added `pre_effects`, legacy pre-roll `effects` compatibility, `end_on_success` linting, branch-specific pre-effect warnings, and retryable/white-check lock/unlock handling.
+  - Added `InteractionRaycastPolicy`, switched client/dev raycasts to the shared collider policy, and hardened server block-group LOS to test nearest block center plus interaction point.
+  - Made duplicate block-group membership skip later overlapping groups with validation messages.
+  - Hardened NPC routine parsing for nonempty steps, overlapping time windows, and positive teleport distance; added cook/courier role inference and cleaned routine controller indentation.
+  - Updated authoring docs, dialogue schema, current status, and P33 static audit/JUnit coverage.
+- Validation:
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `python3 -m py_compile scripts/goal_static_audit.py` → passed.
+  - `python3 scripts/goal_static_audit.py` → passed including P33 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed including authoring validation, deep/third/static audits, and GUI issue audit.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 6 required GameTests passed.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+- Artifact hashes:
+  - build jar: `7da6e7148c5cabba5b357ee183fddbfc293a227dd4b7c8520491ad85d15df576`.
+  - sources jar: `7848b75ada4f5ff3a53922328a86ad8345bbb51e2bdadc0a6da1117a9bce761b`.
+- Note: the separate Windows GUI test profile has not yet been refreshed for this Phase 33 jar because this review remediation did not explicitly request actual client testing; refresh it before GUI/manual testing.

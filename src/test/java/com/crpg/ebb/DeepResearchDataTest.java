@@ -15,6 +15,7 @@ import com.crpg.ebb.dialogue.DialogueSession;
 import com.crpg.ebb.dialogue.RollMode;
 import com.crpg.ebb.feat.FeatRegistry;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.InteractionRaycastPolicy;
 import com.crpg.ebb.interaction.InteractionTargetType;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.investigation.InvestigationRegistry;
@@ -37,6 +38,7 @@ import com.mojang.brigadier.tree.CommandNode;
 import net.minecraft.commands.CommandSourceStack;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.ClipContext;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -453,8 +455,8 @@ final class DeepResearchDataTest {
                   {"time":[3000,4000],"action":"play_animation","pos":[0,64,0],"animation":"spin_forever"}
                 ]}
                 """).getAsJsonObject();
-        var parsed = NpcRoutineDefinition.parse(Identifier.parse("ebb:test/invalid_routine"), invalid, messages).orElseThrow();
-        assertTrue(parsed.steps().isEmpty(), "invalid routine steps should be rejected rather than silently used");
+        assertTrue(NpcRoutineDefinition.parse(Identifier.parse("ebb:test/invalid_routine"), invalid, messages).isEmpty(),
+                "invalid routine steps should reject the routine rather than silently loading an empty routine");
         assertTrue(messages.stream().anyMatch(message -> message.contains("action \"moonwalk\" is invalid")), messages::toString);
         assertTrue(messages.stream().anyMatch(message -> message.contains("path must contain at least two waypoints")), messages::toString);
         assertTrue(messages.stream().anyMatch(message -> message.contains("pose \"impossible_pose\" is invalid")), messages::toString);
@@ -639,6 +641,7 @@ final class DeepResearchDataTest {
     @Test
     void p29CommandPermissionSurfaceKeepsAdminAndSelfInspectionSplit() throws Exception {
         String commands = Files.readString(Path.of("src/main/java/com/crpg/ebb/registry/ModCommands.java"));
+        String permissionGuards = Files.readString(Path.of("src/main/java/com/crpg/ebb/registry/commands/EbbCommandPermissionGuards.java"));
         for (String adminPermission : java.util.List.of(
                 "command.dev",
                 "command.dialogue",
@@ -649,9 +652,11 @@ final class DeepResearchDataTest {
                 "command.attributes.set",
                 "command.attributes.reset"
         )) {
-            assertTrue(commands.contains("EbbMod.id(\"" + adminPermission + "\")"),
+            assertTrue(permissionGuards.contains("group(\"" + adminPermission + "\")"),
                     "admin command should remain permission-gated: " + adminPermission);
         }
+        assertTrue(commands.contains(".then(Commands.argument(\"player\", EntityArgument.player())\n                                        .requires(EbbCommandPermissionGuards.dialogue())"),
+                "nested /ebb dialogue vars <player> must require dialogue gamemaster permission");
         assertTrue(commands.contains("Commands.literal(\"vars\")\n                        .executes"),
                 "player self vars command should remain executable without OP branch");
         assertTrue(commands.contains("Commands.literal(\"journal\")\n                        .executes"),
@@ -820,6 +825,150 @@ final class DeepResearchDataTest {
         assertEquals(1, BlockGroupIndex.groupCount());
         assertEquals(1, EntityBindingRegistry.size());
         assertEquals(1, NpcRoutineRegistry.size());
+    }
+
+    @Test
+    void p33ActiveFeatDisadvantageAndCheckedChoiceSemanticsAreExplicit() throws Exception {
+        NarrativeSavedData state = new NarrativeSavedData();
+        UUID player = UUID.randomUUID();
+        state.unlockFeat(player, "ebb:demo/tavern_authority");
+
+        JsonObject featDialogue = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"text":"x","choices":[
+                  {"id":"unlocked","type":"dialogue","text":"unlocked","conditions":[{"type":"has_feat","id":"ebb:demo/tavern_authority"}]},
+                  {"id":"active","type":"dialogue","text":"active","conditions":[{"type":"has_active_feat","id":"ebb:demo/tavern_authority"}]}
+                ]}}}
+                """).getAsJsonObject();
+        DialogueDefinition featDefinition = DialogueDefinition.parse(Identifier.parse("ebb:test/active_feat"), featDialogue, new java.util.ArrayList<>()).orElseThrow();
+        var unlocked = featDefinition.node("start").orElseThrow().choice("unlocked").orElseThrow().conditions().getFirst();
+        var active = featDefinition.node("start").orElseThrow().choice("active").orElseThrow().conditions().getFirst();
+        assertTrue(unlocked.matches(state, player), "has_feat should accept unlocked feats");
+        assertFalse(active.matches(state, player), "has_active_feat must not collapse to unlocked feat semantics");
+        state.activateFeat(player, "ebb:demo/tavern_authority");
+        assertTrue(active.matches(state, player), "has_active_feat should require an active feat slot");
+
+        JsonObject rollDialogue = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"text":"x","choices":[
+                  {"id":"dis","type":"action","text":"dis","next":"done","check":{"attribute":"wisdom","dc":12,"disadvantage":true,"success":"done","failure":"done"}},
+                  {"id":"cancel","type":"action","text":"cancel","next":"done","check":{"attribute":"wisdom","dc":12,"advantage":true,"disadvantage":true,"success":"done","failure":"done"}}
+                ]},"done":{"text":"done"}}}
+                """).getAsJsonObject();
+        DialogueDefinition rollDefinition = DialogueDefinition.parse(Identifier.parse("ebb:test/disadvantage"), rollDialogue, new java.util.ArrayList<>()).orElseThrow();
+        var disChoice = rollDefinition.node("start").orElseThrow().choice("dis").orElseThrow();
+        var cancelChoice = rollDefinition.node("start").orElseThrow().choice("cancel").orElseThrow();
+        assertTrue(disChoice.check().orElseThrow().disadvantage());
+        assertTrue(VisibleDialogueChoice.fromChoice(disChoice).checkSummary().orElseThrow().contains("disadvantage"));
+        assertTrue(VisibleDialogueChoice.fromChoice(cancelChoice).checkSummary().orElseThrow().contains("normal"));
+
+        RollResultPayload result = new RollResultPayload(
+                "wisdom", 12, 4, 6, 10, false, false, "failure", true, true,
+                3, 1, 2, 0, 17, java.util.Optional.of(4), "disadvantage"
+        );
+        assertTrue(result.summary().contains("17/4 dis =>4"), result.summary());
+        assertTrue(result.summary().contains("3+1 static+2 feat=6"), result.summary());
+    }
+
+    @Test
+    void p33CheckedChoiceEndOnSuccessPreEffectsAndRetryLocksAreLinted() throws Exception {
+        JsonObject warned = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"text":"x","choices":[
+                  {"id":"warn","type":"action","text":"warn","check":{"attribute":"charisma","dc":10,"failure":"fail"}}
+                ]},"fail":{"text":"fail"}}}
+                """).getAsJsonObject();
+        java.util.ArrayList<String> warnMessages = new java.util.ArrayList<>();
+        assertTrue(DialogueDefinition.parse(Identifier.parse("ebb:test/warn_success_end"), warned, warnMessages).isPresent());
+        assertTrue(warnMessages.stream().anyMatch(message -> message.contains("end_on_success=true")), warnMessages::toString);
+
+        JsonObject explicitEnd = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"text":"x","choices":[
+                  {"id":"end","type":"action","text":"end","end_on_success":true,"check":{"attribute":"charisma","dc":10,"failure":"fail"}}
+                ]},"fail":{"text":"fail"}}}
+                """).getAsJsonObject();
+        java.util.ArrayList<String> endMessages = new java.util.ArrayList<>();
+        assertTrue(DialogueDefinition.parse(Identifier.parse("ebb:test/end_success"), explicitEnd, endMessages).isPresent());
+        assertTrue(endMessages.stream().noneMatch(message -> message.contains("end_on_success=true")), endMessages::toString);
+
+        JsonObject preEffects = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"text":"x","choices":[
+                  {"id":"pre","type":"action","text":"pre","next":"done","pre_effects":[{"type":"set_flag","id":"safe_pre"}],"check":{"attribute":"charisma","dc":10,"success":"done","failure":"done"}},
+                  {"id":"branch","type":"action","text":"branch","next":"done","pre_effects":[{"type":"complete_quest_branch","id":"ebb:demo/tavern_public"}],"check":{"attribute":"charisma","dc":10,"success":"done","failure":"done"}}
+                ]},"done":{"text":"done"}}}
+                """).getAsJsonObject();
+        java.util.ArrayList<String> effectMessages = new java.util.ArrayList<>();
+        DialogueDefinition preDefinition = DialogueDefinition.parse(Identifier.parse("ebb:test/pre_effects"), preEffects, effectMessages).orElseThrow();
+        assertEquals(1, preDefinition.node("start").orElseThrow().choice("pre").orElseThrow().effects().size(),
+                "pre_effects should be parsed as legacy pre-roll effects");
+        assertTrue(effectMessages.stream().anyMatch(message -> message.contains("branch-specific state before the roll")), effectMessages::toString);
+
+        var retryChoice = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"text":"x","choices":[
+                  {"id":"white_check","type":"action","text":"try","next":"done","check":{"attribute":"wisdom","dc":15,"mode":"retryable","success":"done","failure":"done"}}
+                ]},"done":{"text":"done"}}}
+                """).getAsJsonObject();
+        DialogueDefinition retryDefinition = DialogueDefinition.parse(Identifier.parse("ebb:test/retry_lock"), retryChoice, new java.util.ArrayList<>()).orElseThrow();
+        var choice = retryDefinition.node("start").orElseThrow().choice("white_check").orElseThrow();
+        NarrativeSavedData state = new NarrativeSavedData();
+        UUID player = UUID.randomUUID();
+        String lockFlag = DialogueService.retryLockFlag(Identifier.parse("ebb:test/retry_lock"), "white_check");
+        state.setPlayerFlag(player, lockFlag, true);
+        Method consume = DialogueService.class.getDeclaredMethod(
+                "consumeRetryUnlockOrDeny",
+                NarrativeSavedData.class,
+                UUID.class,
+                Identifier.class,
+                com.crpg.ebb.dialogue.DialogueChoice.class
+        );
+        consume.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Optional<String> denied = (java.util.Optional<String>) consume.invoke(null, state, player, Identifier.parse("ebb:test/retry_lock"), choice);
+        assertEquals(java.util.Optional.of("check_locked:white_check"), denied);
+        state.setPlayerFlag(player, "unlock:white_check", true);
+        @SuppressWarnings("unchecked")
+        java.util.Optional<String> allowed = (java.util.Optional<String>) consume.invoke(null, state, player, Identifier.parse("ebb:test/retry_lock"), choice);
+        assertTrue(allowed.isEmpty(), "unlock flag should consume the retry lock");
+        assertFalse(state.hasPlayerFlag(player, lockFlag));
+        assertFalse(state.hasPlayerFlag(player, "unlock:white_check"));
+    }
+
+    @Test
+    void p33RaycastBlockGroupAndRoutineHardeningRegressions() {
+        assertEquals(ClipContext.Block.COLLIDER, InteractionRaycastPolicy.blockModeForPrediction());
+        assertEquals(ClipContext.Block.COLLIDER, InteractionRaycastPolicy.blockModeForAuthority());
+        assertEquals(ClipContext.Block.COLLIDER, InteractionRaycastPolicy.blockModeForDevInspect());
+
+        Map<Identifier, JsonObject> blockGroups = new LinkedHashMap<>();
+        blockGroups.put(Identifier.parse("ebb:test/first"), JsonParser.parseString("""
+                {"dimension":"minecraft:overworld","dialogue":"ebb:test/dialogue","blocks":[[1,64,1]],"interaction_point":[1.5,64.5,1.5]}
+                """).getAsJsonObject());
+        blockGroups.put(Identifier.parse("ebb:test/second"), JsonParser.parseString("""
+                {"dimension":"minecraft:overworld","dialogue":"ebb:test/dialogue","blocks":[[1,64,1]],"interaction_point":[1.5,64.5,1.5]}
+                """).getAsJsonObject());
+        BlockGroupIndex.rebuild(blockGroups);
+        assertTrue(BlockGroupIndex.byId(Identifier.parse("ebb:test/first")).isPresent());
+        assertTrue(BlockGroupIndex.byId(Identifier.parse("ebb:test/second")).isEmpty());
+        assertEquals(1, BlockGroupIndex.groupCount());
+        assertTrue(BlockGroupIndex.messages().stream().anyMatch(message -> message.contains("duplicate block membership")), BlockGroupIndex.messages()::toString);
+
+        java.util.ArrayList<String> emptyMessages = new java.util.ArrayList<>();
+        assertTrue(NpcRoutineDefinition.parse(Identifier.parse("ebb:test/empty_routine"), JsonParser.parseString("{\"steps\":[]}").getAsJsonObject(), emptyMessages).isEmpty());
+        assertTrue(emptyMessages.stream().anyMatch(message -> message.contains("at least one valid step")), emptyMessages::toString);
+
+        java.util.ArrayList<String> overlapMessages = new java.util.ArrayList<>();
+        JsonObject overlap = JsonParser.parseString("""
+                {"steps":[
+                  {"time":[0,1000],"action":"stand","pos":[0,64,0]},
+                  {"time":[500,1500],"action":"stand","pos":[1,64,0]}
+                ]}
+                """).getAsJsonObject();
+        assertTrue(NpcRoutineDefinition.parse(Identifier.parse("ebb:test/overlap_routine"), overlap, overlapMessages).isEmpty());
+        assertTrue(overlapMessages.stream().anyMatch(message -> message.contains("overlaps")), overlapMessages::toString);
+
+        java.util.ArrayList<String> teleportMessages = new java.util.ArrayList<>();
+        JsonObject invalidTeleport = JsonParser.parseString("""
+                {"steps":[{"time":[0,1000],"action":"stand","pos":[0,64,0],"teleport_distance":0}]}
+                """).getAsJsonObject();
+        assertTrue(NpcRoutineDefinition.parse(Identifier.parse("ebb:test/teleport_routine"), invalidTeleport, teleportMessages).isEmpty());
+        assertTrue(teleportMessages.stream().anyMatch(message -> message.contains("teleport_distance must be > 0")), teleportMessages::toString);
     }
 
     private static DialogueEffect parseEffect(String json) {

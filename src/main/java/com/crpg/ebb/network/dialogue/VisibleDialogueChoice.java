@@ -25,10 +25,23 @@ public record VisibleDialogueChoice(
     public static VisibleDialogueChoice fromChoice(DialogueChoice choice) {
         Optional<String> check = choice.check().map(c -> {
             String dc = c.showDc() ? "DC " + c.dc() : "DC ?";
-            String die = c.showRoll() ? c.die() : "hidden roll";
+            String die = c.showRoll() ? c.die() + rollModeSuffix(c) : "hidden roll";
             return c.attribute() + " " + dc + " " + die;
         });
         return new VisibleDialogueChoice(choice.id(), choice.type(), choice.text(), choice.textKey(), check);
+    }
+
+    private static String rollModeSuffix(com.crpg.ebb.dialogue.DialogueCheck check) {
+        if (check.advantage() && check.disadvantage()) {
+            return " normal";
+        }
+        if (check.advantage()) {
+            return " advantage";
+        }
+        if (check.disadvantage()) {
+            return " disadvantage";
+        }
+        return "";
     }
 
     public void write(RegistryFriendlyByteBuf buffer) {

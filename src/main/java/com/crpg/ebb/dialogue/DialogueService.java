@@ -156,6 +156,14 @@ public final class DialogueService {
             sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of("choice_unavailable:" + payload.choiceId()), currentDayTime(player));
             return;
         }
+        Optional<String> retryLockStatus = consumeRetryUnlockOrDeny(state, player.getUUID(), session.dialogueId(), choice.get());
+        if (retryLockStatus.isPresent()) {
+            recordSecurityEvent("retryable_check_locked");
+            DialogueSession touched = session.touch(gameTime);
+            SESSIONS.put(touched.conversationId(), touched);
+            sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), retryLockStatus, currentDayTime(player));
+            return;
+        }
         if (choice.get().type() == ChoiceType.ACTION && choice.get().revalidateTarget()) {
             InteractionValidationResult validation = InteractionService.validateSessionTarget(player, session);
             if (!validation.allowed()) {
@@ -170,6 +178,7 @@ public final class DialogueService {
         Optional<String> preEffectStatus = applyEffects(choice.get().effects(), state, player, session);
         ChoiceResolution resolution = resolveChoice(player, state, choice.get());
         Optional<String> outcomeEffectStatus = applyEffects(resolution.outcomeEffects(), state, player, session);
+        updateRetryLock(state, player.getUUID(), session.dialogueId(), choice.get(), resolution);
         if (choice.get().singleUse()) {
             state.setPlayerFlag(player.getUUID(), singleUseFlag(session.dialogueId(), choice.get().id()), true);
         }
@@ -303,11 +312,20 @@ public final class DialogueService {
         DialogueCheck check = choice.check().get();
         int featModifier = FeatRegistry.totalCheckModifier(state, player.getUUID(), check.attribute());
         int clueModifier = InvestigationRegistry.totalCheckModifier(state, player.getUUID(), check.attribute());
-        int attributeScore = state.getAttribute(player.getUUID(), check.attribute()) + check.staticModifier() + featModifier + clueModifier;
+        int baseAttribute = state.getAttribute(player.getUUID(), check.attribute());
+        int attributeScore = baseAttribute + check.staticModifier() + featModifier + clueModifier;
         int firstRoll = player.getRandom().nextInt(20) + 1;
         int dieRoll = firstRoll;
-        if (check.advantage()) {
-            dieRoll = Math.max(firstRoll, player.getRandom().nextInt(20) + 1);
+        Optional<Integer> secondRoll = Optional.empty();
+        boolean advantaged = check.advantage() && !check.disadvantage();
+        boolean disadvantaged = check.disadvantage() && !check.advantage();
+        String rollMode = check.advantage() && check.disadvantage()
+                ? "normal_cancelled"
+                : advantaged ? "advantage" : disadvantaged ? "disadvantage" : "normal";
+        if (advantaged || disadvantaged) {
+            int second = player.getRandom().nextInt(20) + 1;
+            secondRoll = Optional.of(second);
+            dieRoll = advantaged ? Math.max(firstRoll, second) : Math.min(firstRoll, second);
         }
         int total = dieRoll + attributeScore;
         boolean critical = dieRoll == 1 || dieRoll == 20;
@@ -343,18 +361,79 @@ public final class DialogueService {
                 critical,
                 outcome,
                 check.showDc(),
-                check.showRoll()
+                check.showRoll(),
+                baseAttribute,
+                check.staticModifier(),
+                featModifier,
+                clueModifier,
+                firstRoll,
+                secondRoll,
+                rollMode
         );
-        EbbMod.LOGGER.info("Dialogue roll {} choice {} for {}: d20 {} + {} = {} vs DC {} -> {}",
+        EbbMod.LOGGER.info("Dialogue roll {} choice {} for {}: d20 {}{} + {} = {} vs DC {} -> {}",
                 choice.check().map(DialogueCheck::attribute).orElse(check.attribute()),
                 choice.id(),
                 player.getName().getString(),
                 dieRoll,
+                secondRoll.map(value -> " (" + rollMode + " " + firstRoll + "/" + value + ")").orElse(""),
                 attributeScore,
                 total,
                 check.dc(),
                 outcome);
         return new ChoiceResolution(next, Optional.of(roll), Optional.empty(), check.effectsForOutcome(outcome));
+    }
+
+    public static String retryLockFlag(Identifier dialogueId, String choiceId) {
+        return "check_locked:" + dialogueId + ":" + choiceId;
+    }
+
+    public static List<String> retryUnlockFlags(Identifier dialogueId, String choiceId) {
+        return List.of(
+                "unlock:" + dialogueId + ":" + choiceId,
+                "unlock:" + dialogueId.getPath() + ":" + choiceId,
+                "unlock:" + choiceId
+        );
+    }
+
+    private static Optional<String> consumeRetryUnlockOrDeny(
+            NarrativeSavedData state,
+            UUID playerUuid,
+            Identifier dialogueId,
+            DialogueChoice choice
+    ) {
+        if (choice.check().map(DialogueCheck::mode).filter(mode -> mode == RollMode.RETRYABLE).isEmpty()) {
+            return Optional.empty();
+        }
+        String lockFlag = retryLockFlag(dialogueId, choice.id());
+        if (!state.hasPlayerFlag(playerUuid, lockFlag)) {
+            return Optional.empty();
+        }
+        Optional<String> unlockFlag = retryUnlockFlags(dialogueId, choice.id()).stream()
+                .filter(flag -> state.hasPlayerFlag(playerUuid, flag))
+                .findFirst();
+        if (unlockFlag.isPresent()) {
+            state.setPlayerFlag(playerUuid, unlockFlag.get(), false);
+            state.setPlayerFlag(playerUuid, lockFlag, false);
+            return Optional.empty();
+        }
+        return Optional.of("check_locked:" + choice.id());
+    }
+
+    private static void updateRetryLock(
+            NarrativeSavedData state,
+            UUID playerUuid,
+            Identifier dialogueId,
+            DialogueChoice choice,
+            ChoiceResolution resolution
+    ) {
+        if (choice.check().map(DialogueCheck::mode).filter(mode -> mode == RollMode.RETRYABLE).isEmpty()) {
+            return;
+        }
+        resolution.rollResult().ifPresent(roll -> state.setPlayerFlag(
+                playerUuid,
+                retryLockFlag(dialogueId, choice.id()),
+                !roll.success()
+        ));
     }
 
     private static Optional<String> applyEffects(List<DialogueEffect> effects, NarrativeSavedData state, ServerPlayer player, DialogueSession session) {

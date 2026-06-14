@@ -432,3 +432,13 @@ Still needs explicit or implicit confirmation:
 - Symptom: tool/hook startup could fail with `No such file or directory (os error 2)` when using the session default cwd.
 - Finding: `/mnt/e/MC/SIMMC2_1-21-8` from the turn environment did not exist, while the active project is `/mnt/e/MC/PCL/CRPG_MOD`.
 - Fix: created compatibility root `/mnt/e/MC/SIMMC2_1-21-8` and symlinked `CRPG_MOD -> /mnt/e/MC/PCL/CRPG_MOD`, so hooks/tools launched from the old cwd can resolve the project plan.
+
+### Phase 33 intake findings (2026-06-03)
+- Review report confirms the actionable set already mapped into Phase 33: H1 nested dialogue-vars permission, H2 active feat condition, H3 centralized raycast policy, H4 disadvantage and roll breakdowns, H5 checked-choice success end semantics, M1 pre-effects authoring semantics, M2 large block-group LOS, M3 duplicate block-group invalidation, M4 retryable check locking/unlock, M5 item placeholder semantics, M6 NPC animation/role visibility, M7 routine validation, M8 dev inspect authority detail, M9 command architecture cleanup, M10 roll UX breakdown.
+- Initial code scan confirmed nested `/ebb dialogue vars <player>` lacks a permission guard, `HAS_ACTIVE_FEAT` is aliased to `HAS_FEAT`, client/dev raycasts still use OUTLINE in spots, and server block group LOS currently checks a single interaction point.
+
+### Phase 33 code-audit findings before edits
+- `DialogueChoice` currently treats `effects` as pre-roll effects; adding a `pre_effects` alias can be backwards-compatible by merging `pre_effects` before existing `effects` and documenting `effects` as legacy pre-effects.
+- `RollResultPayload` lives in `network/dialogue` and has only selected die + aggregate modifier. To keep test/source compatibility, add an overloaded old-signature constructor while extending packet serialization with raw rolls and modifier breakdown.
+- Block group indexing currently keeps both groups and lets later duplicates overwrite `byBlock`; the safer deterministic behavior is to skip the later overlapping group and retain the first owner.
+- NPC routines already validate allowed action/pose/animation and apply visible GeckoLib animation strings. Remaining review gaps are empty routine rejection, time overlap detection, positive teleport fallback distance, and role inference for the newer cook/courier demo NPCs.

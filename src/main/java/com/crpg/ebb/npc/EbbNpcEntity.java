@@ -235,6 +235,8 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
         if (lower.contains("witness")) return "witness";
         if (lower.contains("tenant")) return "tenant";
         if (lower.contains("guard")) return "guard";
+        if (lower.contains("cook")) return "cook";
+        if (lower.contains("courier")) return "courier";
         if (lower.contains("innkeeper")) return "innkeeper";
         return "npc";
     }
@@ -244,6 +246,8 @@ public class EbbNpcEntity extends PathfinderMob implements GeoEntity {
         if (normalized.contains("witness")) return "witness";
         if (normalized.contains("tenant")) return "tenant";
         if (normalized.contains("guard")) return "guard";
+        if (normalized.contains("cook")) return "cook";
+        if (normalized.contains("courier")) return "courier";
         if (normalized.contains("innkeeper")) return "innkeeper";
         return "npc";
     }

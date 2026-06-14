@@ -17,17 +17,41 @@ This is the authoritative status snapshot for the active `minecraft_disco_crpg_m
 
 ## Latest built artifacts
 
-After the 2026-06-03 K-menu/live-background build and profile refresh, the built jar hashes are:
+After the 2026-06-03 Phase 33 codebase-review remediation build, the current build artifact hashes are:
 
 ```text
-25e896a4bc2847d3c941287c356f44eb650bc33c423c317f63567a0f164d2757  build/libs/ebb-0.1.0-dev.jar
-25e896a4bc2847d3c941287c356f44eb650bc33c423c317f63567a0f164d2757  /mnt/e/MC/PCL/.minecraft/versions/26.1.2-Fabric-Ebb-Test/mods/ebb-0.1.0-dev.jar
-7ac5bfe332c460160430979da80afd15d4e9bb692ee7f7afbe266502f245b2eb  build/libs/ebb-0.1.0-dev-sources.jar
+7da6e7148c5cabba5b357ee183fddbfc293a227dd4b7c8520491ad85d15df576  build/libs/ebb-0.1.0-dev.jar
+7848b75ada4f5ff3a53922328a86ad8345bbb51e2bdadc0a6da1117a9bce761b  build/libs/ebb-0.1.0-dev-sources.jar
 ```
 
-If Java sources or resources change after this status file, rebuild, refresh the separate test profile, and update these hashes.
+The separate `26.1.2-Fabric-Ebb-Test` profile was last GUI-refreshed for the earlier P32 jar until the next explicit client-test/profile-refresh step. If Java sources or resources change after this status file, rebuild, refresh the separate test profile, and update these hashes.
 
+## 2026-06-03 Phase 33 codebase review remediation snapshot
 
+Implemented from `ebb_codebase_review_report_2026-06-03.md`:
+
+- Closed the nested `/ebb dialogue vars <player>` privacy hole by routing command permissions through `EbbCommandPermissionGuards` and applying the dialogue gamemaster guard to the nested player argument.
+- Added active feat conditions (`has_active_feat` / `feat_active`) that check `NarrativeSavedData.isFeatActive(...)` instead of collapsing to unlocked-feat semantics.
+- Added `disadvantage` checks, advantage/disadvantage cancel-out semantics, raw-roll capture, and roll modifier breakdowns for attribute/static/feat/clue contributions.
+- Clarified checked-choice semantics with `pre_effects`, legacy pre-roll `effects`, `success_effects` / `failure_effects`, and explicit `end_on_success` linting.
+- Implemented retryable check locks: failed retryable/white checks set `check_locked:<dialogue_id>:<choice_id>` and require an `unlock_retry` / `unlock` flag before retry.
+- Centralized collider-only prediction/authority/dev-inspect raycasts in `InteractionRaycastPolicy`; server block-group LOS now tests the nearest authored block center as well as the interaction point.
+- Made duplicate block-group membership invalid instead of silently overriding later targets.
+- Hardened NPC routine parsing for nonempty steps, non-overlapping time windows, positive teleport fallback distances, and cook/courier role inference while preserving visible GeckoLib animation metadata.
+- Reconfirmed placeholder item semantics: `give_item` / `take_item` remain narrative item flags/status echoes, not vanilla inventory manipulation.
+
+Phase 33 validation evidence:
+
+```text
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon validateEbbData                         -> BUILD SUCCESSFUL
+python3 -m py_compile scripts/goal_static_audit.py                           -> passed
+python3 scripts/goal_static_audit.py                                         -> passed including P33 guardrails
+scripts/run_smoke_checks.sh                                                  -> passed including static/deep/third/gui audits and authoring validation
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui           -> BUILD SUCCESSFUL, 6 required GameTests passed
+scripts/gradle-local.sh --no-daemon build                                    -> BUILD SUCCESSFUL
+git diff --check                                                             -> passed
+```
 
 
 ## 2026-06-03 K-key Ebb menu / live dialogue background snapshot

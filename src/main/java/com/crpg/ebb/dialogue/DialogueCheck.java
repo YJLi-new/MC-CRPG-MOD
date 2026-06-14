@@ -13,6 +13,7 @@ public record DialogueCheck(
         String die,
         RollMode mode,
         boolean advantage,
+        boolean disadvantage,
         int staticModifier,
         boolean showDc,
         boolean showRoll,
@@ -49,6 +50,7 @@ public record DialogueCheck(
                 .flatMap(RollMode::parse)
                 .orElse(RollMode.ONE_SHOT);
         boolean advantage = optionalBoolean(json, "advantage").orElse(false);
+        boolean disadvantage = optionalBoolean(json, "disadvantage").orElse(false);
         int staticModifier = parseStaticModifier(json);
         if (!"d20".equalsIgnoreCase(die)) {
             messages.add(path + ": only die=\"d20\" is currently supported; got " + die);
@@ -62,6 +64,7 @@ public record DialogueCheck(
                 die,
                 mode,
                 advantage,
+                disadvantage,
                 staticModifier,
                 showDc(json),
                 showRoll(json),
@@ -90,6 +93,7 @@ public record DialogueCheck(
         StringBuilder builder = new StringBuilder(attribute + " DC " + dc + " " + die
                 + " mode=" + mode.serializedName()
                 + (advantage ? " advantage" : "")
+                + (disadvantage ? " disadvantage" : "")
                 + (staticModifier == 0 ? "" : " mod=" + staticModifier)
                 + (showDc ? "" : " hidden_dc")
                 + (showRoll ? "" : " hidden_roll"));

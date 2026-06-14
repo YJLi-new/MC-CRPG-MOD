@@ -13,6 +13,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 public final class BlockGroupIndex {
     private static volatile Snapshot snapshot = Snapshot.empty();
@@ -38,14 +40,18 @@ public final class BlockGroupIndex {
                         + InteractionSyncLimits.MAX_BLOCK_GROUPS + "; split content across fewer active groups.");
                 continue;
             }
+
+            Optional<String> duplicate = findDuplicateMembership(definition, byBlock);
+            if (duplicate.isPresent()) {
+                messages.add("Block group " + definition.id() + " invalid: " + duplicate.get()
+                        + "; duplicate block membership is not allowed. Keep the first group or split the authored area.");
+                continue;
+            }
+
             byId.put(definition.id(), definition);
             for (BlockPos block : definition.blocks()) {
                 DimensionBlockKey blockKey = new DimensionBlockKey(definition.dimension(), block.immutable());
-                Identifier previous = byBlock.put(blockKey, definition.id());
-                if (previous != null && !previous.equals(definition.id())) {
-                    messages.add("Block " + block + " in " + definition.dimension().identifier()
-                            + " is assigned to both " + previous + " and " + definition.id());
-                }
+                byBlock.put(blockKey, definition.id());
 
                 DimensionChunkKey chunkKey = new DimensionChunkKey(definition.dimension(), new ChunkPos(block.getX() >> 4, block.getZ() >> 4));
                 byChunk.computeIfAbsent(chunkKey, ignored -> new ArrayList<>()).add(definition.id());
@@ -63,6 +69,25 @@ public final class BlockGroupIndex {
         for (String message : messages) {
             EbbMod.LOGGER.warn("Block group index: {}", message);
         }
+    }
+
+    private static Optional<String> findDuplicateMembership(
+            BlockGroupDefinition definition,
+            Map<DimensionBlockKey, Identifier> existing
+    ) {
+        Set<DimensionBlockKey> seen = new LinkedHashSet<>();
+        for (BlockPos block : definition.blocks()) {
+            DimensionBlockKey blockKey = new DimensionBlockKey(definition.dimension(), block.immutable());
+            if (!seen.add(blockKey)) {
+                return Optional.of("block " + block + " appears more than once inside the group");
+            }
+            Identifier previous = existing.get(blockKey);
+            if (previous != null && !previous.equals(definition.id())) {
+                return Optional.of("block " + block + " in " + definition.dimension().identifier()
+                        + " already belongs to " + previous);
+            }
+        }
+        return Optional.empty();
     }
 
     public static int groupCount() {

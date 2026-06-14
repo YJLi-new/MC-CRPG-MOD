@@ -98,6 +98,8 @@ Notes:
 - Each group may contain at most `max_blocks_per_group` blocks, default/hard limit 512.
 - Object block entries with `block` add server-side block predicate validation.
 - Large structures should be split into multiple logical groups or represented by smaller interaction hotspots.
+- A block may belong to only one block group in a dimension. duplicate block membership is a validation error; the first group remains indexed and later overlapping groups are skipped instead of silently overriding the target.
+- Server validation raycasts to the nearest authored block center and the declared `interaction_point` using the shared collider-only `InteractionRaycastPolicy`, so clients and dedicated servers agree on solid-block line-of-sight semantics.
 - Block-group `highlight.render_mode=merged` merges adjacent authored blocks into fewer outline boxes for cleaner visuals. Use `outline` for per-block outlines or `bounds` for a single bounding box.
 
 ## Dialogues
@@ -111,14 +113,18 @@ Core concepts:
 - Node `enter_effects`: applied when entering a node.
 - Choice `type`: `dialogue`, `action`, or `thought`.
 - Choice `conditions`: controls visibility.
-- Choice `effects`: pre-roll / outcome-independent effects.
+- Choice `pre_effects`: pre-roll / outcome-independent effects.
+- Choice `effects`: legacy alias for `pre_effects`; prefer `pre_effects` in new content so success/failure mutations are not confused with branch outcome effects.
 - Choice `check`: server-side d20 check with outcome branches and outcome effects.
+- Choice `end_on_success: true`: explicitly says a successful checked choice may end the conversation when it has no `success`, `critical_success`, or fallback `next` node.
 - `text_key` may be used instead of, or alongside, literal `text` for localization.
 - When `text_key` is missing from the active language file, the client falls back to literal `text` instead of showing the raw translation key.
 - Check display controls:
   - `hidden_dc: true` or `show_dc: false` hides the numeric DC from choice labels and roll-result echoes.
   - `hidden_roll: true` or `show_roll: false` hides the d20/total arithmetic while still reporting the resolved outcome.
   - `display_dc` and `display_roll` are accepted aliases for `show_dc` / `show_roll`.
+  - `advantage: true` rolls two d20 and keeps the higher die. `disadvantage: true` rolls two d20 and keeps the lower die. If both are true they cancel out to a normal single d20 roll.
+  - Roll echoes include the chosen die plus attribute/static/feat/clue modifier breakdown when `show_roll` is true.
 
 Player-facing reading settings:
 
@@ -133,6 +139,12 @@ Check outcome effect keys:
 - `failure_effects`
 - `critical_success_effects`
 - `critical_failure_effects`
+
+Authoring cautions:
+
+- Checked choices with branch-specific pre-roll effects (`complete_quest_branch`, `unlock_feat`, `start_conflict`, relation/NPC-state changes, clue/journal reveals, etc.) emit validation warnings because those effects run before the d20 is rolled. Put success/failure-specific mutations into `success_effects` / `failure_effects` instead.
+- Retryable checks are “white checks”: a failed `mode: "retryable"` choice records `check_locked:<dialogue_id>:<choice_id>` and cannot be clicked again until an `unlock_retry` / `unlock` effect sets `unlock:<choice_id>` or `unlock:<dialogue_id>:<choice_id>`.
+- `give_item` / `take_item` currently produce `item_placeholder_give` / `item_placeholder_take` status echoes and player flags (`item:<id>`). They do not manipulate vanilla inventory yet.
 
 ## P24 validation, schemas, and reference tables
 
@@ -204,7 +216,8 @@ Compiler diagnostics include file names and, for malformed YAML/JSON, parser lin
 | `attribute_at_least`, `skill_at_least`, `attribute` | `attribute` / `id` / `key`, `min` / `at_least` | `expected` | DND-8 attribute threshold gate. | Attribute key/alias |
 | `story_var`, `story_variable`, `story_var_equals`, `story_var_at_least` | `id` / `story_var`, plus `value`/`equals` or `min` | `scope`, `layer`, `expected` | Branch/Major/Minor story variable equality or integer threshold. | Story variable layer/key |
 | `quest_state`, `quest`, `quest_branch` | `id` / `quest` / `quest_branch` | `state` / `value`, `expected` | Quest branch state, defaulting to `take_rooted`. | `quest_branches` |
-| `has_feat`, `feat`, `has_active_feat` | `id` / `feat` | `expected` | Unlocked/known feat gate. | `feats` |
+| `has_feat`, `feat` | `id` / `feat` | `expected` | Unlocked/known feat gate. | `feats` |
+| `has_active_feat`, `active_feat`, `feat_active`, `slotted_feat`, `equipped_feat` | `id` / `feat` | `expected` | Active feat-slot gate; requires the feat to be currently active, not merely unlocked. | `feats` |
 | `has_journal_entry`, `journal`, `journal_entry` | `id` / `journal` / `journal_entry` | `expected` | Journal entry gate. | `journal_entries` |
 | `clue_found`, `has_clue`, `clue` | `id` / `clue` | `expected` | Clue or matching journal-entry gate. | `clues` |
 | `relation_at_least`, `relationship_at_least`, `relation`, `relationship` | `id` / `relation` / `relationship`, `min` | `expected` | NPC relationship threshold gate. | `relationships` |
@@ -467,13 +480,20 @@ MVP behavior:
 - Active dialogue sessions with an Ebb NPC pause its movement routine, force a conversation-focus look target, and restore the previous pose/animation when the session closes or times out.
 - `/ebb routine inspect <entity>` shows routine id, visual role, pose/animation, current step, current action/target, and whether conversation focus is active.
 
-P27 adds role-specific temporary skins and conversation-focus animations. The bundled `ebb:npc` still uses a simple humanoid GeckoLib model, but the renderer chooses `npc_innkeeper.png`, `npc_witness.png`, `npc_tenant.png`, or `npc_guard.png` from the NPC's routine/narrative key. This is intentionally placeholder art, not final production character art.
+P27/P33 add role-specific temporary skins and conversation-focus animations. The bundled `ebb:npc` still uses a simple humanoid GeckoLib model, but the renderer chooses role textures such as `npc_innkeeper.png`, `npc_witness.png`, `npc_tenant.png`, `npc_guard.png`, `npc_cook.png`, or `npc_courier.png` from the NPC's routine/narrative key. This is intentionally placeholder art, not final production character art.
 
 Allowed routine actions: `stand`, `wait`, `walk`, `walk_path`, `look_at`, `play_animation`, `set_pose`, `teleport_fallback`.
 
 Allowed routine animations: `idle`, `walk`, `fidget`, `talk`, `think`, `dismiss`, `nervous_idle`, `scripted`. Dialogue focus can select `talk`, `think`, `dismiss`, or `nervous_idle` based on the active dialogue node.
 
 Allowed routine poses: `standing`, `blocking`, `suspicious`, `guarded`, `listening`, `composed`, `restless`, `leaning`, `pacing`, `conversation`, `talking`, `thinking`, `dismissing`, `nervous`, `scripted`. Invalid action, path, pose, or animation names are validation messages and invalid steps are not used.
+
+Routine hardening:
+
+- `steps` must contain at least one valid step.
+- Step time windows may wrap around midnight, but two steps in the same routine may not overlap after wrap expansion.
+- `teleport_distance` / `teleportFallbackDistance` must be positive.
+- `play_animation` and `set_pose` are visible metadata actions through the GeckoLib controller; complex animation queues and authored gesture timelines remain future work.
 
 Known future NPC work: behavior stacks, richer schedules/transitions, patrol pause points, authored gestures, and final humanoid art assets.
 

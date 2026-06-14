@@ -70,51 +70,51 @@ public final class NpcRoutineController {
             return;
         }
         NpcRoutineDefinition.Step step = maybeStep.get();
-            applyStepMetadata(npc, step);
-            String action = step.action().toLowerCase(Locale.ROOT);
-            String pathKey = routine.id() + ":" + step.startTime() + "-" + step.endTime() + ":" + step.action();
-            int pathIndex = npc.routinePathIndex(pathKey, step.path().size());
-            Vec3 destination = step.destinationAt(pathIndex);
-            npc.setRoutineDebug(action, targetSummary(destination, step), pathKey + "#" + pathIndex);
-            if ("wait".equals(action)) {
-                npc.getNavigation().stop();
-                return;
-            }
-            if ("play_animation".equals(action) || "set_pose".equals(action)) {
-                if (destination == null) {
-                    npc.getNavigation().stop();
-                    return;
-                }
-            }
+        applyStepMetadata(npc, step);
+        String action = step.action().toLowerCase(Locale.ROOT);
+        String pathKey = routine.id() + ":" + step.startTime() + "-" + step.endTime() + ":" + step.action();
+        int pathIndex = npc.routinePathIndex(pathKey, step.path().size());
+        Vec3 destination = step.destinationAt(pathIndex);
+        npc.setRoutineDebug(action, targetSummary(destination, step), pathKey + "#" + pathIndex);
+        if ("wait".equals(action)) {
+            npc.getNavigation().stop();
+            return;
+        }
+        if ("play_animation".equals(action) || "set_pose".equals(action)) {
             if (destination == null) {
-                return;
-            }
-            double distanceSqr = npc.position().distanceToSqr(destination);
-            if ("look_at".equals(action)) {
-                npc.getNavigation().stop();
-                npc.getLookControl().setLookAt(destination.x, destination.y, destination.z, 12.0F, npc.getMaxHeadXRot());
-                return;
-            }
-            if ("teleport_fallback".equals(action) || distanceSqr > step.teleportDistance() * step.teleportDistance()) {
-                npc.teleportTo(destination.x, destination.y, destination.z);
                 npc.getNavigation().stop();
                 return;
             }
-            if (step.hasWaypointPath() && distanceSqr < 0.75D) {
-                npc.advanceRoutinePath(pathKey, step.path().size());
-                destination = step.destinationAt(npc.routinePathIndex(pathKey, step.path().size()));
-                distanceSqr = npc.position().distanceToSqr(destination);
-            }
-            if ("stand".equalsIgnoreCase(step.action()) && !step.hasWaypointPath() && distanceSqr < 0.75D) {
-                npc.getNavigation().stop();
-                return;
-            }
-            if (distanceSqr > 0.75D) {
-                boolean brisk = "walk".equals(action) || "walk_path".equals(action);
-                npc.getNavigation().moveTo(destination.x, destination.y, destination.z, brisk ? 0.65D : 0.45D);
-            } else {
-                npc.getNavigation().stop();
-            }
+        }
+        if (destination == null) {
+            return;
+        }
+        double distanceSqr = npc.position().distanceToSqr(destination);
+        if ("look_at".equals(action)) {
+            npc.getNavigation().stop();
+            npc.getLookControl().setLookAt(destination.x, destination.y, destination.z, 12.0F, npc.getMaxHeadXRot());
+            return;
+        }
+        if ("teleport_fallback".equals(action) || distanceSqr > step.teleportDistance() * step.teleportDistance()) {
+            npc.teleportTo(destination.x, destination.y, destination.z);
+            npc.getNavigation().stop();
+            return;
+        }
+        if (step.hasWaypointPath() && distanceSqr < 0.75D) {
+            npc.advanceRoutinePath(pathKey, step.path().size());
+            destination = step.destinationAt(npc.routinePathIndex(pathKey, step.path().size()));
+            distanceSqr = npc.position().distanceToSqr(destination);
+        }
+        if ("stand".equalsIgnoreCase(step.action()) && !step.hasWaypointPath() && distanceSqr < 0.75D) {
+            npc.getNavigation().stop();
+            return;
+        }
+        if (distanceSqr > 0.75D) {
+            boolean brisk = "walk".equals(action) || "walk_path".equals(action);
+            npc.getNavigation().moveTo(destination.x, destination.y, destination.z, brisk ? 0.65D : 0.45D);
+        } else {
+            npc.getNavigation().stop();
+        }
     }
 
     private static void applyStepMetadata(EbbNpcEntity npc, NpcRoutineDefinition.Step step) {

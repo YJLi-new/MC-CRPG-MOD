@@ -395,6 +395,28 @@ public record DialogueEffect(
         return type.name().toLowerCase(Locale.ROOT) + "(" + scope.name().toLowerCase(Locale.ROOT) + layer + "," + id + value + text + tag + ")";
     }
 
+    public boolean isBranchSpecificPreEffectRisk() {
+        return switch (type) {
+            case START_QUEST_BRANCH,
+                    COMPLETE_QUEST_BRANCH,
+                    UNLOCK_FEAT,
+                    ACTIVATE_FEAT,
+                    ADD_JOURNAL_ENTRY,
+                    REVEAL_CLUE,
+                    START_CONFLICT,
+                    ADD_CONFLICT_STRESS,
+                    ADD_CONFLICT_RESOLVE,
+                    SET_CONFLICT_STATE,
+                    APPLY_CONFLICT_OUTCOME,
+                    SET_SCENE_PHASE,
+                    SET_RELATION,
+                    ADD_RELATION,
+                    SET_NPC_STATE,
+                    CLEAR_NPC_STATE -> true;
+            default -> false;
+        };
+    }
+
     private void setFlag(NarrativeSavedData state, UUID playerUuid, boolean value) {
         switch (scope) {
             case PLAYER -> state.setPlayerFlag(playerUuid, id, value);

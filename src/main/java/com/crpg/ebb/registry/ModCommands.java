@@ -11,6 +11,9 @@ import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.dialogue.DialogueSession;
 import com.crpg.ebb.interaction.BlockGroupDefinition;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.InteractionRaycastPolicy;
+import com.crpg.ebb.interaction.InteractionService;
+import com.crpg.ebb.interaction.InteractionValidationResult;
 import com.crpg.ebb.interaction.entity.EntityBindingDefinition;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.journal.JournalService;
@@ -22,6 +25,7 @@ import com.crpg.ebb.npc.ModEntityTypes;
 import com.crpg.ebb.quest.QuestTreeService;
 import com.crpg.ebb.routine.NpcRoutineDefinition;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
+import com.crpg.ebb.registry.commands.EbbCommandPermissionGuards;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.CommandDispatcher;
@@ -30,7 +34,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -39,7 +42,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
@@ -92,7 +94,7 @@ public final class ModCommands {
                 .then(createAttributesCommand("attributes"))
                 .then(createAttributesCommand("attr"))
                 .then(Commands.literal("dev")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.dev"), PermissionLevel.GAMEMASTERS))
+                        .requires(EbbCommandPermissionGuards.dev())
                         .executes(context -> sendDevSnapshot(context.getSource()))
                         .then(Commands.literal("on")
                                 .executes(context -> setDevMode(context.getSource(), true)))
@@ -102,7 +104,7 @@ public final class ModCommands {
                                 .executes(context -> sendDevSummaryText(context.getSource()))))
                 .then(Commands.literal("dialogue")
                         .then(Commands.literal("inspect")
-                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
+                                .requires(EbbCommandPermissionGuards.dialogue())
                                 .then(Commands.literal("current")
                                         .executes(context -> inspectCurrentTarget(context.getSource())))
                                 .then(Commands.literal("entity")
@@ -116,7 +118,7 @@ public final class ModCommands {
                                                         context.getSource(),
                                                         StringArgumentType.getString(context, "dialogue_id"))))))
                         .then(Commands.literal("tree")
-                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
+                                .requires(EbbCommandPermissionGuards.dialogue())
                                 .then(Commands.argument("dialogue_id", StringArgumentType.string())
                                         .executes(context -> inspectDialogueById(
                                                 context.getSource(),
@@ -124,16 +126,17 @@ public final class ModCommands {
                         .then(Commands.literal("vars")
                                 .executes(context -> sendDialogueVars(context.getSource(), context.getSource().getPlayerOrException()))
                                 .then(Commands.argument("player", EntityArgument.player())
+                                        .requires(EbbCommandPermissionGuards.dialogue())
                                         .executes(context -> sendDialogueVars(
                                                 context.getSource(),
                                                 EntityArgument.getPlayer(context, "player")))))
                         .then(Commands.literal("reload")
-                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
+                                .requires(EbbCommandPermissionGuards.dialogue())
                                 .executes(context -> reloadDialogueData(context.getSource()))))
                 .then(Commands.literal("vars")
                         .executes(context -> sendDialogueVars(context.getSource(), context.getSource().getPlayerOrException()))
                         .then(Commands.argument("player", EntityArgument.player())
-                                .requires(PermissionPredicates.require(EbbMod.id("command.dialogue"), PermissionLevel.GAMEMASTERS))
+                                .requires(EbbCommandPermissionGuards.dialogue())
                                 .executes(context -> sendDialogueVars(
                                         context.getSource(),
                                         EntityArgument.getPlayer(context, "player")))))
@@ -144,18 +147,18 @@ public final class ModCommands {
                 .then(Commands.literal("journal")
                         .executes(context -> sendJournal(context.getSource())))
                 .then(Commands.literal("routine")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.routine"), PermissionLevel.GAMEMASTERS))
+                        .requires(EbbCommandPermissionGuards.routine())
                         .then(Commands.literal("inspect")
                                 .then(Commands.argument("entity", EntityArgument.entity())
                                         .executes(context -> inspectRoutine(
                                                 context.getSource(),
                                                 EntityArgument.getEntity(context, "entity"))))))
                 .then(Commands.literal("export")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.export"), PermissionLevel.GAMEMASTERS))
+                        .requires(EbbCommandPermissionGuards.export())
                         .then(Commands.literal("save-debug")
                                 .executes(context -> exportSaveDebug(context.getSource()))))
                 .then(Commands.literal("summon_npc")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.summon_npc"), PermissionLevel.GAMEMASTERS))
+                        .requires(EbbCommandPermissionGuards.summonNpc())
                         .then(Commands.argument("routine", StringArgumentType.string())
                                 .executes(context -> summonNpc(context.getSource(), StringArgumentType.getString(context, "routine"))))));
     }
@@ -172,14 +175,14 @@ public final class ModCommands {
                                                 IntegerArgumentType.getInteger(context, "points")
                                         )))))
                 .then(Commands.literal("grant")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.attributes.grant"), PermissionLevel.GAMEMASTERS))
+                        .requires(EbbCommandPermissionGuards.attributeGrant())
                         .then(Commands.argument("points", IntegerArgumentType.integer(0))
                                 .executes(context -> grantAttributePoints(
                                         context.getSource(),
                                         IntegerArgumentType.getInteger(context, "points")
                                 ))))
                 .then(Commands.literal("set")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.attributes.set"), PermissionLevel.GAMEMASTERS))
+                        .requires(EbbCommandPermissionGuards.attributeSet())
                         .then(Commands.argument("attribute", StringArgumentType.word())
                                 .then(Commands.argument("score", IntegerArgumentType.integer(-5, 10))
                                         .executes(context -> setAttributeScore(
@@ -188,7 +191,7 @@ public final class ModCommands {
                                                 IntegerArgumentType.getInteger(context, "score")
                                         )))))
                 .then(Commands.literal("reset")
-                        .requires(PermissionPredicates.require(EbbMod.id("command.attributes.reset"), PermissionLevel.GAMEMASTERS))
+                        .requires(EbbCommandPermissionGuards.attributeReset())
                         .executes(context -> resetAttributes(context.getSource())));
     }
 
@@ -535,8 +538,8 @@ public final class ModCommands {
         BlockHitResult blockHit = player.level().clip(new ClipContext(
                 eye,
                 end,
-                ClipContext.Block.OUTLINE,
-                ClipContext.Fluid.NONE,
+                InteractionRaycastPolicy.blockModeForDevInspect(),
+                InteractionRaycastPolicy.fluidMode(),
                 player
         ));
         double blockDistanceSqr = hitDistanceSqr(eye, blockHit);
@@ -560,24 +563,33 @@ public final class ModCommands {
 
         if (entityHit != null && entityDistanceSqr <= blockDistanceSqr) {
             Entity entity = entityHit.getEntity();
+            InteractionValidationResult validation = InteractionService.validateEntity(player, entity.getUUID());
             return EntityBindingRegistry.resolve(entity).map(binding -> new TargetInspection(
                     "entity",
                     binding.dialogueId(),
                     "entity=" + entity.getStringUUID()
                             + " type=" + net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
-                            + " distance=" + String.format(Locale.ROOT, "%.2f", Math.sqrt(entityDistanceSqr)),
+                            + " distance=" + String.format(Locale.ROOT, "%.2f", Math.sqrt(entityDistanceSqr))
+                            + " allowed=" + validation.allowed()
+                            + " reason=" + validation.reason(),
                     "binding=" + binding.debugSummary()
             ));
         }
-        return blockGroup.map(definition -> new TargetInspection(
-                "block_group",
-                definition.dialogueId(),
-                "block_group=" + definition.id()
-                        + " dimension=" + definition.dimension().identifier()
-                        + " block_count=" + definition.blocks().size(),
-                "interaction_point=" + definition.interactionPoint()
-                        + " bounds=" + definition.bounds()
-        ));
+        return blockGroup.map(definition -> {
+            InteractionValidationResult validation = InteractionService.validateBlockGroup(player, definition);
+            return new TargetInspection(
+                    "block_group",
+                    definition.dialogueId(),
+                    "block_group=" + definition.id()
+                            + " dimension=" + definition.dimension().identifier()
+                            + " block_count=" + definition.blocks().size()
+                            + " allowed=" + validation.allowed()
+                            + " reason=" + validation.reason(),
+                    "interaction_point=" + definition.interactionPoint()
+                            + " nearest_block_center=" + definition.nearestBlockCenter(eye)
+                            + " bounds=" + definition.bounds()
+            );
+        });
     }
 
     private static void sendInspectionLines(CommandSourceStack source, TargetInspection inspection) {
