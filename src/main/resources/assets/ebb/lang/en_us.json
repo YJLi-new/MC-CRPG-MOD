@@ -37,5 +37,16 @@
   "screen.ebb.menu.status.ready": "Press K again or Done to close.",
   "screen.ebb.menu.status.font_changed": "Dialogue font scale updated.",
   "screen.ebb.menu.status.speed_changed": "Dialogue text speed updated.",
-  "screen.ebb.menu.status.no_player": "No local player connection is available."
+  "screen.ebb.menu.status.no_player": "No local player connection is available.",
+  "screen.ebb.llm_chat.title": "NPC Chat",
+  "screen.ebb.llm_chat.heading": "Free chat: %s",
+  "screen.ebb.llm_chat.topic": "Topic: %s",
+  "screen.ebb.llm_chat.input": "Message",
+  "screen.ebb.llm_chat.input_hint": "Type a message...",
+  "screen.ebb.llm_chat.send": "Send",
+  "screen.ebb.llm_chat.waiting": "Waiting for NPC reply...",
+  "screen.ebb.llm_chat.error": "LLM chat error: %s",
+  "message.ebb.llm_chat_network_unavailable": "LLM chat channel is not available on this server.",
+  "message.ebb.llm_chat_error": "LLM chat error: %s",
+  "message.ebb.llm_chat_closed": "LLM chat closed: %s"
 }

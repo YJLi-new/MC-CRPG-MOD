@@ -704,3 +704,48 @@ Role NPCs:
 - guard/fixer — `ebb:demo/guard_intro`
 
 The back door dialogue is the current ending placeholder. It reads Branch/scene state and exposes public, quiet, and messy fail-forward endings.
+
+## P34 LLM / Free Chat Foundation
+
+P34 adds a disabled-by-default, server-authoritative LLM chat path. The mod jar does **not** contain OpenAI/API secrets and the default/fake providers do not access the network. Server operators may place non-sensitive settings in `config/ebb-llm-server.json`; by default `/ebb llm status` reports `enabled=false mode=disabled` and `llm_disabled` is shown when content tries to open free chat without enabling a provider.
+
+Scripted dialogue remains primary. Add an optional free-chat choice with `type: "llm_chat"` or the alias `type: "free_chat"`:
+
+```json
+{
+  "id": "free_chat",
+  "type": "llm_chat",
+  "text": "我们随便聊聊。",
+  "llm": {
+    "npc": "ebb:demo/innkeeper",
+    "topic_hint": "tavern rumors, the locked door, and recent guests",
+    "return_node": "start",
+    "allow_memory_write": true
+  }
+}
+```
+
+Runtime behavior in P34:
+
+- `DialogueService` intercepts `LLM_CHAT` choices before d20 resolution; no check is rolled for free chat.
+- The server validates the existing dialogue target/range/LOS before opening `NpcChatScreen`.
+- The client sends only player text, conversation UUID, and a nonce. It never sends API keys or hidden knowledge.
+- Fake mode returns deterministic `FAKE_NPC_REPLY` text plus fake citation ids so UI/dev plumbing can be tested without OpenAI.
+- Disabled mode surfaces the explicit status `llm_disabled` and leaves the scripted dialogue usable.
+
+Minimal dev config for fake-mode local testing:
+
+```json
+{
+  "enabled": true,
+  "mode": "fake",
+  "max_input_chars": 512,
+  "session_timeout_ticks": 1200,
+  "fake_reply": "FAKE_NPC_REPLY"
+}
+```
+
+Commands:
+
+- `/ebb llm status` — player-safe status with mode, active session count, provider, and network policy.
+- `/ebb llm reload_config` — OP/dev reload of `config/ebb-llm-server.json`.

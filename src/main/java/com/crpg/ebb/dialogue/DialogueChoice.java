@@ -1,5 +1,6 @@
 package com.crpg.ebb.dialogue;
 
+import com.crpg.ebb.llm.LlmChoiceSettings;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -21,7 +22,8 @@ public record DialogueChoice(
         List<DialogueEffect> effects,
         boolean singleUse,
         boolean revalidateTarget,
-        boolean endOnSuccess
+        boolean endOnSuccess,
+        LlmChoiceSettings llmSettings
 ) {
     public DialogueChoice {
         textKey = textKey == null ? Optional.empty() : textKey;
@@ -29,6 +31,7 @@ public record DialogueChoice(
         check = check == null ? Optional.empty() : check;
         conditions = conditions == null ? List.of() : List.copyOf(conditions);
         effects = effects == null ? List.of() : List.copyOf(effects);
+        llmSettings = llmSettings == null ? LlmChoiceSettings.empty() : llmSettings;
     }
 
     static Optional<DialogueChoice> parse(JsonObject json, String path, List<String> messages) {
@@ -44,7 +47,7 @@ public record DialogueChoice(
         }
         Optional<ChoiceType> type = ChoiceType.parse(rawType);
         if (rawType != null && type.isEmpty()) {
-            messages.add(path + ": unknown choice type \"" + rawType + "\"; expected dialogue/action/thought");
+            messages.add(path + ": unknown choice type \"" + rawType + "\"; expected dialogue/action/thought/llm_chat/free_chat");
         }
         if (id == null || type.isEmpty() || (text.isEmpty() && textKey.isEmpty())) {
             return Optional.empty();
@@ -70,8 +73,9 @@ public record DialogueChoice(
         boolean endOnSuccess = optionalBoolean(json, "end_on_success")
                 .or(() -> optionalBoolean(json, "endOnSuccess"))
                 .orElse(false);
+        LlmChoiceSettings llmSettings = LlmChoiceSettings.parse(json);
 
-        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects, singleUse, revalidateTarget, endOnSuccess));
+        return Optional.of(new DialogueChoice(id, type.get(), text.orElse(""), textKey, next, check, conditions, effects, singleUse, revalidateTarget, endOnSuccess, llmSettings));
     }
 
     public Optional<String> defaultNextNode() {
@@ -93,6 +97,9 @@ public record DialogueChoice(
         }
         if (endOnSuccess) {
             builder.append(" end_on_success=true");
+        }
+        if (type == ChoiceType.LLM_CHAT) {
+            builder.append(' ').append(llmSettings.debugSummary());
         }
         check.ifPresent(value -> builder.append(" check=").append(value.debugSummary()));
         if (!conditions.isEmpty()) {

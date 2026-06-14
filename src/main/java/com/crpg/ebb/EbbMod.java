@@ -2,6 +2,7 @@ package com.crpg.ebb;
 
 import com.crpg.ebb.data.NarrativeDataRegistries;
 import com.crpg.ebb.network.ModPackets;
+import com.crpg.ebb.llm.LlmChatService;
 import com.crpg.ebb.network.sync.InteractionSyncService;
 import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.npc.ModEntityTypes;
@@ -26,6 +27,7 @@ public final class EbbMod implements ModInitializer {
         ModPackets.register();
         NarrativeDataRegistries.registerReloadListeners();
         DialogueService.registerLifecycleEvents();
+        LlmChatService.registerLifecycleEvents();
         InteractionSyncService.registerLifecycleEvents();
         ModCommands.register();
     }

@@ -3,7 +3,16 @@ package com.crpg.ebb.test;
 import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.dialogue.DialogueRegistry;
 import com.crpg.ebb.interaction.BlockGroupIndex;
+import com.crpg.ebb.interaction.InteractionTargetType;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
+import com.crpg.ebb.llm.DisabledLlmGatewayClient;
+import com.crpg.ebb.llm.FakeLlmGatewayClient;
+import com.crpg.ebb.llm.LlmChatRequest;
+import com.crpg.ebb.llm.LlmChatResponse;
+import com.crpg.ebb.llm.LlmChatService;
+import com.crpg.ebb.llm.LlmChatSession;
+import com.crpg.ebb.llm.LlmConfig;
+import com.crpg.ebb.llm.LlmMode;
 import com.crpg.ebb.npc.EbbNpcEntity;
 import com.crpg.ebb.npc.ModEntityTypes;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
@@ -13,6 +22,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.Identifier;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Minimal Fabric GameTest coverage for the report's in-world regression-test requirement.
@@ -92,6 +103,56 @@ public final class EbbGameTests {
         helper.assertTrue(BlockGroupIndex.groupCount() >= 8,
                 "GUI retest expects all eight vertical-slice block groups, not only locked_door");
         helper.succeed();
+    }
+
+    @GameTest(maxTicks = 20)
+    public void llmFakeDisabledAndTimeoutFoundationIsDeterministic(GameTestHelper helper) {
+        try {
+            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", 128, 256, 10, 10, "FAKE_NPC_REPLY"));
+            UUID conversation = UUID.randomUUID();
+            UUID player = UUID.randomUUID();
+            LlmChatRequest request = new LlmChatRequest(
+                    conversation,
+                    player,
+                    Optional.empty(),
+                    EbbMod.id("test/llm"),
+                    "start",
+                    "ebb:demo/innkeeper",
+                    "innkeeper",
+                    "ledger",
+                    "hello",
+                    1L
+            );
+            LlmChatResponse fake = new FakeLlmGatewayClient(LlmConfig.current()).sendMessage(request).join();
+            helper.assertTrue(fake.reply().contains("FAKE_NPC_REPLY"), "fake provider should return the fixed reply marker");
+            helper.assertTrue(fake.status().equals("fake_reply"), "fake provider should expose fake_reply status");
+
+            LlmChatResponse disabled = new DisabledLlmGatewayClient().sendMessage(request).join();
+            helper.assertTrue(disabled.errorReason().orElse("").equals("llm_disabled"), "disabled provider should surface llm_disabled");
+
+            LlmChatSession session = new LlmChatSession(
+                    UUID.randomUUID(),
+                    player,
+                    EbbMod.id("test/llm"),
+                    EbbMod.id("test/target"),
+                    InteractionTargetType.BLOCK_GROUP,
+                    Optional.empty(),
+                    "start",
+                    "start",
+                    "ebb:demo/innkeeper",
+                    "innkeeper",
+                    "ledger",
+                    0L,
+                    0L,
+                    false,
+                    0L
+            );
+            LlmChatService.addSessionForTesting(session);
+            helper.assertTrue(LlmChatService.closeExpiredSessionsForTesting(100L) == 1, "expired LLM chat sessions should close");
+            helper.succeed();
+        } finally {
+            LlmChatService.clearTestingOverrides();
+        }
     }
 
     private static void assertLegacyRoleBinding(GameTestHelper helper, String role, Identifier expectedDialogue, BlockPos pos) {

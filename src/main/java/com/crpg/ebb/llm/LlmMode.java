@@ -1,24 +1,26 @@
-package com.crpg.ebb.dialogue;
+package com.crpg.ebb.llm;
 
 import java.util.Locale;
 import java.util.Optional;
 
-public enum ChoiceType {
-    DIALOGUE,
-    ACTION,
-    THOUGHT,
-    LLM_CHAT;
+public enum LlmMode {
+    DISABLED,
+    FAKE,
+    GATEWAY;
 
-    public static Optional<ChoiceType> parse(String value) {
+    public static Optional<LlmMode> parse(String value) {
         if (value == null || value.isBlank()) {
             return Optional.empty();
         }
         String normalized = value.trim().replace('-', '_').toUpperCase(Locale.ROOT);
-        if ("FREE_CHAT".equals(normalized)) {
-            normalized = "LLM_CHAT";
+        if ("OFF".equals(normalized) || "NONE".equals(normalized)) {
+            normalized = "DISABLED";
+        }
+        if ("MOCK".equals(normalized) || "TEST".equals(normalized)) {
+            normalized = "FAKE";
         }
         try {
-            return Optional.of(ChoiceType.valueOf(normalized));
+            return Optional.of(LlmMode.valueOf(normalized));
         } catch (IllegalArgumentException ex) {
             return Optional.empty();
         }

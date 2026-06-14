@@ -466,3 +466,29 @@ Older files such as `goal_p2_*` through `goal_p8_*`, `second_review_completion_a
 ## Next roadmap focus
 
 The project has reached the technical MVP/P8 vertical slice. The active plan now starts from `GOAL.md` P20/P21 and then proceeds through P22–P31 toward Alpha 0.1.
+
+## Phase 34 LLM fake-provider foundation snapshot
+
+Implemented the first PLAN.md P34 slice:
+
+- Added server-only `LlmConfig` reading `config/ebb-llm-server.json`; default mode is disabled and fake/disabled modes report `network=blocked`.
+- Added `LlmGatewayClient`, deterministic `FakeLlmGatewayClient`, `DisabledLlmGatewayClient`, `LlmChatService`, LLM chat sessions, timeout cleanup, replay/ownership preflight, and explicit `llm_disabled` errors.
+- Added LLM chat network payloads for opened/message/chunk/options/close/cancel/error and registered server/client receivers without any secret/token fields.
+- Added `NpcChatScreen` skeleton with live in-game background, input box, suggested option buttons, status/error rendering, and cancel/close handling.
+- Added dialogue choice type `llm_chat` plus `free_chat` alias and a sample innkeeper free-chat choice; scripted dialogue remains primary and d20 rolls are not run for LLM chat choices.
+- Added `/ebb llm status` and OP `/ebb llm reload_config`.
+- Added P34 JUnit/GameTest/static-audit coverage for fake reply determinism, disabled `llm_disabled`, session timeout, payload wiring, command availability, and no API-key/network usage in disabled/fake paths.
+
+Phase 34 artifact hashes after the first successful P34 build/JUnit pass:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         c944272a3dec18e5e89463d457a272857b0763686e1c56d3f122ee6d64edbe03
+build/libs/ebb-0.1.0-dev-sources.jar f9d5ac6e056829f018c1d1da31f5cbb4b004d9bed21ad4a5ad2ea4f35d822345
+```
+
+Phase 34 artifact hashes after the post-review rebuild:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         1f502a7eadb65cfe2520c7e857b4ee29b842dd786a48d4956c9697b1ac5f157d
+build/libs/ebb-0.1.0-dev-sources.jar 87cadd087bb5403b25b2bc35cc30ce1077cd75daf0c2ec289f5c10ce5564a3c1
+```

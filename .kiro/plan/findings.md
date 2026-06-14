@@ -447,3 +447,17 @@ Still needs explicit or implicit confirmation:
 - New active objective references `E:\MC\PCL\PLAN.md`, which defines P34 LLM NPC + Memory Foundation on top of the current Fabric 26.1.2 Ebb mod.
 - Initial read confirms scope: server-authoritative, async, disable-able/mockable LLM NPC free chat; NPC tiers with scripted major, minor generatable, promoted major, static non-LLM, disabled; gateway-first auth/LLM architecture; no API secrets in mod jar; memory/knowledge/provenance/conflict systems; OP dev inspection.
 - Need finish reading PLAN.md, map requirements into Phase 34+, and implement incrementally with deterministic fake provider first before any external OpenAI/gateway dependency.
+
+### PLAN.md P34 implementation audit start — 2026-06-15
+- P34 is the earliest incomplete PLAN.md stage and should be implemented before NPC profile/promotion, gateway auth, OpenAI, or real memory backends.
+- Current repository is clean at `2029001` and contains only planning updates from the prior turn; authoritative implementation work for P34 has not begun yet.
+- P34 must preserve the hard PLAN constraints: server-authoritative chat, async fake/disabled provider first, no OpenAI/API secrets in the mod jar, no real network access in disabled/fake modes, and existing deterministic dialogue/quest/conflict systems must remain primary.
+- P34 code audit found clean insertion points: `ModPackets` for new payload registration/receivers, `ClientInteractionNetworking` for client receivers/send helpers, `DialogueService.choose` before d20 resolution for `ChoiceType.LLM_CHAT`, and `ModCommands.registerEbbCommand` for `/ebb llm status`.
+- `DialogueScreen.choiceLabel` uses an exhaustive `switch` on `ChoiceType`, so adding `LLM_CHAT` requires an explicit client style case to keep compilation and player-facing labels correct.
+- Existing tests are centralized in `DeepResearchDataTest` plus `EbbGameTests`; P34 can add deterministic fake/disabled/session tests without requiring real OpenAI/gateway/network dependencies.
+- First P34 build attempt failed on two concrete Java issues in `LlmChatService`: passing `ServerPlayer` where UUID was expected and accessing private `ServerPlayer.server`; fixed by using `player.getUUID()` and `((ServerLevel) player.level()).getServer()`.
+
+### PLAN.md P35 implementation audit start — 2026-06-15
+- P34 is complete and verified with build/JUnit/validate/smoke/GameTest/static/diff evidence; next earliest incomplete PLAN.md item is P35 NPC Profile / Tier / Promotion data layer.
+- P35 must not make all entities interactable: minor NPC promotion may only apply to explicitly configured entity bindings/tags/custom `ebb:npc`/OP commands, preserving debug fallback disabled.
+- P35 acceptance needs both data-layer scripted profiles and persisted promoted profiles: `/ebb npc profile target` should inspect scripted profile data, and a minor fake-chat promotion path should write stable profile data to saved state.

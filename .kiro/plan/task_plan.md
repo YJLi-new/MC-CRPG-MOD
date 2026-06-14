@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 33 is complete: `ebb_codebase_review_report_2026-06-03.md` remediation has been implemented and validated; next work should refresh the separate Windows test profile and/or proceed to the next requested feature/review item.
+Phase 34 is complete: PLAN.md P34 LLM / Memory fake-provider foundation has been implemented and validated; next work should proceed to PLAN.md P35 NPC Profile / Tier / Promotion data layer.
 
 ## Phases
 
@@ -376,12 +376,21 @@ Phase 33 is complete: `ebb_codebase_review_report_2026-06-03.md` remediation has
 - User's path convention: Windows `E:\MC\SIMMC2_1-21-8\CRPG_MOD`, WSL `/mnt/e/MC/SIMMC2_1-21-8/CRPG_MOD`.
 
 ### Phase 34: PLAN.md P34 — LLM / Memory Specs and Fake Provider Foundation
-- [ ] Read `E:\MC\PCL\PLAN.md` end-to-end and map P34-P43 requirements without narrowing scope.
-- [ ] Add server-side LLM config with disabled/fake/gateway modes and no API secrets in jar/resources.
-- [ ] Add fake LLM gateway client, chat request/response/session/service, timeout/cancel/error-safe lifecycle.
-- [ ] Add LLM chat network payloads and client `NpcChatScreen` skeleton.
-- [ ] Add `/ebb llm status` and static audit proving disabled/fake mode does not access network.
-- [ ] Integrate scripted `llm_chat` / `free_chat` choice type without weakening deterministic dialogue authority.
-- [ ] Add tests/GameTest/smoke/static/docs for fake provider, disabled mode, timeout close, and API-key guardrails.
-- [ ] Run build, validateEbbData, smoke checks, GameTest, and diff checks.
+- [x] Read `E:\MC\PCL\PLAN.md` end-to-end and map P34-P43 requirements without narrowing scope.
+- [x] Add server-side LLM config with disabled/fake/gateway modes and no API secrets in jar/resources.
+- [x] Add fake LLM gateway client, chat request/response/session/service, timeout/cancel/error-safe lifecycle.
+- [x] Add LLM chat network payloads and client `NpcChatScreen` skeleton.
+- [x] Add `/ebb llm status` and static audit proving disabled/fake mode does not access network.
+- [x] Integrate scripted `llm_chat` / `free_chat` choice type without weakening deterministic dialogue authority.
+- [x] Add tests/GameTest/smoke/static/docs for fake provider, disabled mode, timeout close, and API-key guardrails.
+- [x] Run build, validateEbbData, smoke checks, GameTest, and diff checks.
+- **Status:** complete
+
+
+### Phase 35: PLAN.md P35 — NPC Profile / Tier / Promotion Data Layer
+- [ ] Add `NpcTier`, `NpcProfileDefinition`, parser/reload registry, and safe dev status surfaces.
+- [ ] Add six P30 role NPC profile JSON definitions and profile authoring docs/schema.
+- [ ] Extend entity binding schema for minor-generatable NPC candidates without re-enabling debug fallback.
+- [ ] Add promotion service and persisted promoted profile state.
+- [ ] Add tests/GameTest/static/smoke coverage proving scripted profiles load and promoted profiles persist.
 - **Status:** planned

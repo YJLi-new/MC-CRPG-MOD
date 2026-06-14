@@ -4,6 +4,7 @@ import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.client.gui.dev.DevSnapshotScreen;
 import com.crpg.ebb.client.gui.dialogue.DialogueScreen;
 import com.crpg.ebb.client.gui.journal.JournalScreen;
+import com.crpg.ebb.client.gui.llm.NpcChatScreen;
 import com.crpg.ebb.client.gui.quest.QuestTreeScreen;
 import com.crpg.ebb.client.interaction.ClientInteractionState;
 import com.crpg.ebb.interaction.InteractionTarget;
@@ -17,6 +18,13 @@ import com.crpg.ebb.network.dialogue.DialogueUpdatePayload;
 import com.crpg.ebb.network.sync.BlockGroupSyncPayload;
 import com.crpg.ebb.network.sync.EntityBindingSyncPayload;
 import com.crpg.ebb.network.sync.EntityTargetSyncPayload;
+import com.crpg.ebb.network.llm.LlmChatCancelPayload;
+import com.crpg.ebb.network.llm.LlmChatChunkPayload;
+import com.crpg.ebb.network.llm.LlmChatClosePayload;
+import com.crpg.ebb.network.llm.LlmChatErrorPayload;
+import com.crpg.ebb.network.llm.LlmChatMessagePayload;
+import com.crpg.ebb.network.llm.LlmChatOpenedPayload;
+import com.crpg.ebb.network.llm.LlmChatOptionsPayload;
 import com.crpg.ebb.network.journal.JournalPayload;
 import com.crpg.ebb.network.quest.QuestTreePayload;
 import com.crpg.ebb.client.interaction.ClientBlockGroupIndex;
@@ -65,6 +73,21 @@ public final class ClientInteractionNetworking {
         );
         ClientPlayNetworking.registerGlobalReceiver(EntityTargetSyncPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> ClientEntityTargetIndex.rebuild(payload.targets()))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(LlmChatOpenedPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> context.client().setScreen(new NpcChatScreen(payload)))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(LlmChatChunkPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> applyLlmChunk(context.client(), payload))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(LlmChatOptionsPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> applyLlmOptions(context.client(), payload))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(LlmChatErrorPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> applyLlmError(context.client(), payload))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(LlmChatClosePayload.TYPE, (payload, context) ->
+                context.client().execute(() -> closeLlmChat(context.client(), payload))
         );
         ClientPlayConnectionEvents.INIT.register((handler, client) -> clearSyncedInteractionData(client, true));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clearSyncedInteractionData(client, false));
@@ -130,6 +153,25 @@ public final class ClientInteractionNetworking {
         }
     }
 
+    public static boolean sendLlmChatMessage(UUID conversationId, long nonce, String message) {
+        if (ClientPlayNetworking.canSend(LlmChatMessagePayload.TYPE)) {
+            ClientPlayNetworking.send(new LlmChatMessagePayload(conversationId, nonce, message));
+            return true;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            minecraft.player.sendOverlayMessage(Component.translatable("message.ebb.llm_chat_network_unavailable"));
+        }
+        EbbMod.LOGGER.warn("Cannot send LLM chat message payload; server does not advertise {}", LlmChatMessagePayload.TYPE.id());
+        return false;
+    }
+
+    public static void sendLlmChatCancel(UUID conversationId, String reason) {
+        if (ClientPlayNetworking.canSend(LlmChatCancelPayload.TYPE)) {
+            ClientPlayNetworking.send(new LlmChatCancelPayload(conversationId, reason));
+        }
+    }
+
     private static void showDenied(Minecraft minecraft, InteractionDeniedPayload payload) {
         if (minecraft.player == null) {
             return;
@@ -167,6 +209,41 @@ public final class ClientInteractionNetworking {
         }
         if (minecraft.player != null) {
             minecraft.player.sendOverlayMessage(Component.translatable("message.ebb.dialogue_closed", payload.reason()));
+        }
+    }
+    private static void applyLlmChunk(Minecraft minecraft, LlmChatChunkPayload payload) {
+        if (minecraft.screen instanceof NpcChatScreen screen
+                && screen.conversationId().equals(payload.conversationId())) {
+            screen.appendChunk(payload);
+            return;
+        }
+        if (minecraft.player != null) {
+            minecraft.player.sendOverlayMessage(Component.literal(payload.content()));
+        }
+    }
+
+    private static void applyLlmOptions(Minecraft minecraft, LlmChatOptionsPayload payload) {
+        if (minecraft.screen instanceof NpcChatScreen screen
+                && screen.conversationId().equals(payload.conversationId())) {
+            screen.setSuggestedOptions(payload.options());
+        }
+    }
+
+    private static void applyLlmError(Minecraft minecraft, LlmChatErrorPayload payload) {
+        if (minecraft.screen instanceof NpcChatScreen screen
+                && screen.conversationId().equals(payload.conversationId())) {
+            screen.applyError(payload.reason());
+            return;
+        }
+        if (minecraft.player != null) {
+            minecraft.player.sendOverlayMessage(Component.translatable("message.ebb.llm_chat_error", payload.reason()));
+        }
+    }
+
+    private static void closeLlmChat(Minecraft minecraft, LlmChatClosePayload payload) {
+        if (minecraft.screen instanceof NpcChatScreen screen
+                && screen.conversationId().equals(payload.conversationId())) {
+            screen.closeFromServer(payload.reason());
         }
     }
 }

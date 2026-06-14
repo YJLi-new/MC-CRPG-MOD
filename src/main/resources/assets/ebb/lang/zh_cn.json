@@ -37,5 +37,16 @@
   "screen.ebb.menu.status.ready": "再次按 K 或点击完成关闭。",
   "screen.ebb.menu.status.font_changed": "对话字体大小已更新。",
   "screen.ebb.menu.status.speed_changed": "对话文字速度已更新。",
-  "screen.ebb.menu.status.no_player": "当前没有可用的本地玩家连接。"
+  "screen.ebb.menu.status.no_player": "当前没有可用的本地玩家连接。",
+  "screen.ebb.llm_chat.title": "NPC 自由交谈",
+  "screen.ebb.llm_chat.heading": "自由交谈：%s",
+  "screen.ebb.llm_chat.topic": "话题：%s",
+  "screen.ebb.llm_chat.input": "消息",
+  "screen.ebb.llm_chat.input_hint": "输入一句话……",
+  "screen.ebb.llm_chat.send": "发送",
+  "screen.ebb.llm_chat.waiting": "等待 NPC 回复……",
+  "screen.ebb.llm_chat.error": "自由交谈错误：%s",
+  "message.ebb.llm_chat_network_unavailable": "当前服务器未开放自由交谈通道。",
+  "message.ebb.llm_chat_error": "自由交谈错误：%s",
+  "message.ebb.llm_chat_closed": "自由交谈关闭：%s"
 }

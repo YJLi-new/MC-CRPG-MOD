@@ -1384,3 +1384,30 @@
 - Read `E:\MC\PCL\PLAN.md` completely.
 - PLAN defines P34-P43 for server-authoritative LLM NPC free chat, major/minor NPC tiers, long-term memory/facts/conflicts, NPC profiles/knowledge, gateway auth/OpenAI integration, memory safety, dev tools, docs, schemas, static audits, and GUI E2E.
 - Implementation strategy for the first incremental phase: do P34 only first, with disabled/fake provider, no OpenAI/network calls, no secrets, payload/UI skeleton, `/ebb llm status`, and automated guardrails.
+
+### Phase 34 / PLAN.md P34 LLM fake-provider foundation completion
+- **Status:** complete.
+- **Time:** 2026-06-15 Asia/Shanghai.
+- Implemented disabled/fake server-side LLM config (`config/ebb-llm-server.json` safe fields only), `LlmGatewayClient`, deterministic `FakeLlmGatewayClient`, `DisabledLlmGatewayClient`, chat request/response/session records, and `LlmChatService` with owner/nonce/session-timeout validation.
+- Added LLM chat payloads (`opened`, `message`, `chunk`, `options`, `close`, `cancel`, `error`) and registered server/client networking without OpenAI/API secret fields.
+- Added client `NpcChatScreen` skeleton with live in-world background, input box, suggested options, status/error handling, cancel/close behavior, and translations.
+- Added `ChoiceType.LLM_CHAT` with `free_chat` alias, `llm` choice settings, dialogue-service LLM chat interception before d20 resolution, and a sample innkeeper free-chat choice.
+- Added `/ebb llm status` plus OP `/ebb llm reload_config`.
+- Added P34 authoring docs, dialogue schema entries, current-status notes, static audit guardrails, JUnit coverage, and GameTest coverage.
+- Validation:
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `python3 -m py_compile scripts/goal_static_audit.py` → passed.
+  - `python3 scripts/goal_static_audit.py` → passed including P34 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed including P34 static/smoke checks.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 7 required GameTests passed.
+  - `git diff --check` → passed.
+- Artifact hashes:
+  - build jar: `1f502a7eadb65cfe2520c7e857b4ee29b842dd786a48d4956c9697b1ac5f157d`.
+  - sources jar: `87cadd087bb5403b25b2bc35cc30ce1077cd75daf0c2ec289f5c10ce5564a3c1`.
+- Review notes:
+  - P34 intentionally does not make real OpenAI/gateway calls; gateway/OAuth/OpenAI remain P36/P37.
+  - Debug entity fallback remains disabled; free chat is only reachable through scripted `llm_chat` choices on registered targets.
+- Next:
+  - Start PLAN.md P35: NPC Profile / Tier / Promotion data layer.

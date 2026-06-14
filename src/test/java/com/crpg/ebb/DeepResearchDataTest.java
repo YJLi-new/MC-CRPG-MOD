@@ -9,6 +9,7 @@ import com.crpg.ebb.conflict.ConflictService;
 import com.crpg.ebb.dialogue.DialogueDefinition;
 import com.crpg.ebb.dialogue.DialogueEffect;
 import com.crpg.ebb.dialogue.DialogueNodeType;
+import com.crpg.ebb.dialogue.ChoiceType;
 import com.crpg.ebb.dialogue.DialogueRegistry;
 import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.dialogue.DialogueSession;
@@ -21,6 +22,14 @@ import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.investigation.InvestigationRegistry;
 import com.crpg.ebb.journal.JournalEntryRegistry;
 import com.crpg.ebb.journal.JournalService;
+import com.crpg.ebb.llm.DisabledLlmGatewayClient;
+import com.crpg.ebb.llm.FakeLlmGatewayClient;
+import com.crpg.ebb.llm.LlmChatRequest;
+import com.crpg.ebb.llm.LlmChatResponse;
+import com.crpg.ebb.llm.LlmChatService;
+import com.crpg.ebb.llm.LlmChatSession;
+import com.crpg.ebb.llm.LlmConfig;
+import com.crpg.ebb.llm.LlmMode;
 import com.crpg.ebb.network.dialogue.RollResultPayload;
 import com.crpg.ebb.network.dialogue.VisibleDialogueChoice;
 import com.crpg.ebb.quest.QuestBranchRegistry;
@@ -49,6 +58,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -762,6 +772,8 @@ final class DeepResearchDataTest {
         requireCommandPath(ebb, "quest", "tree");
         requireCommandPath(ebb, "dialogue", "vars");
         requireCommandPath(ebb, "vars");
+        requireCommandPath(ebb, "llm");
+        requireCommandPath(ebb, "llm", "status");
 
         Path bundled = Path.of("src/main/resources/data/ebb");
         DialogueRegistry.rebuild(load(bundled.resolve("dialogues")));
@@ -969,6 +981,98 @@ final class DeepResearchDataTest {
                 """).getAsJsonObject();
         assertTrue(NpcRoutineDefinition.parse(Identifier.parse("ebb:test/teleport_routine"), invalidTeleport, teleportMessages).isEmpty());
         assertTrue(teleportMessages.stream().anyMatch(message -> message.contains("teleport_distance must be > 0")), teleportMessages::toString);
+    }
+
+
+    @Test
+    void p34LlmConfigFakeProviderAndChoiceParsingAreDeterministic() throws Exception {
+        LlmConfig disabled = LlmConfig.disabled();
+        assertFalse(disabled.active(), "default LLM config must be disabled");
+        assertFalse(disabled.networkAccessAllowed(), "disabled mode must not allow network access");
+
+        LlmConfig fake = LlmConfig.parse(JsonParser.parseString("""
+                {"enabled":true,"mode":"fake","max_input_chars":128,"session_timeout_ticks":40,"fake_reply":"FAKE_NPC_REPLY"}
+                """).getAsJsonObject());
+        assertTrue(fake.fakeMode());
+        assertFalse(fake.networkAccessAllowed(), "fake mode must not access network");
+        assertTrue(fake.summary().contains("network=blocked"), fake.summary());
+
+        LlmChatResponse response = new FakeLlmGatewayClient(fake).sendMessage(new LlmChatRequest(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                Optional.empty(),
+                Identifier.parse("ebb:test/llm"),
+                "start",
+                "ebb:demo/innkeeper",
+                "innkeeper",
+                "ledger",
+                "hello there",
+                42L
+        )).get();
+        assertTrue(response.reply().contains("FAKE_NPC_REPLY"), response.reply());
+        assertTrue(response.reply().contains("innkeeper"), response.reply());
+        assertEquals("fake_reply", response.status());
+        assertFalse(response.citationIds().isEmpty(), "fake provider should expose deterministic citation ids for dev UI");
+
+        assertEquals(ChoiceType.LLM_CHAT, ChoiceType.parse("llm_chat").orElseThrow());
+        assertEquals(ChoiceType.LLM_CHAT, ChoiceType.parse("free_chat").orElseThrow());
+        JsonObject dialogue = JsonParser.parseString("""
+                {"start":"start","nodes":{"start":{"speaker":"innkeeper","text":"x","choices":[
+                  {"id":"chat","type":"free_chat","text":"chat","llm":{"npc":"ebb:demo/innkeeper","topic_hint":"rumors","return_node":"start"}}
+                ]}}}
+                """).getAsJsonObject();
+        DialogueDefinition definition = DialogueDefinition.parse(Identifier.parse("ebb:test/llm_choice"), dialogue, new java.util.ArrayList<>()).orElseThrow();
+        var choice = definition.node("start").orElseThrow().choice("chat").orElseThrow();
+        assertEquals(ChoiceType.LLM_CHAT, choice.type());
+        assertEquals("ebb:demo/innkeeper", choice.llmSettings().npc().orElseThrow());
+        assertEquals("rumors", choice.llmSettings().topicHint().orElseThrow());
+    }
+
+    @Test
+    void p34LlmDisabledModeTimeoutAndCommandsAreAuditable() throws Exception {
+        try {
+            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", 128, 256, 20, 10, "FAKE_NPC_REPLY"));
+            LlmChatService.setClientForTesting(new FakeLlmGatewayClient(LlmConfig.current()));
+            UUID conversation = UUID.randomUUID();
+            UUID player = UUID.randomUUID();
+            LlmChatSession session = new LlmChatSession(
+                    conversation,
+                    player,
+                    Identifier.parse("ebb:test/llm"),
+                    Identifier.parse("ebb:test/target"),
+                    InteractionTargetType.BLOCK_GROUP,
+                    Optional.empty(),
+                    "start",
+                    "start",
+                    "ebb:demo/innkeeper",
+                    "innkeeper",
+                    "rumors",
+                    0L,
+                    0L,
+                    false,
+                    0L
+            );
+            LlmChatService.addSessionForTesting(session);
+            assertEquals(1, LlmChatService.activeSessionCount());
+            assertEquals(1, LlmChatService.closeExpiredSessionsForTesting(100L), "expired fake LLM chat session should close");
+            assertEquals(0, LlmChatService.activeSessionCount());
+
+            LlmChatResponse disabled = new DisabledLlmGatewayClient().sendMessage(new LlmChatRequest(
+                    UUID.randomUUID(), player, Optional.empty(), Identifier.parse("ebb:test/llm"), "start",
+                    "npc", "npc", "", "hello", 0L
+            )).get();
+            assertEquals(Optional.of("llm_disabled"), disabled.errorReason(), "disabled mode should surface explicit llm_disabled");
+
+            CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+            Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+            register.setAccessible(true);
+            register.invoke(null, dispatcher);
+            CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+            requireCommandPath(ebb, "llm");
+            requireCommandPath(ebb, "llm", "status");
+        } finally {
+            LlmChatService.clearTestingOverrides();
+        }
     }
 
     private static DialogueEffect parseEffect(String json) {

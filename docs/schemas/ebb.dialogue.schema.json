@@ -3,83 +3,286 @@
   "$id": "https://example.local/ebb/dialogue.schema.json",
   "title": "Ebb Dialogue",
   "type": "object",
-  "required": ["start", "nodes"],
+  "required": [
+    "start",
+    "nodes"
+  ],
   "properties": {
-    "id": { "type": "string" },
-    "version": { "type": "integer", "minimum": 1 },
-    "start": { "type": "string", "minLength": 1 },
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "start": {
+      "type": "string",
+      "minLength": 1
+    },
     "nodes": {
       "type": "object",
       "minProperties": 1,
-      "additionalProperties": { "$ref": "#/$defs/node" }
+      "additionalProperties": {
+        "$ref": "#/$defs/node"
+      }
     }
   },
   "$defs": {
     "node": {
       "type": "object",
-      "anyOf": [ { "required": ["text"] }, { "required": ["text_key"] } ],
+      "anyOf": [
+        {
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "required": [
+            "text_key"
+          ]
+        }
+      ],
       "properties": {
-        "type": { "enum": ["line", "choice", "effect", "terminal"] },
-        "speaker": { "type": "string" },
-        "text": { "type": "string" },
-        "text_key": { "type": "string" },
-        "next": { "type": "string" },
-        "chime_tags": { "type": "array", "items": { "type": "string" } },
-        "enter_effects": { "$ref": "#/$defs/effects" },
-        "effects": { "$ref": "#/$defs/effects" },
-        "choices": { "type": "array", "items": { "$ref": "#/$defs/choice" } }
+        "type": {
+          "enum": [
+            "line",
+            "choice",
+            "effect",
+            "terminal"
+          ]
+        },
+        "speaker": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "text_key": {
+          "type": "string"
+        },
+        "next": {
+          "type": "string"
+        },
+        "chime_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enter_effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/choice"
+          }
+        }
       }
     },
     "choice": {
       "type": "object",
-      "required": ["id"],
-      "anyOf": [ { "required": ["text"] }, { "required": ["text_key"] } ],
+      "required": [
+        "id"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "required": [
+            "text_key"
+          ]
+        }
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "type": { "enum": ["dialogue", "action", "thought"] },
-        "kind": { "enum": ["dialogue", "action", "thought", "DIALOGUE", "ACTION", "THOUGHT"] },
-        "text": { "type": "string" },
-        "text_key": { "type": "string" },
-        "next": { "type": "string" },
-        "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
-        "pre_effects": { "$ref": "#/$defs/effects" },
-        "effects": { "$ref": "#/$defs/effects" },
-        "end_on_success": { "type": "boolean" },
-        "endOnSuccess": { "type": "boolean" },
-        "revalidate_target": { "type": "boolean" },
-        "check": { "$ref": "#/$defs/check" },
-        "roll": { "$ref": "#/$defs/check" }
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "dialogue",
+            "action",
+            "thought",
+            "llm_chat",
+            "free_chat"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "dialogue",
+            "action",
+            "thought",
+            "llm_chat",
+            "free_chat",
+            "DIALOGUE",
+            "ACTION",
+            "THOUGHT",
+            "LLM_CHAT",
+            "FREE_CHAT"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "text_key": {
+          "type": "string"
+        },
+        "next": {
+          "type": "string"
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition"
+          }
+        },
+        "pre_effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "end_on_success": {
+          "type": "boolean"
+        },
+        "endOnSuccess": {
+          "type": "boolean"
+        },
+        "revalidate_target": {
+          "type": "boolean"
+        },
+        "check": {
+          "$ref": "#/$defs/check"
+        },
+        "roll": {
+          "$ref": "#/$defs/check"
+        },
+        "llm": {
+          "$ref": "#/$defs/llm_choice"
+        }
       }
     },
     "check": {
       "type": "object",
-      "required": ["attribute", "dc"],
+      "required": [
+        "attribute",
+        "dc"
+      ],
       "properties": {
-        "attribute": { "type": "string" },
-        "ability": { "type": "string" },
-        "dc": { "type": "integer", "minimum": 1 },
-        "die": { "const": "d20" },
-        "mode": { "enum": ["normal", "retryable", "one_shot", "NORMAL", "RETRYABLE", "ONE_SHOT"] },
-        "advantage": { "type": "boolean" },
-        "disadvantage": { "type": "boolean" },
-        "modifier": { "type": "integer" },
-        "static_modifier": { "type": "integer" },
-        "success": { "type": "string" },
-        "failure": { "type": "string" },
-        "critical_success": { "type": "string" },
-        "critical_failure": { "type": "string" },
-        "hidden_dc": { "type": "boolean" },
-        "hidden_roll": { "type": "boolean" },
-        "show_dc": { "type": "boolean" },
-        "show_roll": { "type": "boolean" },
-        "success_effects": { "$ref": "#/$defs/effects" },
-        "failure_effects": { "$ref": "#/$defs/effects" },
-        "critical_success_effects": { "$ref": "#/$defs/effects" },
-        "critical_failure_effects": { "$ref": "#/$defs/effects" }
+        "attribute": {
+          "type": "string"
+        },
+        "ability": {
+          "type": "string"
+        },
+        "dc": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "die": {
+          "const": "d20"
+        },
+        "mode": {
+          "enum": [
+            "normal",
+            "retryable",
+            "one_shot",
+            "NORMAL",
+            "RETRYABLE",
+            "ONE_SHOT"
+          ]
+        },
+        "advantage": {
+          "type": "boolean"
+        },
+        "disadvantage": {
+          "type": "boolean"
+        },
+        "modifier": {
+          "type": "integer"
+        },
+        "static_modifier": {
+          "type": "integer"
+        },
+        "success": {
+          "type": "string"
+        },
+        "failure": {
+          "type": "string"
+        },
+        "critical_success": {
+          "type": "string"
+        },
+        "critical_failure": {
+          "type": "string"
+        },
+        "hidden_dc": {
+          "type": "boolean"
+        },
+        "hidden_roll": {
+          "type": "boolean"
+        },
+        "show_dc": {
+          "type": "boolean"
+        },
+        "show_roll": {
+          "type": "boolean"
+        },
+        "success_effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "failure_effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "critical_success_effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "critical_failure_effects": {
+          "$ref": "#/$defs/effects"
+        }
       }
     },
-    "condition": { "type": "object", "required": ["type"] },
-    "effect": { "type": "object" },
-    "effects": { "type": "array", "items": { "$ref": "#/$defs/effect" } }
+    "condition": {
+      "type": "object",
+      "required": [
+        "type"
+      ]
+    },
+    "effect": {
+      "type": "object"
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect"
+      }
+    },
+    "llm_choice": {
+      "type": "object",
+      "properties": {
+        "npc": {
+          "type": "string"
+        },
+        "topic_hint": {
+          "type": "string"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "return_node": {
+          "type": "string"
+        },
+        "allow_memory_write": {
+          "type": "boolean"
+        }
+      }
+    }
   }
 }

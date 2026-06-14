@@ -5,6 +5,7 @@ import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.interaction.InteractionService;
 import com.crpg.ebb.interaction.InteractionTarget;
 import com.crpg.ebb.interaction.InteractionValidationResult;
+import com.crpg.ebb.llm.LlmChatService;
 import com.crpg.ebb.network.dialogue.ChooseDialogueOptionPayload;
 import com.crpg.ebb.network.dialogue.CloseDialogueRequestPayload;
 import com.crpg.ebb.network.dialogue.DialogueClosePayload;
@@ -15,6 +16,13 @@ import com.crpg.ebb.network.quest.QuestTreePayload;
 import com.crpg.ebb.network.sync.BlockGroupSyncPayload;
 import com.crpg.ebb.network.sync.EntityBindingSyncPayload;
 import com.crpg.ebb.network.sync.EntityTargetSyncPayload;
+import com.crpg.ebb.network.llm.LlmChatCancelPayload;
+import com.crpg.ebb.network.llm.LlmChatChunkPayload;
+import com.crpg.ebb.network.llm.LlmChatClosePayload;
+import com.crpg.ebb.network.llm.LlmChatErrorPayload;
+import com.crpg.ebb.network.llm.LlmChatMessagePayload;
+import com.crpg.ebb.network.llm.LlmChatOpenedPayload;
+import com.crpg.ebb.network.llm.LlmChatOptionsPayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
@@ -42,6 +50,13 @@ public final class ModPackets {
         PayloadTypeRegistry.clientboundPlay().register(BlockGroupSyncPayload.TYPE, BlockGroupSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EntityBindingSyncPayload.TYPE, EntityBindingSyncPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EntityTargetSyncPayload.TYPE, EntityTargetSyncPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(LlmChatOpenedPayload.TYPE, LlmChatOpenedPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(LlmChatMessagePayload.TYPE, LlmChatMessagePayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(LlmChatChunkPayload.TYPE, LlmChatChunkPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(LlmChatOptionsPayload.TYPE, LlmChatOptionsPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(LlmChatClosePayload.TYPE, LlmChatClosePayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(LlmChatCancelPayload.TYPE, LlmChatCancelPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(LlmChatErrorPayload.TYPE, LlmChatErrorPayload.CODEC);
     }
 
     private static void registerServerReceivers() {
@@ -53,6 +68,12 @@ public final class ModPackets {
         );
         ServerPlayNetworking.registerGlobalReceiver(CloseDialogueRequestPayload.TYPE, (payload, context) ->
                 context.server().executeIfPossible(() -> DialogueService.closeFromClient(context.player(), payload))
+        );
+        ServerPlayNetworking.registerGlobalReceiver(LlmChatMessagePayload.TYPE, (payload, context) ->
+                context.server().executeIfPossible(() -> LlmChatService.handleMessage(context.player(), payload, context.responseSender()))
+        );
+        ServerPlayNetworking.registerGlobalReceiver(LlmChatCancelPayload.TYPE, (payload, context) ->
+                context.server().executeIfPossible(() -> LlmChatService.closeFromClient(context.player(), payload))
         );
     }
 

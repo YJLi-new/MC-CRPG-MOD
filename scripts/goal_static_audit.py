@@ -996,6 +996,84 @@ def audit_p33_codebase_review_remediation() -> None:
         "p33RaycastBlockGroupAndRoutineHardeningRegressions",
     )
 
+
+
+def audit_p34_llm_fake_provider_foundation() -> None:
+    for path in [
+        "src/main/java/com/crpg/ebb/llm/LlmConfig.java",
+        "src/main/java/com/crpg/ebb/llm/LlmGatewayClient.java",
+        "src/main/java/com/crpg/ebb/llm/FakeLlmGatewayClient.java",
+        "src/main/java/com/crpg/ebb/llm/DisabledLlmGatewayClient.java",
+        "src/main/java/com/crpg/ebb/llm/LlmChatService.java",
+        "src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmChatOpenedPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmChatMessagePayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmChatChunkPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmChatOptionsPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmChatClosePayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmChatCancelPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmChatErrorPayload.java",
+    ]:
+        exists(path)
+
+    config = read("src/main/java/com/crpg/ebb/llm/LlmConfig.java")
+    require("P34 LLM config", config, "SERVER_CONFIG_PATH", "enabled", "mode", "networkAccessAllowed", "DEFAULT_FAKE_REPLY", "toSafeJson")
+    require("P34 LLM config defaults", config, "disabled()", "DEFAULT_MAX_INPUT_CHARS", "DEFAULT_SESSION_TIMEOUT_TICKS", "fakeForTesting")
+    if any(secret in config.lower() for secret in ["api_key", "apikey", "authorization", "bearer"]):
+        raise AssertionError("P34 LlmConfig must not read or expose API key/Authorization/Bearer secrets")
+
+    fake = read("src/main/java/com/crpg/ebb/llm/FakeLlmGatewayClient.java")
+    require("P34 fake provider", fake, "FAKE_NPC_REPLY", "CompletableFuture.completedFuture", "fake_reply", "fake:profile")
+    if "java.net" in fake or "HttpClient" in fake or "openai" in fake.lower():
+        raise AssertionError("P34 fake provider must not access network or OpenAI")
+
+    disabled = read("src/main/java/com/crpg/ebb/llm/DisabledLlmGatewayClient.java")
+    require("P34 disabled provider", disabled, "llm_disabled", "providerName()", "disabled")
+
+    service = read("src/main/java/com/crpg/ebb/llm/LlmChatService.java")
+    require("P34 chat service", service, "openFromDialogue", "handleMessage", "closeExpiredSessionsForTesting", "validateMessagePacket", "llm_disabled", "llm_session_timeout", "InteractionService.validateSessionTarget", "nonce")
+
+    dialogue_choice = read("src/main/java/com/crpg/ebb/dialogue/DialogueChoice.java")
+    require("P34 dialogue llm settings", dialogue_choice, "LlmChoiceSettings", "llmSettings", "expected dialogue/action/thought/llm_chat/free_chat")
+    choice_type = read("src/main/java/com/crpg/ebb/dialogue/ChoiceType.java")
+    require("P34 choice type", choice_type, "LLM_CHAT", "FREE_CHAT", "serializedName")
+    dialogue_service = read("src/main/java/com/crpg/ebb/dialogue/DialogueService.java")
+    require("P34 dialogue integration", dialogue_service, "ChoiceType.LLM_CHAT", "LlmChatService.openFromDialogue", "remove(session)")
+
+    packets = read("src/main/java/com/crpg/ebb/network/ModPackets.java")
+    require("P34 packet registration", packets, "LlmChatOpenedPayload.TYPE", "LlmChatMessagePayload.TYPE", "LlmChatChunkPayload.TYPE", "LlmChatOptionsPayload.TYPE", "LlmChatClosePayload.TYPE", "LlmChatCancelPayload.TYPE", "LlmChatErrorPayload.TYPE", "LlmChatService.handleMessage", "LlmChatService.closeFromClient")
+
+    client_net = read("src/client/java/com/crpg/ebb/client/network/ClientInteractionNetworking.java")
+    require("P34 client networking", client_net, "NpcChatScreen", "sendLlmChatMessage", "sendLlmChatCancel", "applyLlmChunk", "applyLlmOptions", "applyLlmError", "closeLlmChat")
+    screen = read("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java")
+    require("P34 NpcChatScreen", screen, "EditBox", "sendCurrentInput", "suggestedOptions", "appendChunk", "applyError", "isPauseScreen()")
+
+    commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
+    require("P34 llm command", commands, "Commands.literal(\"llm\")", "sendLlmStatus", "reloadLlmConfig", "LlmChatService.statusLine")
+
+    innkeeper = read("src/main/resources/data/ebb/dialogues/demo/innkeeper_intro.json")
+    require("P34 demo free chat", innkeeper, '"type": "llm_chat"', '"topic_hint"', '"allow_memory_write"')
+    schema = read("docs/schemas/ebb.dialogue.schema.json")
+    require("P34 schema", schema, "llm_chat", "free_chat", "llm_choice", "topic_hint", "return_node")
+    docs = read("docs/json_authoring_guide.md")
+    require("P34 authoring docs", docs, "P34 LLM / Free Chat Foundation", "/ebb llm status", "llm_disabled", "FAKE_NPC_REPLY")
+    status = read("docs/current_status.md")
+    require("P34 current status", status, "Phase 34 LLM fake-provider foundation", "LlmConfig", "NpcChatScreen", "llm_disabled")
+
+    test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
+    require("P34 JUnit coverage", test, "p34LlmConfigFakeProviderAndChoiceParsingAreDeterministic", "p34LlmDisabledModeTimeoutAndCommandsAreAuditable", "llm_disabled")
+    gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
+    require("P34 GameTest coverage", gametest, "llmFakeDisabledAndTimeoutFoundationIsDeterministic", "FAKE_NPC_REPLY", "llm_disabled", "closeExpiredSessionsForTesting")
+
+    for rel in ["src/main/java/com/crpg/ebb/llm", "src/main/java/com/crpg/ebb/network/llm"]:
+        for path in (ROOT / rel).rglob("*.java"):
+            text = path.read_text(encoding="utf-8")
+            lowered = text.lower()
+            if any(secret in lowered for secret in ["api_key", "apikey", "authorization: bearer", "sk-"]):
+                raise AssertionError(f"P34 secret-like literal in {path.relative_to(ROOT)}")
+            if path.name in {"LlmConfig.java", "FakeLlmGatewayClient.java", "DisabledLlmGatewayClient.java"} and ("HttpClient" in text or "java.net.http" in text):
+                raise AssertionError(f"P34 disabled/fake config/provider must not use HTTP client: {path.relative_to(ROOT)}")
+
 def main() -> int:
     audit_p20_p21_documentation_and_baseline()
     audit_p22_interaction_highlight_polish()
@@ -1010,6 +1088,7 @@ def main() -> int:
     audit_p31_release_packaging_player_documentation()
     audit_p32_k_menu_and_live_dialogue_background()
     audit_p33_codebase_review_remediation()
+    audit_p34_llm_fake_provider_foundation()
 
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")
@@ -1220,7 +1299,7 @@ def main() -> int:
     require("Authoring docs P8", docs, "Playable Tavern Vertical Slice Content Map", "eight block-group investigation points", "back door / ending placeholder")
     require("P8 completion audit", read("docs/goal_p8_vertical_slice_2026-06-01.md"), "four role NPCs", "eight interactable investigation points", "Ending placeholders")
 
-    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
+    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
     return 0
 
 

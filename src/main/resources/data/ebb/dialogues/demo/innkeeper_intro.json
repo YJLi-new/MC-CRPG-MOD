@@ -36,6 +36,17 @@
           "next": "expression"
         },
         {
+          "id": "free_chat",
+          "type": "llm_chat",
+          "text": "我们随便聊聊。",
+          "llm": {
+            "npc": "ebb:demo/innkeeper",
+            "topic_hint": "tavern rumors, the locked door, and recent guests",
+            "return_node": "start",
+            "allow_memory_write": true
+          }
+        },
+        {
           "id": "push",
           "type": "action",
           "text": "逼问他交出钥匙",

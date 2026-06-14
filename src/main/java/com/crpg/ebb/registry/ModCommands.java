@@ -17,6 +17,8 @@ import com.crpg.ebb.interaction.InteractionValidationResult;
 import com.crpg.ebb.interaction.entity.EntityBindingDefinition;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.journal.JournalService;
+import com.crpg.ebb.llm.LlmChatService;
+import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.network.dev.DevSnapshotPayload;
 import com.crpg.ebb.network.journal.JournalPayload;
 import com.crpg.ebb.network.quest.QuestTreePayload;
@@ -91,6 +93,13 @@ public final class ModCommands {
                         .executes(context -> sendStatus(context.getSource())))
                 .then(Commands.literal("data")
                         .executes(context -> sendDataSummary(context.getSource())))
+                .then(Commands.literal("llm")
+                        .executes(context -> sendLlmStatus(context.getSource()))
+                        .then(Commands.literal("status")
+                                .executes(context -> sendLlmStatus(context.getSource())))
+                        .then(Commands.literal("reload_config")
+                                .requires(EbbCommandPermissionGuards.dev())
+                                .executes(context -> reloadLlmConfig(context.getSource()))))
                 .then(createAttributesCommand("attributes"))
                 .then(createAttributesCommand("attr"))
                 .then(Commands.literal("dev")
@@ -204,6 +213,19 @@ public final class ModCommands {
         String summary = NarrativeDataRegistries.summaryLine();
         source.sendSuccess(() -> Component.literal(summary), false);
         return NarrativeDataRegistries.totalEntryCount();
+    }
+
+    private static int sendLlmStatus(CommandSourceStack source) {
+        source.sendSuccess(() -> Component.literal(LlmChatService.statusLine()), false);
+        source.sendSuccess(() -> Component.literal("Config path: " + LlmConfig.SERVER_CONFIG_PATH
+                + " (safe fields only; no API keys or player tokens are read by the mod jar)"), false);
+        return LlmChatService.activeSessionCount();
+    }
+
+    private static int reloadLlmConfig(CommandSourceStack source) {
+        LlmConfig.reload();
+        source.sendSuccess(() -> Component.literal("Reloaded Ebb LLM server config. " + LlmChatService.statusLine()), true);
+        return 1;
     }
 
     private static int showAttributes(CommandSourceStack source) {

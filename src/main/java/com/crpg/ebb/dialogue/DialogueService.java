@@ -8,6 +8,7 @@ import com.crpg.ebb.interaction.EntityTarget;
 import com.crpg.ebb.interaction.InteractionService;
 import com.crpg.ebb.interaction.InteractionTarget;
 import com.crpg.ebb.interaction.InteractionValidationResult;
+import com.crpg.ebb.llm.LlmChatService;
 import com.crpg.ebb.network.InteractionDeniedPayload;
 import com.crpg.ebb.network.OpenDialoguePayload;
 import com.crpg.ebb.network.dialogue.ChooseDialogueOptionPayload;
@@ -164,6 +165,23 @@ public final class DialogueService {
             sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), retryLockStatus, currentDayTime(player));
             return;
         }
+        if (choice.get().type() == ChoiceType.LLM_CHAT) {
+            LlmChatService.OpenResult result = LlmChatService.openFromDialogue(player, session, definition.get(), node.get(), choice.get(), responseSender);
+            if (!result.opened()) {
+                DialogueSession touched = session.touch(gameTime);
+                SESSIONS.put(touched.conversationId(), touched);
+                sendUpdate(responseSender, touched, definition.get(), node.get(), state, Optional.empty(), Optional.of(result.status()), currentDayTime(player));
+                return;
+            }
+            Optional<String> preEffectStatus = applyEffects(choice.get().effects(), state, player, session);
+            preEffectStatus.ifPresent(status -> EbbMod.LOGGER.debug("Applied LLM chat choice pre-effects for {}: {}", choice.get().id(), status));
+            if (choice.get().singleUse()) {
+                state.setPlayerFlag(player.getUUID(), singleUseFlag(session.dialogueId(), choice.get().id()), true);
+            }
+            remove(session);
+            return;
+        }
+
         if (choice.get().type() == ChoiceType.ACTION && choice.get().revalidateTarget()) {
             InteractionValidationResult validation = InteractionService.validateSessionTarget(player, session);
             if (!validation.allowed()) {

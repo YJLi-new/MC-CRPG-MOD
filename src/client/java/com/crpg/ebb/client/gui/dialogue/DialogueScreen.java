@@ -401,6 +401,7 @@ public final class DialogueScreen extends Screen {
         if (status.startsWith("relation_")) return "关系变化： " + status;
         if (status.startsWith("npc_state_")) return "NPC记忆： " + status;
         if (status.startsWith("npc_routine_")) return "NPC行动： " + status;
+        if (status.startsWith("llm_")) return "自由交谈： " + status;
         if (status.startsWith("conflict_status:")) return "冲突状态： " + status.substring("conflict_status:".length());
         if (status.startsWith("conflict_started:")) return "冲突开始： " + status.substring("conflict_started:".length());
         if (status.startsWith("conflict_stress:")) return "冲突压力： " + status.substring("conflict_stress:".length());
@@ -418,6 +419,7 @@ public final class DialogueScreen extends Screen {
         if (status.startsWith("take_root:")) return TAKE_ROOT_STATUS_COLOR;
         if (status.startsWith("quest_")) return QUEST_STATUS_COLOR;
         if (status.startsWith("feat_")) return FEAT_STATUS_COLOR;
+        if (status.startsWith("llm_")) return FEAT_STATUS_COLOR;
         if (status.startsWith("relation_") || status.startsWith("npc_state_") || status.startsWith("npc_routine_")
                 || status.startsWith("conflict_") || status.startsWith("scene_phase:")) return RELATION_STATUS_COLOR;
         return STATUS_COLOR;
@@ -540,6 +542,7 @@ public final class DialogueScreen extends Screen {
             case DIALOGUE -> Component.empty().append(Component.literal("\u201c")).append(inner).append(Component.literal("\u201d" + suffix)).withStyle(ChatFormatting.WHITE);
             case ACTION -> Component.empty().append(Component.literal("(")).append(inner).append(Component.literal(")" + suffix)).withStyle(ChatFormatting.GOLD);
             case THOUGHT -> Component.empty().append(Component.literal("\u3010")).append(inner).append(Component.literal("\u3011" + suffix)).withStyle(ChatFormatting.AQUA, ChatFormatting.ITALIC);
+            case LLM_CHAT -> Component.empty().append(Component.literal("<")).append(inner).append(Component.literal(">" + suffix)).withStyle(ChatFormatting.LIGHT_PURPLE);
         };
     }
 
