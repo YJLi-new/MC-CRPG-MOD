@@ -442,3 +442,8 @@ Still needs explicit or implicit confirmation:
 - `RollResultPayload` lives in `network/dialogue` and has only selected die + aggregate modifier. To keep test/source compatibility, add an overloaded old-signature constructor while extending packet serialization with raw rolls and modifier breakdown.
 - Block group indexing currently keeps both groups and lets later duplicates overwrite `byBlock`; the safer deterministic behavior is to skip the later overlapping group and retain the first owner.
 - NPC routines already validate allowed action/pose/animation and apply visible GeckoLib animation strings. Remaining review gaps are empty routine rejection, time overlap detection, positive teleport fallback distance, and role inference for the newer cook/courier demo NPCs.
+
+### PLAN.md P34 intake — 2026-06-15
+- New active objective references `E:\MC\PCL\PLAN.md`, which defines P34 LLM NPC + Memory Foundation on top of the current Fabric 26.1.2 Ebb mod.
+- Initial read confirms scope: server-authoritative, async, disable-able/mockable LLM NPC free chat; NPC tiers with scripted major, minor generatable, promoted major, static non-LLM, disabled; gateway-first auth/LLM architecture; no API secrets in mod jar; memory/knowledge/provenance/conflict systems; OP dev inspection.
+- Need finish reading PLAN.md, map requirements into Phase 34+, and implement incrementally with deterministic fake provider first before any external OpenAI/gateway dependency.

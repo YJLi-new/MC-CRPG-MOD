@@ -1377,3 +1377,10 @@
   - build jar: `7da6e7148c5cabba5b357ee183fddbfc293a227dd4b7c8520491ad85d15df576`.
   - sources jar: `7848b75ada4f5ff3a53922328a86ad8345bbb51e2bdadc0a6da1117a9bce761b`.
 - Note: the separate Windows GUI test profile has not yet been refreshed for this Phase 33 jar because this review remediation did not explicitly request actual client testing; refresh it before GUI/manual testing.
+
+### Phase 34 / PLAN.md LLM NPC + Memory Foundation intake
+- **Status:** started.
+- **Time:** 2026-06-15 Asia/Shanghai.
+- Read `E:\MC\PCL\PLAN.md` completely.
+- PLAN defines P34-P43 for server-authoritative LLM NPC free chat, major/minor NPC tiers, long-term memory/facts/conflicts, NPC profiles/knowledge, gateway auth/OpenAI integration, memory safety, dev tools, docs, schemas, static audits, and GUI E2E.
+- Implementation strategy for the first incremental phase: do P34 only first, with disabled/fake provider, no OpenAI/network calls, no secrets, payload/UI skeleton, `/ebb llm status`, and automated guardrails.

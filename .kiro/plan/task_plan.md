@@ -374,3 +374,14 @@ Phase 33 is complete: `ebb_codebase_review_report_2026-06-03.md` remediation has
 - Re-read this plan and `progress.md` before major implementation decisions.
 - Log discoveries in `findings.md`, especially after file searches or external documentation checks.
 - User's path convention: Windows `E:\MC\SIMMC2_1-21-8\CRPG_MOD`, WSL `/mnt/e/MC/SIMMC2_1-21-8/CRPG_MOD`.
+
+### Phase 34: PLAN.md P34 — LLM / Memory Specs and Fake Provider Foundation
+- [ ] Read `E:\MC\PCL\PLAN.md` end-to-end and map P34-P43 requirements without narrowing scope.
+- [ ] Add server-side LLM config with disabled/fake/gateway modes and no API secrets in jar/resources.
+- [ ] Add fake LLM gateway client, chat request/response/session/service, timeout/cancel/error-safe lifecycle.
+- [ ] Add LLM chat network payloads and client `NpcChatScreen` skeleton.
+- [ ] Add `/ebb llm status` and static audit proving disabled/fake mode does not access network.
+- [ ] Integrate scripted `llm_chat` / `free_chat` choice type without weakening deterministic dialogue authority.
+- [ ] Add tests/GameTest/smoke/static/docs for fake provider, disabled mode, timeout close, and API-key guardrails.
+- [ ] Run build, validateEbbData, smoke checks, GameTest, and diff checks.
+- **Status:** planned
