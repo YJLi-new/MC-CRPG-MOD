@@ -24,6 +24,7 @@ import com.crpg.ebb.journal.JournalEntryRegistry;
 import com.crpg.ebb.journal.JournalService;
 import com.crpg.ebb.llm.DisabledLlmGatewayClient;
 import com.crpg.ebb.llm.FakeLlmGatewayClient;
+import com.crpg.ebb.llm.HttpLlmGatewayClient;
 import com.crpg.ebb.llm.LlmChatRequest;
 import com.crpg.ebb.llm.LlmChatResponse;
 import com.crpg.ebb.llm.LlmChatService;
@@ -32,6 +33,8 @@ import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.LlmMode;
 import com.crpg.ebb.llm.auth.DevLocalLlmAuthClient;
 import com.crpg.ebb.llm.auth.LlmAuthService;
+import com.crpg.ebb.llm.auth.LlmAuthToken;
+import com.crpg.ebb.memory.MemoryGatewayClient;
 import com.crpg.ebb.network.dialogue.RollResultPayload;
 import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
@@ -53,17 +56,22 @@ import net.minecraft.commands.CommandSourceStack;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ClipContext;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.Optional;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1041,7 +1049,7 @@ final class DeepResearchDataTest {
     @Test
     void p34LlmDisabledModeTimeoutAndCommandsAreAuditable() throws Exception {
         try {
-            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS, false, 128, 256, 20, 10, "FAKE_NPC_REPLY"));
+            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS, false, LlmConfig.DEFAULT_CHAT_MODEL, true, true, false, 128, 256, 20, 10, "FAKE_NPC_REPLY"));
             LlmChatService.setClientForTesting(new FakeLlmGatewayClient(LlmConfig.current()));
             UUID conversation = UUID.randomUUID();
             UUID player = UUID.randomUUID();
@@ -1088,12 +1096,157 @@ final class DeepResearchDataTest {
 
 
 
+
+
+    @Test
+    void p38MemoryGatewayClientCommandSurfaceAndFilesAreAuditable() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/memory/search", exchange -> {
+            String response = "{\"status\":\"ok\",\"matches\":[{\"id\":\"memrec_test\",\"citation_id\":\"memory:record:memrec_test\",\"score\":0.9,\"role\":\"player\",\"text\":\"fact:player.favorite=blue\"}],\"citation_ids\":[\"memory:record:memrec_test\"]}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.createContext("/v1/memory/inspect", exchange -> {
+            String response = "{\"type\":\"record\",\"record\":{\"id\":\"memrec_test\"}}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.createContext("/v1/memory/conflicts", exchange -> {
+            String response = "{\"status\":\"ok\",\"count\":1,\"conflicts\":[{\"id\":\"memconf_test\",\"citation_ids\":[\"memory:fact:a\",\"memory:fact:b\"]}]}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.start();
+        try {
+            LlmConfig config = new LlmConfig(true, LlmMode.GATEWAY, "http://127.0.0.1:" + server.getAddress().getPort(), 1500, false,
+                    "gpt-test", true, true, false, 128, 256, 10, 10, "FAKE_NPC_REPLY");
+            MemoryGatewayClient client = new MemoryGatewayClient(config);
+            var search = client.search(UUID.randomUUID(), "favorite blue", 5).get(3, TimeUnit.SECONDS);
+            assertTrue(search.ok(), search.status());
+            assertEquals(List.of("memory:record:memrec_test"), search.citationIds(), "P38 retrieval should expose citation ids");
+            assertTrue(search.lines().getFirst().contains("fact:player.favorite=blue"));
+            assertTrue(client.inspect("memrec_test").get(3, TimeUnit.SECONDS).contains("memrec_test"));
+            assertTrue(client.conflicts(5).get(3, TimeUnit.SECONDS).contains("memconf_test"));
+        } finally {
+            server.stop(0);
+        }
+
+        for (String rel : List.of(
+                "ebb-llm-gateway/src/main/resources/db/migration/V001__memory_store.sql",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryStore.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryRecord.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryFact.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryConflict.java",
+                "src/main/java/com/crpg/ebb/memory/MemoryGatewayClient.java",
+                "scripts/p38_memory_smoke.sh")) {
+            assertTrue(Files.isRegularFile(Path.of(rel)), "P38 file should exist: " + rel);
+        }
+        String gateway = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java"));
+        assertTrue(gateway.contains("/v1/memory/search"));
+        assertTrue(gateway.contains("/v1/memory/inspect"));
+        assertTrue(gateway.contains("/v1/memory/conflicts"));
+        String smoke = Files.readString(Path.of("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java"));
+        assertTrue(smoke.contains("P38 memory smoke passed"));
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+        register.setAccessible(true);
+        register.invoke(null, dispatcher);
+        CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+        requireCommandPath(ebb, "memory", "search", "query");
+        requireCommandPath(ebb, "memory", "inspect", "id");
+        requireCommandPath(ebb, "memory", "conflicts");
+    }
+
+    @Test
+    void p37HttpGatewayClientParsesResponseAndErrorsWithoutHanging() throws Exception {
+        AtomicReference<String> capturedBody = new AtomicReference<>("");
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v1/chat/message", exchange -> {
+            String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            capturedBody.set(body);
+            String response;
+            int status;
+            if (body.contains("force failure")) {
+                status = 502;
+                response = "{\"error\":\"llm_gateway_error\"}";
+            } else {
+                status = 200;
+                response = "{\"conversation_id\":\"c\",\"npc_reply\":\"Gateway hello\",\"suggested_options\":[\"追问\",{\"label\":\"离开\"}],\"citations\":[\"openai:responses:test\"],\"status\":\"openai_responses_streamed_store_false\",\"store\":false}";
+            }
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.start();
+        try {
+            UUID player = UUID.randomUUID();
+            LlmAuthService.grantTokenForTesting(player, new LlmAuthToken("ebb_player_junit_token", List.of("llm:chat"), 9999999999L, "junit"));
+            LlmConfig config = new LlmConfig(true, LlmMode.GATEWAY, "http://127.0.0.1:" + server.getAddress().getPort(), 1500,
+                    true, "gpt-test", true, true, false, 256, 333, 20, 10, "FAKE_NPC_REPLY");
+            HttpLlmGatewayClient client = new HttpLlmGatewayClient(config);
+            LlmChatRequest request = new LlmChatRequest(UUID.randomUUID(), player, Optional.empty(), Identifier.parse("ebb:test/gateway"),
+                    "start", "ebb:demo/innkeeper", "innkeeper", "P37", "hello gateway", 99L);
+            LlmChatResponse response = client.sendMessage(request).get(3, TimeUnit.SECONDS);
+            assertEquals("Gateway hello", response.reply());
+            assertEquals("openai_responses_streamed_store_false", response.status());
+            assertEquals(List.of("追问", "离开"), response.suggestedOptions());
+            assertTrue(capturedBody.get().contains("\"model\":\"gpt-test\""), capturedBody.get());
+            assertTrue(capturedBody.get().contains("\"store\":false"), capturedBody.get());
+            assertTrue(capturedBody.get().contains("ebb_player_junit_token"), "opaque token should be sent only server-to-gateway");
+
+            LlmChatResponse error = client.sendMessage(new LlmChatRequest(UUID.randomUUID(), player, Optional.empty(), Identifier.parse("ebb:test/gateway"),
+                    "start", "ebb:demo/innkeeper", "innkeeper", "P37", "force failure", 100L)).get(3, TimeUnit.SECONDS);
+            assertEquals(Optional.of("llm_gateway_error"), error.errorReason(), "gateway HTTP failures should return an error response instead of hanging UI flow");
+        } finally {
+            server.stop(0);
+            LlmChatService.clearTestingOverrides();
+        }
+    }
+
+    @Test
+    void p37GatewayOpenAiResponsesIntegrationIsAuditable() throws Exception {
+        JsonObject json = JsonParser.parseString("""
+                {"enabled":true,"mode":"gateway","gateway_base_url":"http://127.0.0.1:8787","default_chat_model":"gpt-test","llm_chat_streaming":true,"structured_output":true,"openai_store":false}
+                """).getAsJsonObject();
+        LlmConfig parsed = LlmConfig.parse(json);
+        assertEquals(LlmMode.GATEWAY, parsed.mode());
+        assertTrue(parsed.networkAccessAllowed());
+        assertEquals("gpt-test", parsed.defaultChatModel());
+        assertTrue(parsed.llmChatStreaming());
+        assertTrue(parsed.structuredOutput());
+        assertFalse(parsed.openAiStore(), "P37 privacy default should keep OpenAI store:false unless explicitly configured");
+        assertTrue(parsed.toSafeJson().has("default_chat_model"));
+        assertFalse(parsed.toString().contains("OPENAI_API_KEY"));
+
+        String build = Files.readString(Path.of("ebb-llm-gateway/build.gradle.kts"));
+        assertTrue(build.contains("com.openai:openai-java"), "gateway must use the official OpenAI Java SDK dependency");
+        String gateway = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java"));
+        assertTrue(gateway.contains("/v1/chat/message"));
+        assertTrue(gateway.contains("SimpleCircuitBreaker"));
+        String provider = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/OpenAiResponsesChatProvider.java"));
+        assertTrue(provider.contains("ResponseCreateParams"));
+        assertTrue(provider.contains("createStreaming"));
+        assertTrue(provider.contains("ResponseFormatTextJsonSchemaConfig"));
+        assertTrue(provider.contains("store(request.store() && allowStore)"));
+        String service = Files.readString(Path.of("src/main/java/com/crpg/ebb/llm/LlmChatService.java"));
+        assertTrue(service.contains("new HttpLlmGatewayClient"));
+    }
+
     @Test
     void p36GatewayAuthFlowRequiresLoginAndKeepsTokensServerSide() throws Exception {
         try {
             UUID player = UUID.randomUUID();
             LlmConfig config = new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS,
-                    true, 128, 256, 20, 10, "FAKE_NPC_REPLY");
+                    true, LlmConfig.DEFAULT_CHAT_MODEL, true, true, false, 128, 256, 20, 10, "FAKE_NPC_REPLY");
             LlmConfig.setForTesting(config);
             LlmAuthService.setClientForTesting(new DevLocalLlmAuthClient());
 

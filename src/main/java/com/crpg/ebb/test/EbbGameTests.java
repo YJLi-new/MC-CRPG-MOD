@@ -7,6 +7,7 @@ import com.crpg.ebb.interaction.InteractionTargetType;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.llm.DisabledLlmGatewayClient;
 import com.crpg.ebb.llm.FakeLlmGatewayClient;
+import com.crpg.ebb.llm.HttpLlmGatewayClient;
 import com.crpg.ebb.llm.LlmChatRequest;
 import com.crpg.ebb.llm.LlmChatResponse;
 import com.crpg.ebb.llm.LlmChatService;
@@ -15,6 +16,7 @@ import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.LlmMode;
 import com.crpg.ebb.llm.auth.DevLocalLlmAuthClient;
 import com.crpg.ebb.llm.auth.LlmAuthService;
+import com.crpg.ebb.memory.MemoryGatewayClient;
 import com.crpg.ebb.npc.EbbNpcEntity;
 import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
@@ -113,7 +115,7 @@ public final class EbbGameTests {
     @GameTest(maxTicks = 20)
     public void llmFakeDisabledAndTimeoutFoundationIsDeterministic(GameTestHelper helper) {
         try {
-            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS, false, 128, 256, 10, 10, "FAKE_NPC_REPLY"));
+            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS, false, LlmConfig.DEFAULT_CHAT_MODEL, true, true, false, 128, 256, 10, 10, "FAKE_NPC_REPLY"));
             UUID conversation = UUID.randomUUID();
             UUID player = UUID.randomUUID();
             LlmChatRequest request = new LlmChatRequest(
@@ -165,7 +167,7 @@ public final class EbbGameTests {
     public void llmAuthGateDevLocalLoginAndLogoutAreServerSide(GameTestHelper helper) {
         try {
             LlmConfig config = new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS,
-                    true, 128, 256, 10, 10, "FAKE_NPC_REPLY");
+                    true, LlmConfig.DEFAULT_CHAT_MODEL, true, true, false, 128, 256, 10, 10, "FAKE_NPC_REPLY");
             LlmConfig.setForTesting(config);
             LlmAuthService.setClientForTesting(new DevLocalLlmAuthClient());
             UUID player = UUID.randomUUID();
@@ -188,6 +190,34 @@ public final class EbbGameTests {
         }
     }
 
+
+
+    @GameTest(maxTicks = 20)
+    public void llmGatewayModeConfigIsTimeoutSafeAndPrivate(GameTestHelper helper) {
+        try {
+            LlmConfig config = new LlmConfig(true, LlmMode.GATEWAY, "http://127.0.0.1:8787", 1500, false,
+                    "gpt-test", true, true, false, 128, 256, 10, 10, "FAKE_NPC_REPLY");
+            helper.assertTrue(config.networkAccessAllowed(), "gateway mode should enable only gateway network access");
+            helper.assertTrue(!config.openAiStore(), "P37 default privacy should keep OpenAI store:false");
+            helper.assertTrue(config.toString().contains("default_chat_model"), "safe status should expose model config");
+            helper.assertTrue(!config.toString().contains("opaque_player_token"), "safe config must not expose player tokens");
+            helper.assertTrue(new HttpLlmGatewayClient(config).usesNetwork(), "gateway HTTP client should advertise network usage for audits");
+            helper.succeed();
+        } finally {
+            LlmChatService.clearTestingOverrides();
+        }
+    }
+
+
+    @GameTest(maxTicks = 20)
+    public void memoryGatewayClientSurfaceIsServerOnly(GameTestHelper helper) {
+        LlmConfig config = new LlmConfig(true, LlmMode.GATEWAY, "http://127.0.0.1:8787", 1500, false,
+                "gpt-test", true, true, false, 128, 256, 10, 10, "FAKE_NPC_REPLY");
+        MemoryGatewayClient client = new MemoryGatewayClient(config);
+        helper.assertTrue(config.networkAccessAllowed(), "P38 memory dev commands require gateway mode");
+        helper.assertTrue(client != null, "P38 memory gateway client should be constructible on the server without client secrets");
+        helper.succeed();
+    }
 
     @GameTest(maxTicks = 20)
     public void npcProfileRegistryLoadsScriptedProfilesAndPromotesMinor(GameTestHelper helper) {

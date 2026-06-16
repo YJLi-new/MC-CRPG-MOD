@@ -496,3 +496,19 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 - PLAN.md P37 requires gateway `/v1/chat/message`, official OpenAI Java/Node SDK path, Responses API, structured JSON output, streaming/chunked response, timeout/circuit breaker, model config, and default `store:false` unless explicitly enabled.
 - Official OpenAI Java SDK README shows Gradle dependency `implementation("com.openai:openai-java:4.39.1")`, Responses API usage via `OpenAIClient`, `OpenAIOkHttpClient.fromEnv()`, `ResponseCreateParams`, and streaming Responses helpers with `ResponseAccumulator` and `client.responses().createStreaming(...)`.
 - Current mod `LlmChatService.clientFor` still returns fake or disabled only; P37 must add a gateway chat client for `mode=gateway` and make provider failures return an error payload rather than hanging the UI.
+
+### P37 continuation audit - 2026-06-17T03:03:28+08:00
+- Current P37 partial state: gateway chat provider/request/response classes exist but `GatewayServer` is not wired to `/v1/chat/message`; Minecraft `LlmChatService.clientFor` still needs a gateway HTTP chat client; P37 docs/tests/static audit are not yet complete.
+
+### P37 completion review notes
+- `HttpLlmGatewayClient` is server-side only and attaches `opaque_player_token` from `LlmAuthService.validToken`; client UI/networking still contains no token field.
+- Gateway `openai_responses` provider uses official Java SDK and structured JSON schema; `fake` and `mock_openai_responses` remain default validation paths to avoid API usage.
+- Artifact hash static audit initially failed after P37 jar rebuild and was fixed by updating `docs/current_status.md` with current P37 jar/source hashes.
+
+### P38 implementation approach - 2026-06-17T03:36:02+08:00
+- P38 will live primarily in `ebb-llm-gateway`: H2-backed migration, append-only `MemoryRecord`, current/superseded `MemoryFact`, `MemoryConflict`, deterministic hash embeddings for fake/mock tests, and hybrid retrieval endpoints. Minecraft `/ebb memory search/inspect/conflicts` will query gateway via server-side HTTP using `LlmConfig.gateway_base_url`, with no client secret exposure.
+
+### P38 completion review notes
+- H2 treats `VALUE` as reserved; migration/code use `fact_value`, `old_fact_value`, and `new_fact_value` columns.
+- P38 does not call OpenAI embeddings yet; it adds a deterministic gateway embedding write path so tests do not consume API and later OpenAI embedding replacement can keep the same retrieval contract.
+- GameTest avoids live gateway calls; HTTP behavior is covered by GatewaySmoke and JUnit local HttpServer tests.

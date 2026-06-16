@@ -19,6 +19,10 @@ public record LlmConfig(
         String gatewayUrl,
         int gatewayTimeoutMs,
         boolean requirePlayerAuth,
+        String defaultChatModel,
+        boolean llmChatStreaming,
+        boolean structuredOutput,
+        boolean openAiStore,
         int maxInputChars,
         int maxOutputChars,
         int sessionTimeoutTicks,
@@ -28,6 +32,10 @@ public record LlmConfig(
     public static final Path SERVER_CONFIG_PATH = Path.of("config", "ebb-llm-server.json");
     public static final int DEFAULT_GATEWAY_TIMEOUT_MS = 30000;
     public static final boolean DEFAULT_REQUIRE_PLAYER_AUTH = true;
+    public static final String DEFAULT_CHAT_MODEL = "gpt-5.2";
+    public static final boolean DEFAULT_LLM_CHAT_STREAMING = true;
+    public static final boolean DEFAULT_STRUCTURED_OUTPUT = true;
+    public static final boolean DEFAULT_OPENAI_STORE = false;
     public static final int DEFAULT_MAX_INPUT_CHARS = 512;
     public static final int DEFAULT_MAX_OUTPUT_CHARS = 700;
     public static final int DEFAULT_SESSION_TIMEOUT_TICKS = 20 * 60;
@@ -41,6 +49,7 @@ public record LlmConfig(
         mode = mode == null ? LlmMode.DISABLED : mode;
         gatewayUrl = gatewayUrl == null ? "" : gatewayUrl.trim();
         gatewayTimeoutMs = clamp(gatewayTimeoutMs, 1000, 120000);
+        defaultChatModel = defaultChatModel == null || defaultChatModel.isBlank() ? DEFAULT_CHAT_MODEL : defaultChatModel.trim();
         maxInputChars = clamp(maxInputChars, 32, 4096);
         maxOutputChars = clamp(maxOutputChars, 64, 4096);
         sessionTimeoutTicks = clamp(sessionTimeoutTicks, 20, 20 * 60 * 30);
@@ -57,11 +66,13 @@ public record LlmConfig(
 
     public static LlmConfig disabled() {
         return new LlmConfig(false, LlmMode.DISABLED, "", DEFAULT_GATEWAY_TIMEOUT_MS, DEFAULT_REQUIRE_PLAYER_AUTH,
+                DEFAULT_CHAT_MODEL, DEFAULT_LLM_CHAT_STREAMING, DEFAULT_STRUCTURED_OUTPUT, DEFAULT_OPENAI_STORE,
                 DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
     }
 
     public static LlmConfig fakeForTesting() {
         return new LlmConfig(true, LlmMode.FAKE, "", DEFAULT_GATEWAY_TIMEOUT_MS, false,
+                DEFAULT_CHAT_MODEL, DEFAULT_LLM_CHAT_STREAMING, DEFAULT_STRUCTURED_OUTPUT, DEFAULT_OPENAI_STORE,
                 DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
     }
 
@@ -117,12 +128,20 @@ public record LlmConfig(
                 GsonHelper.getAsString(json, "gateway_url", GsonHelper.getAsString(json, "gatewayUrl", "")));
         int gatewayTimeout = GsonHelper.getAsInt(json, "gateway_timeout_ms", DEFAULT_GATEWAY_TIMEOUT_MS);
         boolean requireAuth = GsonHelper.getAsBoolean(json, "require_player_auth", DEFAULT_REQUIRE_PLAYER_AUTH);
+        String model = GsonHelper.getAsString(json, "default_chat_model",
+                GsonHelper.getAsString(json, "chat_model", GsonHelper.getAsString(json, "model", DEFAULT_CHAT_MODEL)));
+        boolean streaming = GsonHelper.getAsBoolean(json, "llm_chat_streaming",
+                GsonHelper.getAsBoolean(json, "streaming", DEFAULT_LLM_CHAT_STREAMING));
+        boolean structured = GsonHelper.getAsBoolean(json, "structured_output",
+                GsonHelper.getAsBoolean(json, "structured_json_output", DEFAULT_STRUCTURED_OUTPUT));
+        boolean openAiStore = GsonHelper.getAsBoolean(json, "openai_store",
+                GsonHelper.getAsBoolean(json, "store", DEFAULT_OPENAI_STORE));
         int maxInput = GsonHelper.getAsInt(json, "max_input_chars", DEFAULT_MAX_INPUT_CHARS);
         int maxOutput = GsonHelper.getAsInt(json, "max_output_chars", DEFAULT_MAX_OUTPUT_CHARS);
         int timeout = GsonHelper.getAsInt(json, "session_timeout_ticks", DEFAULT_SESSION_TIMEOUT_TICKS);
         int rate = GsonHelper.getAsInt(json, "rate_limit_per_minute", DEFAULT_RATE_LIMIT_PER_MINUTE);
         String fakeReply = GsonHelper.getAsString(json, "fake_reply", DEFAULT_FAKE_REPLY);
-        return new LlmConfig(enabled, mode, gatewayUrl, gatewayTimeout, requireAuth, maxInput, maxOutput, timeout, rate, fakeReply);
+        return new LlmConfig(enabled, mode, gatewayUrl, gatewayTimeout, requireAuth, model, streaming, structured, openAiStore, maxInput, maxOutput, timeout, rate, fakeReply);
     }
 
     public boolean active() {
@@ -139,13 +158,17 @@ public record LlmConfig(
 
     public String summary() {
         return String.format(Locale.ROOT,
-                "enabled=%s mode=%s provider=%s network=%s auth_required=%s gateway_timeout_ms=%d max_input=%d timeout_ticks=%d active_fake=%s",
+                "enabled=%s mode=%s provider=%s network=%s auth_required=%s gateway_timeout_ms=%d model=%s streaming=%s structured=%s openai_store=%s max_input=%d timeout_ticks=%d active_fake=%s",
                 enabled,
                 mode.serializedName(),
                 mode == LlmMode.FAKE ? "fake" : mode == LlmMode.GATEWAY ? "gateway" : "disabled",
                 networkAccessAllowed() ? "gateway_only" : "blocked",
                 requirePlayerAuth,
                 gatewayTimeoutMs,
+                defaultChatModel,
+                llmChatStreaming,
+                structuredOutput,
+                openAiStore,
                 maxInputChars,
                 sessionTimeoutTicks,
                 fakeMode());
@@ -159,6 +182,10 @@ public record LlmConfig(
         json.addProperty("gateway_url_configured", !gatewayUrl.isBlank());
         json.addProperty("gateway_timeout_ms", gatewayTimeoutMs);
         json.addProperty("require_player_auth", requirePlayerAuth);
+        json.addProperty("default_chat_model", defaultChatModel);
+        json.addProperty("llm_chat_streaming", llmChatStreaming);
+        json.addProperty("structured_output", structuredOutput);
+        json.addProperty("openai_store", openAiStore);
         json.addProperty("max_input_chars", maxInputChars);
         json.addProperty("max_output_chars", maxOutputChars);
         json.addProperty("session_timeout_ticks", sessionTimeoutTicks);

@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 36 is complete: PLAN.md P36 Gateway minimal service + OAuth/OIDC authentication has been implemented and validated; next work should proceed to PLAN.md P37 OpenAI Responses API integration.
+Phase 38 is complete: PLAN.md P38 MemoryStore MVP has been implemented and validated; next work should proceed to PLAN.md P39 Memory extraction / consolidation.
 
 ## Phases
 
@@ -406,9 +406,27 @@ Phase 36 is complete: PLAN.md P36 Gateway minimal service + OAuth/OIDC authentic
 
 
 ### Phase 37: PLAN.md P37 — OpenAI Responses API Integration
-- [ ] Add gateway `/v1/chat/message`.
-- [ ] Use an official OpenAI SDK path in the gateway while keeping tests mocked by default.
-- [ ] Support structured JSON output, streaming/chunked response, timeout/circuit breaker, model config, and `store:false` default privacy.
-- [ ] Connect Minecraft gateway mode to the real/fake gateway chat endpoint without blocking UI or leaking secrets.
-- [ ] Add tests/docs/static audits proving fake/real provider switching and graceful failure.
+- [x] Add gateway `/v1/chat/message`.
+- [x] Use an official OpenAI SDK path in the gateway while keeping tests mocked by default.
+- [x] Support structured JSON output, streaming/chunked response, timeout/circuit breaker, model config, and `store:false` default privacy.
+- [x] Connect Minecraft gateway mode to the real/fake gateway chat endpoint without blocking UI or leaking secrets.
+- [x] Add tests/docs/static audits proving fake/real provider switching and graceful failure.
+- **Status:** complete
+
+
+### Phase 38: PLAN.md P38 — MemoryStore MVP
+- [x] Add gateway DB migration.
+- [x] Add append-only `MemoryRecord`, `MemoryFact`, and `MemoryConflict`.
+- [x] Add embeddings write path and hybrid retrieval: recent + vector + keyword + entity + time.
+- [x] Add Minecraft dev commands `/ebb memory search/inspect/conflicts`.
+- [x] Add tests proving two-turn memory retrieval, supersede/conflict behavior, and citation ids.
+- **Status:** complete
+
+
+### Phase 39: PLAN.md P39 — Memory extraction / consolidation
+- [ ] Add LLM extractor that proposes memory operations.
+- [ ] Add deterministic validator applying memory operations.
+- [ ] Add background summarizer for episodic summaries and related-memory links.
+- [ ] Add A-Mem-like evolution while preserving raw episodes.
+- [ ] Add A-MemGuard-like safety lessons and dev UI for raw episodes/facts/conflicts.
 - **Status:** planned

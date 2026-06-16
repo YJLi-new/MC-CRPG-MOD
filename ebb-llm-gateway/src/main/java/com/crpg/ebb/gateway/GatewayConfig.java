@@ -7,6 +7,7 @@ import com.crpg.ebb.gateway.chat.FakeGatewayChatProvider;
 import com.crpg.ebb.gateway.chat.GatewayChatProvider;
 import com.crpg.ebb.gateway.chat.MockGatewayChatProvider;
 import com.crpg.ebb.gateway.chat.OpenAiResponsesChatProvider;
+import com.crpg.ebb.gateway.memory.MemoryStore;
 
 import java.net.URI;
 import java.time.Duration;
@@ -31,7 +32,8 @@ public record GatewayConfig(
         boolean openAiStoreEnabled,
         int maxOutputTokens,
         int circuitFailureThreshold,
-        long circuitCooldownMs
+        long circuitCooldownMs,
+        String memoryDbUrl
 ) {
     public static GatewayConfig fromEnv(Map<String, String> env) {
         String bindHost = value(env, "EBB_GATEWAY_BIND", "127.0.0.1");
@@ -52,9 +54,10 @@ public record GatewayConfig(
         int maxOutput = parseInt(value(env, "EBB_OPENAI_MAX_OUTPUT_TOKENS", "700"), 700);
         int circuitThreshold = parseInt(value(env, "EBB_GATEWAY_CIRCUIT_FAILURE_THRESHOLD", "3"), 3);
         long circuitCooldown = parseInt(value(env, "EBB_GATEWAY_CIRCUIT_COOLDOWN_MS", "30000"), 30000);
+        String memoryDbUrl = value(env, "EBB_MEMORY_DB_URL", "jdbc:h2:./ebb-llm-gateway-data/memory;AUTO_SERVER=TRUE");
         return new GatewayConfig(bindHost, port, provider, publicBase, deviceEndpoint, tokenEndpoint,
                 clientId, clientSecret, scope, Duration.ofMillis(Math.max(1000, timeoutMs)), chatProvider, defaultModel,
-                streaming, structured, store, Math.max(64, maxOutput), Math.max(1, circuitThreshold), Math.max(1000L, circuitCooldown));
+                streaming, structured, store, Math.max(64, maxOutput), Math.max(1, circuitThreshold), Math.max(1000L, circuitCooldown), memoryDbUrl);
     }
 
     public GatewayChatProvider createChatProvider() {
@@ -68,6 +71,10 @@ public record GatewayConfig(
             return new OpenAiResponsesChatProvider(defaultChatModel, openAiStoreEnabled);
         }
         throw new IllegalArgumentException("Unsupported EBB_GATEWAY_CHAT_PROVIDER: " + chatProviderName);
+    }
+
+    public MemoryStore createMemoryStore() {
+        return new MemoryStore(memoryDbUrl);
     }
 
     public AuthProvider createAuthProvider() {

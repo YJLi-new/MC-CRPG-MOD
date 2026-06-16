@@ -22,6 +22,7 @@ import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.auth.DeviceAuthStartResponse;
 import com.crpg.ebb.llm.auth.DeviceAuthStatusResponse;
 import com.crpg.ebb.llm.auth.LlmAuthService;
+import com.crpg.ebb.memory.MemoryGatewayClient;
 import com.crpg.ebb.network.dev.DevSnapshotPayload;
 import com.crpg.ebb.network.journal.JournalPayload;
 import com.crpg.ebb.network.quest.QuestTreePayload;
@@ -112,6 +113,22 @@ public final class ModCommands {
                         .then(Commands.literal("reload_config")
                                 .requires(EbbCommandPermissionGuards.dev())
                                 .executes(context -> reloadLlmConfig(context.getSource()))))
+                .then(Commands.literal("memory")
+                        .requires(EbbCommandPermissionGuards.dev())
+                        .executes(context -> sendMemorySearch(context.getSource(), "", 8))
+                        .then(Commands.literal("search")
+                                .then(Commands.argument("query", StringArgumentType.greedyString())
+                                        .executes(context -> sendMemorySearch(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "query"),
+                                                8))))
+                        .then(Commands.literal("inspect")
+                                .then(Commands.argument("id", StringArgumentType.word())
+                                        .executes(context -> inspectMemory(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "id")))))
+                        .then(Commands.literal("conflicts")
+                                .executes(context -> showMemoryConflicts(context.getSource(), 25))))
                 .then(createAttributesCommand("attributes"))
                 .then(createAttributesCommand("attr"))
                 .then(Commands.literal("dev")
@@ -249,6 +266,63 @@ public final class ModCommands {
         String summary = NarrativeDataRegistries.summaryLine();
         source.sendSuccess(() -> Component.literal(summary), false);
         return NarrativeDataRegistries.totalEntryCount();
+    }
+
+
+    private static int sendMemorySearch(CommandSourceStack source, String query, int limit) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory search requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        UUID playerUuid = source.getEntity() instanceof ServerPlayer player ? player.getUUID() : null;
+        new MemoryGatewayClient(config).search(playerUuid, query, limit).thenAccept(result -> source.getServer().execute(() -> {
+            if (!result.ok()) {
+                source.sendFailure(Component.literal("Ebb memory search failed: " + result.status()));
+                return;
+            }
+            source.sendSuccess(() -> Component.literal("Ebb memory search: " + result.lines().size()
+                    + " match(es), citations=" + result.citationIds()), false);
+            for (String line : result.lines()) {
+                source.sendSuccess(() -> Component.literal("- " + line), false);
+            }
+        }));
+        source.sendSuccess(() -> Component.literal("Ebb memory search requested."), false);
+        return 1;
+    }
+
+    private static int inspectMemory(CommandSourceStack source, String id) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory inspect requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        new MemoryGatewayClient(config).inspect(id).thenAccept(result -> source.getServer().execute(() -> {
+            if (result.contains("\"error\"")) {
+                source.sendFailure(Component.literal("Ebb memory inspect failed: " + result));
+            } else {
+                source.sendSuccess(() -> Component.literal("Ebb memory inspect: " + result), false);
+            }
+        }));
+        source.sendSuccess(() -> Component.literal("Ebb memory inspect requested: " + id), false);
+        return 1;
+    }
+
+    private static int showMemoryConflicts(CommandSourceStack source, int limit) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory conflicts requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        new MemoryGatewayClient(config).conflicts(limit).thenAccept(result -> source.getServer().execute(() -> {
+            if (result.contains("\"error\"")) {
+                source.sendFailure(Component.literal("Ebb memory conflicts failed: " + result));
+            } else {
+                source.sendSuccess(() -> Component.literal("Ebb memory conflicts: " + result), false);
+            }
+        }));
+        source.sendSuccess(() -> Component.literal("Ebb memory conflicts requested."), false);
+        return 1;
     }
 
     private static int sendLlmStatus(CommandSourceStack source) {

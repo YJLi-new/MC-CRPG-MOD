@@ -1483,3 +1483,59 @@
   - sources jar: `8bbc5b0c42ce6f59a67c4ad9b1556f0affcdde6ee79e7e7ab32bade68536ccc1`.
 - Review notes: auth tokens are held only in server-side maps, `/ebb llm status` uses redacted fingerprints, client LLM UI/networking has no `opaque_player_token`, and fake mode remains network-free after auth.
 - Next: PLAN.md P37 OpenAI Responses API integration in the gateway with tests mocked by default.
+
+
+### Phase 37 / PLAN.md OpenAI Responses gateway chat completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented P37 gateway chat integration:
+  - Added `/v1/chat/message` in `GatewayServer` with `GatewayChatRequest`, `GatewayChatResponse`, server-token validation, timeout handling, and `SimpleCircuitBreaker` failure protection.
+  - Added fake, mock OpenAI, and real OpenAI Responses providers. The real provider uses official `com.openai:openai-java:4.39.1`, `ResponseCreateParams`, `ResponseFormatTextJsonSchemaConfig`, `ResponseAccumulator`, and `createStreaming`; tests default to fake/mock and do not consume API quota.
+  - Added structured JSON output schema, chunked/streaming response evidence, model config, max output token config, and explicit `store:false` privacy default unless gateway/server config enables storing.
+  - Added Minecraft `HttpLlmGatewayClient` and wired `LlmChatService` gateway mode to server-to-gateway `/v1/chat/message`; player auth tokens remain server-only and are never surfaced to client UI.
+  - Extended `LlmConfig` with `default_chat_model`, `llm_chat_streaming`, `structured_output`, and `openai_store`.
+  - Added P37 docs, static audit guardrails, JUnit coverage, GameTest coverage, and `scripts/p37_gateway_chat_smoke.sh`.
+- Validation:
+  - `scripts/p37_gateway_chat_smoke.sh` → BUILD SUCCESSFUL; `P37 gateway chat smoke passed`.
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` → passed including P37 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed including P37 gateway smoke/static guardrails.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 10 required GameTests passed.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+- Artifact hashes:
+  - build jar: `a7cf0b8e09a7f48b34d01c7415fc74248fd17bb557ca61f5ac048a4c0c9c875e`.
+  - sources jar: `582f62c33b48624b834985a98ff07a4b9b1578569b0bdf5022652364bce8495f`.
+- Review notes: P37 is intentionally gateway-only for real OpenAI access; no API key or real provider dependency is added to the Fabric mod jar/client path. Real provider failures resolve to explicit error payloads such as `llm_gateway_error` instead of hanging the Minecraft UI.
+- Next: PLAN.md P38 MemoryStore MVP.
+
+
+### Phase 38 / PLAN.md MemoryStore MVP completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented P38 memory-store slice:
+  - Added H2 gateway DB migration `V001__memory_store.sql` with `schema_migrations`, append-only `memory_records`, `memory_facts`, and `memory_conflicts`.
+  - Added gateway memory classes: `MemoryStore`, `MemoryRecord`, `MemoryFact`, `MemoryConflict`, `MemoryEmbeddingService`, `MemoryFactExtractor`, `MemorySearchRequest`, `ScoredMemory`, and append/search/inspect/conflict APIs.
+  - Wired `/v1/chat/message` to append player/NPC turns after successful provider responses.
+  - Added deterministic embedding write path and hybrid retrieval scoring across keyword, vector, entity/NPC context, and recency.
+  - Added deterministic P38 fact extraction (`fact:` / `remember:` / first-person self-description), superseded old facts, and open conflict creation when values change.
+  - Added gateway `/v1/memory/search`, `/v1/memory/inspect`, and `/v1/memory/conflicts`.
+  - Added Minecraft server-side `MemoryGatewayClient` and OP/dev `/ebb memory search`, `/ebb memory inspect`, and `/ebb memory conflicts` commands.
+  - Added P38 docs, static audit guardrails, JUnit coverage, GameTest coverage, and `scripts/p38_memory_smoke.sh`.
+- Validation:
+  - `scripts/p38_memory_smoke.sh` → BUILD SUCCESSFUL; `P38 memory smoke passed`.
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` → passed including P38 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed including P38 memory smoke/static guardrails.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 11 required GameTests passed.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+- Artifact hashes after final P38 validation:
+  - build jar: `71ed88bf53c0d3cb3d3eab4b4ac1fe6663114e3e55a9e98cd21a364043d78877`.
+  - sources jar: `bde884ef67db57f6642e916fe57cfaf0bf3236cec42fdc6fd30d5d5e895df929`.
+- Review notes: Memory DB/API lives in the gateway; Minecraft receives only developer command summaries and citation ids. Tests use H2 in-memory databases and fake/mock gateway providers.
+- Next: PLAN.md P39 Memory extraction / consolidation.

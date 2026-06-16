@@ -819,3 +819,87 @@ Runtime gating:
 - If `require_player_auth=true`, choosing an `llm_chat`/`free_chat` option before login returns `auth_required`.
 - After `/ebb llm auth` + `/ebb llm status`, fake-provider chat works without network/OpenAI usage.
 - After `/ebb llm logout`, the next chat attempt is again `auth_required`.
+
+## P37 OpenAI Responses Gateway
+
+P37 adds the gateway chat endpoint used by Minecraft gateway mode. The Minecraft client still never sees OpenAI keys or `opaque_player_token`; the dedicated/server side sends player chat to the configured gateway.
+
+Gateway endpoint contract:
+
+```text
+POST /v1/chat/message
+```
+
+Request fields include `server_id`, `world_id`, `minecraft_player_uuid`, `npc_key`, `npc_display_name`, optional `entity_uuid`, `conversation_id`, `dialogue_id`, `source_node_id`, `topic_hint`, `scene_context`, `message`, `model`, `stream`, `structured`, `store`, and `max_output_tokens`. If player auth is enabled, the Minecraft server adds `opaque_player_token` from server-only auth storage; this token is never present in client payloads or UI.
+
+Response fields include `conversation_id`, `npc_reply`, `mood`, `suggested_options`, `memory_writes`, `citations`, `proposed_effects`, `warnings`, `chunks`, `structured_json`, `provider`, `model`, `store`, `chunked_response`, `status`, and optional `error`.
+
+Gateway provider selection is controlled by gateway environment variables, not by datapack content:
+
+```text
+EBB_GATEWAY_CHAT_PROVIDER=fake | mock_openai_responses | openai_responses
+EBB_OPENAI_MODEL=gpt-5.2
+EBB_OPENAI_STORE=false
+EBB_LLM_CHAT_STREAMING=true
+EBB_LLM_STRUCTURED_OUTPUT=true
+EBB_GATEWAY_CIRCUIT_FAILURE_THRESHOLD=3
+EBB_GATEWAY_CIRCUIT_COOLDOWN_MS=30000
+```
+
+Privacy defaults: `store:false` is the default. OpenAI conversation state is only requested when the server/gateway config explicitly enables it. Tests and smoke checks use fake or `mock_openai_responses` providers by default, so they do not consume OpenAI API quota.
+
+Minecraft server config additions for gateway chat mode:
+
+```json
+{
+  "enabled": true,
+  "mode": "gateway",
+  "gateway_base_url": "http://127.0.0.1:8787",
+  "gateway_timeout_ms": 30000,
+  "require_player_auth": true,
+  "default_chat_model": "gpt-5.2",
+  "llm_chat_streaming": true,
+  "structured_output": true,
+  "openai_store": false
+}
+```
+
+Failure handling: gateway HTTP errors, timeouts, and open circuit-breaker responses are converted to explicit LLM error statuses such as `llm_gateway_error` or `llm_circuit_open`; the Minecraft UI should not hang waiting for a real provider failure.
+
+## P38 MemoryStore MVP
+
+P38 introduces the first gateway-owned memory store. It is intentionally server/gateway side: Minecraft clients never connect to the DB and never receive raw gateway tokens. The gateway applies `db/migration/V001__memory_store.sql` on startup and stores:
+
+- `MemoryRecord`: append-only player/NPC conversation turns with `memory:record:<id>` citation ids.
+- `MemoryFact`: extracted deterministic facts with `memory:fact:<id>` citation ids.
+- `MemoryConflict`: open conflicts when a new fact supersedes or contradicts an existing current fact.
+
+Gateway endpoints:
+
+```text
+POST /v1/memory/search
+GET  /v1/memory/inspect?id=<memory_id>
+GET  /v1/memory/conflicts?server_id=<id>&world_id=<id>&limit=25
+```
+
+The search endpoint performs hybrid retrieval using recent records, keyword overlap, entity/NPC context, and deterministic local embeddings. This deterministic embedding path is the P38 write/retrieval baseline used by tests; later phases can replace or augment it with OpenAI Embeddings without changing Minecraft client payloads.
+
+Current deterministic fact authoring/testing syntax in player text:
+
+```text
+fact:player.favorite=blue
+remember:innkeeper.mood=guarded
+I am the night clerk
+```
+
+When the same `subject.predicate` receives a new value, the old fact is marked `superseded`, the new fact remains `current`, and a `MemoryConflict` is created with both citation ids.
+
+Minecraft developer commands query the gateway from the server:
+
+```text
+/ebb memory search <query>
+/ebb memory inspect <id>
+/ebb memory conflicts
+```
+
+These commands require dev permission and gateway mode (`mode: "gateway"`, `gateway_base_url` configured). They are intended for validation and author debugging; normal gameplay retrieval is consumed by gateway chat/retrieval logic.

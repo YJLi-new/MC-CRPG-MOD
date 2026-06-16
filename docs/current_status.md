@@ -559,3 +559,73 @@ Phase 36 artifact hashes after the first successful P36 build checkpoint:
 build/libs/ebb-0.1.0-dev.jar         0e22ea2023c8159b6263bd4a6d0e9b9aa474a065d22ece951b25e5e8ddf1eca7
 build/libs/ebb-0.1.0-dev-sources.jar 8bbc5b0c42ce6f59a67c4ad9b1556f0affcdde6ee79e7e7ab32bade68536ccc1
 ```
+
+## Phase 37 OpenAI Responses Gateway snapshot
+
+Implemented the PLAN.md P37 gateway-chat slice:
+
+- Added `/v1/chat/message` to `ebb-llm-gateway/` with request/response records covering NPC/player ids, conversation id, scene context, structured output, chunked response evidence, model config, and `store:false` privacy state.
+- Added gateway chat providers: deterministic `fake`, `mock_openai_responses` for default tests without API consumption, and `openai_responses` using the official `com.openai:openai-java` SDK and Responses API streaming path.
+- Added structured JSON schema configuration through `ResponseFormatTextJsonSchemaConfig`, plus streaming/chunk assembly with `ResponseAccumulator` and `createStreaming`.
+- Added `SimpleCircuitBreaker` plus gateway timeout handling; real provider failures return JSON errors instead of blocking callers indefinitely.
+- Extended Minecraft `LlmConfig` with `default_chat_model`, `llm_chat_streaming`, `structured_output`, and `openai_store` safe config fields. Default privacy remains `store:false`.
+- Added `HttpLlmGatewayClient` and wired `LlmChatService` gateway mode to server-to-gateway `/v1/chat/message`; server-only auth tokens are attached only by the Minecraft server and never by the client UI.
+- Added P37 JUnit/GameTest/static-audit coverage and `scripts/p37_gateway_chat_smoke.sh`. Tests default to fake/mock provider paths and do not consume OpenAI API quota.
+
+Phase 37 validation checkpoint is complete: gateway smoke, DeepResearchDataTest, validateEbbData, static audit, full smoke runner, GameTest server, build, and git diff checks all passed.
+
+Phase 37 validation checkpoint:
+
+```text
+scripts/p37_gateway_chat_smoke.sh                         -> BUILD SUCCESSFUL, P37 gateway chat smoke passed
+scripts/gradle-local.sh --no-daemon compileJava           -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon validateEbbData       -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                      -> passed including P37 guardrails
+scripts/run_smoke_checks.sh                               -> passed after current artifact hash update
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 10 required GameTests passed
+scripts/gradle-local.sh --no-daemon build                 -> BUILD SUCCESSFUL
+```
+
+Phase 37 artifact hashes after the first successful P37 build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         a7cf0b8e09a7f48b34d01c7415fc74248fd17bb557ca61f5ac048a4c0c9c875e
+build/libs/ebb-0.1.0-dev-sources.jar 582f62c33b48624b834985a98ff07a4b9b1578569b0bdf5022652364bce8495f
+```
+
+## Phase 38 MemoryStore MVP snapshot
+
+Implemented the PLAN.md P38 memory-store slice:
+
+- Added H2-backed gateway migration `V001__memory_store.sql` for `schema_migrations`, append-only `memory_records`, `memory_facts`, and `memory_conflicts`.
+- Added gateway memory model/classes: `MemoryRecord`, `MemoryFact`, `MemoryConflict`, deterministic `MemoryEmbeddingService`, `MemoryFactExtractor`, `MemorySearchRequest`, `ScoredMemory`, and `MemoryStore`.
+- Gateway chat now appends player/NPC turns into memory after successful `/v1/chat/message` responses.
+- Added deterministic fact extraction for P38 tests/dev authoring (`fact:subject.predicate=value`, `remember:...`, and first-person self-description). Changed facts create superseded old facts plus open `MemoryConflict` rows.
+- Added hybrid retrieval using keyword overlap, deterministic embedding cosine similarity, entity/NPC match, and recency weighting. Retrieval returns citation ids.
+- Added gateway endpoints `/v1/memory/search`, `/v1/memory/inspect`, and `/v1/memory/conflicts`.
+- Added Minecraft server-side `MemoryGatewayClient` and OP/dev commands `/ebb memory search <query>`, `/ebb memory inspect <id>`, and `/ebb memory conflicts`.
+- Added P38 smoke, JUnit, GameTest, docs, and static-audit coverage. Gateway memory tests run with H2 in-memory DB URLs and do not consume OpenAI API quota.
+
+Phase 38 validation checkpoint is complete: gateway memory smoke, DeepResearchDataTest, validateEbbData, static audit, full smoke runner, GameTest server, build, and git diff checks all passed.
+
+
+Phase 38 validation checkpoint:
+
+```text
+scripts/p38_memory_smoke.sh                                -> BUILD SUCCESSFUL, P38 memory smoke passed
+scripts/gradle-local.sh --no-daemon compileJava            -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                       -> passed including P38 guardrails
+scripts/run_smoke_checks.sh                                -> passed including P38 memory smoke/static guardrails
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 11 required GameTests passed
+scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
+```
+
+Phase 38 artifact hashes after final P38 validation:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         71ed88bf53c0d3cb3d3eab4b4ac1fe6663114e3e55a9e98cd21a364043d78877
+build/libs/ebb-0.1.0-dev-sources.jar bde884ef67db57f6642e916fe57cfaf0bf3236cec42fdc6fd30d5d5e895df929
+```

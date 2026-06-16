@@ -364,6 +364,9 @@ public final class LlmChatService {
         if (config.fakeMode()) {
             return new FakeLlmGatewayClient(config);
         }
+        if (config.networkAccessAllowed()) {
+            return new HttpLlmGatewayClient(config);
+        }
         return new DisabledLlmGatewayClient();
     }
 

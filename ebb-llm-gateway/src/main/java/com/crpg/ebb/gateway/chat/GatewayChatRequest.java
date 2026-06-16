@@ -15,6 +15,7 @@ public record GatewayChatRequest(
         String dialogueId,
         String sourceNodeId,
         String topicHint,
+        String sceneContext,
         String message,
         String opaquePlayerToken,
         String model,
@@ -34,6 +35,7 @@ public record GatewayChatRequest(
         dialogueId = blank(dialogueId, "unknown-dialogue");
         sourceNodeId = blank(sourceNodeId, "unknown-node");
         topicHint = topicHint == null ? "" : topicHint.strip();
+        sceneContext = sceneContext == null ? "" : sceneContext.strip();
         message = message == null ? "" : message.strip();
         opaquePlayerToken = opaquePlayerToken == null ? "" : opaquePlayerToken.strip();
         model = model == null ? "" : model.strip();
@@ -53,6 +55,7 @@ public record GatewayChatRequest(
                 values.get("dialogue_id"),
                 values.get("source_node_id"),
                 values.get("topic_hint"),
+                values.getOrDefault("scene_context", values.getOrDefault("context", "")),
                 values.get("message"),
                 values.getOrDefault("opaque_player_token", values.getOrDefault("token", "")),
                 values.getOrDefault("model", defaultModel),
@@ -75,6 +78,9 @@ public record GatewayChatRequest(
         prompt.append("Dialogue: ").append(dialogueId).append(" / ").append(sourceNodeId).append('\n');
         if (!topicHint.isBlank()) {
             prompt.append("Topic hint: ").append(topicHint).append('\n');
+        }
+        if (!sceneContext.isBlank()) {
+            prompt.append("Scene context: ").append(sceneContext).append('\n');
         }
         if (structured) {
             prompt.append("Return JSON with keys npc_reply, mood, suggested_options, citations, warnings. ");
