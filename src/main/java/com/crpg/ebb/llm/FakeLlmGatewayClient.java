@@ -15,8 +15,9 @@ public final class FakeLlmGatewayClient implements LlmGatewayClient {
     @Override
     public CompletableFuture<LlmChatResponse> sendMessage(LlmChatRequest request) {
         String message = abbreviate(request.playerMessage(), 90);
-        String reply = String.format(Locale.ROOT, "%s NPC=%s topic=%s player=\"%s\"",
-                config.fakeReply(), request.npcDisplayName(), blank(request.topicHint(), "general"), message);
+        String kbSignal = kbSignal(request.knowledgeContext());
+        String reply = String.format(Locale.ROOT, "%s NPC=%s topic=%s kb=%s player=\"%s\"",
+                config.fakeReply(), request.npcDisplayName(), blank(request.topicHint(), "general"), kbSignal, message);
         return CompletableFuture.completedFuture(LlmChatResponse.ok(
                 reply,
                 List.of("继续追问", "换个角度", "结束自由交谈"),
@@ -40,5 +41,16 @@ public final class FakeLlmGatewayClient implements LlmGatewayClient {
 
     private static String blank(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private static String kbSignal(String knowledgeContext) {
+        if (knowledgeContext == null || knowledgeContext.isBlank()) {
+            return "none";
+        }
+        String lower = knowledgeContext.toLowerCase(Locale.ROOT);
+        if (lower.contains("tenant paid cash") || lower.contains("secret:ledger")) {
+            return "secret_visible";
+        }
+        return "public_only";
     }
 }

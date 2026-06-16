@@ -1,0 +1,20 @@
+{
+  "id": "ebb:demo/kitchen_manifest",
+  "chunks": [
+    {
+      "id": "manifest_public",
+      "text": "The kitchen manifest lists flour, salt, lamp oil, and one missing sack that the cook says the courier moved by mistake.",
+      "tags": ["kitchen", "manifest", "cook"],
+      "secret": false
+    },
+    {
+      "id": "manifest_private_burn",
+      "text": "The cook knows a burned corner of the manifest once named a cellar delivery, but will not discuss it without the kitchen_manifest clue.",
+      "tags": ["kitchen", "cellar", "secret"],
+      "secret": true,
+      "reveal_conditions": [
+        {"type": "clue_found", "id": "ebb:demo/kitchen_manifest"}
+      ]
+    }
+  ]
+}

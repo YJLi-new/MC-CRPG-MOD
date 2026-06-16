@@ -1,0 +1,17 @@
+{
+  "id": "ebb:demo/tavern_public_lore",
+  "chunks": [
+    {
+      "id": "public_guestbook_gap",
+      "text": "The tavern ledger and guestbook are known public friction points: the innkeeper admits some pages are smudged, but claims no page is missing.",
+      "tags": ["tavern", "ledger", "guestbook"],
+      "secret": false
+    },
+    {
+      "id": "public_back_door",
+      "text": "Most locals know the back door sticks during rain and that staff prefer guests to use the front hall after dusk.",
+      "tags": ["tavern", "door", "public"],
+      "secret": false
+    }
+  ]
+}

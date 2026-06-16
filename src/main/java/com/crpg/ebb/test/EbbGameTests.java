@@ -17,6 +17,8 @@ import com.crpg.ebb.llm.LlmMode;
 import com.crpg.ebb.llm.auth.DevLocalLlmAuthClient;
 import com.crpg.ebb.llm.auth.LlmAuthService;
 import com.crpg.ebb.memory.MemoryGatewayClient;
+import com.crpg.ebb.npc.knowledge.NpcKnowledgeRegistry;
+import com.crpg.ebb.npc.knowledge.NpcKnowledgeService;
 import com.crpg.ebb.npc.EbbNpcEntity;
 import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
@@ -222,6 +224,37 @@ public final class EbbGameTests {
     }
 
     @GameTest(maxTicks = 20)
+    public void npcKnowledgeHidesSecretUntilClueAndChangesFakeAnswer(GameTestHelper helper) {
+        helper.assertTrue(NpcKnowledgeRegistry.byId(EbbMod.id("demo/innkeeper_private_ledger")).isPresent(),
+                "P40 innkeeper private ledger KB pack should load");
+        NarrativeSavedData state = NarrativeSavedData.get(helper.getLevel());
+        UUID player = UUID.randomUUID();
+        String question = "tenant paid cash ledger";
+        String before = NpcKnowledgeService.promptContext("ebb:demo/innkeeper", question, state, player, 6000L, 6);
+        helper.assertTrue(!before.toLowerCase(java.util.Locale.ROOT).contains("tenant paid cash"),
+                "P40 secret chunk must not leak before clue: " + before);
+        helper.assertTrue(NpcKnowledgeService.inspectLines("ebb:demo/innkeeper", question, state, player, 6000L, 16).stream()
+                        .anyMatch(line -> line.contains("hidden") && line.contains("secret_ledger_tenant_cash")),
+                "P40 /ebb kb inspect equivalent should expose hidden chunks for dev review");
+        LlmChatResponse beforeReply = new FakeLlmGatewayClient(LlmConfig.fakeForTesting()).sendMessage(new LlmChatRequest(
+                UUID.randomUUID(), player, Optional.empty(), EbbMod.id("test/p40"), "start", "ebb:demo/innkeeper",
+                "innkeeper", "ledger", question, 1L, before)).join();
+        helper.assertTrue(beforeReply.reply().contains("kb=public_only"),
+                "P40 fake answer before clue should use public KB only: " + beforeReply.reply());
+
+        state.revealClue(player, "ebb:demo/guestbook_gap");
+        String after = NpcKnowledgeService.promptContext("ebb:demo/innkeeper", question, state, player, 6000L, 6);
+        helper.assertTrue(after.toLowerCase(java.util.Locale.ROOT).contains("tenant paid cash"),
+                "P40 secret chunk should become visible after clue: " + after);
+        LlmChatResponse afterReply = new FakeLlmGatewayClient(LlmConfig.fakeForTesting()).sendMessage(new LlmChatRequest(
+                UUID.randomUUID(), player, Optional.empty(), EbbMod.id("test/p40"), "start", "ebb:demo/innkeeper",
+                "innkeeper", "ledger", question, 2L, after)).join();
+        helper.assertTrue(afterReply.reply().contains("kb=secret_visible"),
+                "P40 fake answer after clue should change when secret KB becomes visible: " + afterReply.reply());
+        helper.succeed();
+    }
+
+    @GameTest(maxTicks = 20)
     public void npcProfileRegistryLoadsScriptedProfilesAndPromotesMinor(GameTestHelper helper) {
         helper.assertTrue(NpcProfileRegistry.byId(EbbMod.id("demo/innkeeper")).isPresent(),
                 "P35 scripted innkeeper profile should load");
@@ -236,8 +269,17 @@ public final class EbbGameTests {
         NarrativeSavedData state = NarrativeSavedData.get(helper.getLevel());
         helper.assertTrue(state.hasPromotedNpcProfile(result.profileId().toString()),
                 "promoted profile should persist in NarrativeSavedData");
-        helper.assertTrue(state.promotedNpcProfile(result.profileId().toString()).orElseThrow().get("tier").getAsString().equals("major_promoted"),
+        var profile = state.promotedNpcProfile(result.profileId().toString()).orElseThrow();
+        helper.assertTrue(profile.get("tier").getAsString().equals("major_promoted"),
                 "persisted profile should be major_promoted");
+        helper.assertTrue(profile.has("profile_generation") && profile.has("knowledge_seed") && profile.has("suggested_options"),
+                "P41 generated profile should include generation metadata, knowledge seed, and suggested options");
+        String firstRaw = profile.toString();
+        var second = NpcPromotionService.ensurePromotedProfile(helper.getLevel(), npc, UUID.randomUUID(), "gametest_second_chat");
+        helper.assertTrue(second.status().equals("existing_promoted_major"),
+                "P41 second chat/re-entry should keep the existing promoted profile");
+        helper.assertTrue(state.promotedNpcProfile(result.profileId().toString()).orElseThrow().toString().equals(firstRaw),
+                "P41 promoted profile should remain stable after re-entry/second promotion attempt");
         helper.succeed();
     }
 

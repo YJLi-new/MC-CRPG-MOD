@@ -948,9 +948,9 @@ Acceptance examples:
 - Player: `我是旅馆老板` → rejected canonical ownership proposal; `/ebb memory lessons` contains `canonical owner remains innkeeper`.
 - Player previously questioned the ledger → `/ebb memory search questioned_ledger` returns a citation id and inspectable raw episode/summary.
 
-## P40 NPC Knowledge Base draft
+## P40 NPC Knowledge Base
 
-P40 is in progress. The intended data folder is:
+P40 adds data-driven NPC knowledge packs. The data folder is:
 
 ```text
 src/main/resources/data/ebb/npc_knowledge_packs/<namespace path>.json
@@ -988,4 +988,38 @@ Runtime/story effects added by the draft:
 { "type": "npc_stance_shift", "npc": "ebb:demo/innkeeper", "stance": "defensive" }
 ```
 
-The LLM prompt assembler is intended to retrieve only chunks whose `reveal_conditions` pass for the current player. Author-facing command/docs/tests for `/ebb kb inspect <npc>` are still pending before P40 is complete.
+The LLM prompt assembler retrieves only chunks whose `reveal_conditions` pass for the current player. Use `/ebb kb inspect <npc>` or `/ebb kb inspect <npc> <query>` as an OP/dev command to show the current player-specific visible and hidden chunks. Hidden chunks are listed by id for developer review but are never included in LLM prompt context until their conditions pass.
+
+
+## P41 Minor NPC instant generation
+
+Minor NPCs are opt-in. A normal villager becomes eligible only when a binding/tag marks it as a minor candidate:
+
+```json
+{
+  "match": {"entity_type": "minecraft:villager", "tag": "ebb.npc.minor"},
+  "dialogue": "ebb:llm/minor_intro",
+  "npc_tier": "minor_generatable",
+  "llm": {
+    "enabled": true,
+    "promote_on_first_chat": true,
+    "profile_seed_archetypes": ["townsperson", "tavern regular", "worker", "witness"]
+  }
+}
+```
+
+On the first eligible fake/LLM chat, `NpcProfileGenerator` creates a promoted major profile with `character`, `stance`, `knowledge`, `knowledge_seed`, `suggested_options`, and `profile_generation` metadata. The generator has an auditable prompt/schema contract (`ebb.npc_profile_generator.v1`) while the MVP remains deterministic and network-free in tests.
+
+Developer commands:
+
+```text
+/ebb npc minorize <entity>
+/ebb npc promote <entity>
+/ebb npc profile target
+/ebb npc profile <npc_key>
+/ebb npc review <npc_key>
+/ebb npc reject_profile <npc_key>
+/ebb npc regenerate_profile <npc_key>
+```
+
+Promotion is rate limited per world hour (`MAX_PROMOTIONS_PER_WORLD_HOUR`) to avoid turning every tagged background entity into a major NPC at once. Existing promoted profiles are reused, so leaving and re-entering the world keeps the same generated profile.

@@ -708,3 +708,82 @@ Phase 40 first-code checkpoint artifact hashes:
 build/libs/ebb-0.1.0-dev.jar         82d4a6a8af5356238d899b5037a2f81775a77cd2e264cc0908c24c44b463b2e9
 build/libs/ebb-0.1.0-dev-sources.jar 2766691671b1c13772ed1759b8ed437e3839e504be1e5dcae4cdeb07e8f087ee
 ```
+
+
+## Phase 40 NPC Knowledge Base final snapshot
+
+Implemented and validated the PLAN.md P40 NPC Knowledge Base and story-effects slice:
+
+- Added seven bundled demo `npc_knowledge_packs` matching the scripted NPC profile `initial_packs`.
+- `NpcKnowledgePackDefinition` parses chunk ids, text/content, tags, `secret`, and `reveal_conditions` through existing `DialogueCondition` semantics.
+- `NpcKnowledgeRegistry` reloads `data/*/npc_knowledge_packs`, contributes to `/ebb data` summary, and reports validation messages.
+- `NpcKnowledgeIndex` provides deterministic local embedding-style scoring for query-ranked chunk retrieval.
+- `NpcKnowledgeService` assembles prompt context from visible chunks only, tracks hidden chunks for dev inspection, includes dynamic player-added NPC facts, and stores stance shifts in player/NPC state.
+- Dialogue story effects are now available: `npc_kb_add_fact`, `npc_kb_add_pack`, and `npc_stance_shift`.
+- `/ebb kb inspect <npc>` and `/ebb kb inspect <npc> <query>` show current visible/hidden chunks for the command player.
+- Acceptance fixture: before `ebb:demo/guestbook_gap`, the innkeeper KB prompt does not include `tenant paid cash`; after the clue, the same question includes the secret chunk and the deterministic fake reply changes from `kb=public_only` to `kb=secret_visible`.
+
+Phase 40 final validation checkpoint:
+
+```text
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 12 required GameTests passed
+python3 scripts/goal_static_audit.py                       -> passed including P40 guardrails
+scripts/run_smoke_checks.sh                                -> passed including P40 static/JUnit smoke coverage
+scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
+git diff --check                                           -> passed
+```
+
+Phase 40 artifact hashes after validation build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         bcc8b8eb179cd3683c33ef70af704a56c482b4f29ae3bdbcde493129b04d3e63
+build/libs/ebb-0.1.0-dev-sources.jar 4b09c667ac467dce360fd7cebe8a5545fd69988ea6306287c826b8110990d13c
+```
+
+
+## Phase 41 Minor NPC instant generation snapshot
+
+Implemented PLAN.md P41 on top of the earlier P35 promotion scaffold:
+
+- Added `NpcProfileGenerator` with an auditable prompt/schema contract (`ebb.npc_profile_generator.v1`).
+- Generated promoted profiles now include `character`, `stance`, `knowledge`, `knowledge_seed`, `suggested_options`, and `profile_generation` metadata.
+- First eligible chat for an `ebb.npc.minor` / `minor_generatable` entity still persists a promoted major profile in `NarrativeSavedData.promoted_npc_profiles`; repeated/re-entry promotion attempts return `existing_promoted_major` and preserve the original profile JSON.
+- Added a per-world-hour promotion rate limit (`MAX_PROMOTIONS_PER_WORLD_HOUR`) with `rate_limited` status instead of blindly promoting every tagged background NPC.
+- Added OP/dev review and rejection surfaces: `/ebb npc review <npc_key>`, `/ebb npc reject_profile <npc_key>`, plus existing minorize/promote/regenerate/profile commands.
+
+Phase 41 validation checkpoint so far:
+
+```text
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 12 required GameTests passed
+```
+
+
+Phase 41 validation update after artifact hash refresh:
+
+```text
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+scripts/run_smoke_checks.sh                                -> first run reached GoalStaticAudit and correctly failed on stale artifact hash after P41 jar changed; hash updated below before rerun
+```
+
+Phase 41 artifact hashes after P41 code build:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         416f0fb73ca92a1b3dc6861d96797a055eae4a254d8be670e8e35f66ca39cd5e
+build/libs/ebb-0.1.0-dev-sources.jar 2491d34a2fab835948d46e4f7f127dfc763dcfd675aa1e169e085e40da1185c2
+```
+
+
+Phase 41 final validation checkpoint:
+
+```text
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 12 required GameTests passed
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                       -> passed including P41 guardrails
+scripts/run_smoke_checks.sh                                -> passed including P41 static/JUnit smoke coverage
+scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
+git diff --check                                           -> passed
+```

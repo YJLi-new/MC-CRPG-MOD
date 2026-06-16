@@ -1,0 +1,20 @@
+{
+  "id": "ebb:demo/witness_heard_knocks",
+  "chunks": [
+    {
+      "id": "knocks_public",
+      "text": "The witness heard three knocks from the corridor and a pause long enough for someone to hide a small object.",
+      "tags": ["witness", "knocks", "corridor"],
+      "secret": false
+    },
+    {
+      "id": "knock_pattern_trusted",
+      "text": "The witness can identify the knock rhythm as the courier's only after trust improves to relationship 1.",
+      "tags": ["witness", "courier", "trust", "secret"],
+      "secret": true,
+      "reveal_conditions": [
+        {"type": "relationship_at_least", "npc": "ebb:demo/witness", "min": 1}
+      ]
+    }
+  ]
+}

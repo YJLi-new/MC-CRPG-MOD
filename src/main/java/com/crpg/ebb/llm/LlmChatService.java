@@ -85,10 +85,11 @@ public final class LlmChatService {
         UUID conversationId = UUID.randomUUID();
         LlmChoiceSettings settings = choice.llmSettings();
         Optional<NpcPromotionService.PromotionResult> promotion = NpcPromotionService.ensurePromotedIfMinor(player, dialogueSession);
-        String npcKey = promotion
+        Optional<NpcPromotionService.PromotionResult> activePromotion = promotion.filter(result -> !"rate_limited".equals(result.status()));
+        String npcKey = activePromotion
                 .map(result -> result.profileId().toString())
                 .orElseGet(() -> settings.npc().orElseGet(() -> inferNpcKey(dialogueSession, node)));
-        String npcDisplayName = promotion.map(NpcPromotionService.PromotionResult::displayName).orElse(node.speaker());
+        String npcDisplayName = activePromotion.map(NpcPromotionService.PromotionResult::displayName).orElse(node.speaker());
         String topicHint = settings.topicHint().orElse(choice.text());
         String returnNode = settings.returnNode().orElseGet(node::id);
         String openedStatus = promotion

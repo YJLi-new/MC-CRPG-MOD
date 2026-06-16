@@ -27,7 +27,9 @@ import com.crpg.ebb.network.dev.DevSnapshotPayload;
 import com.crpg.ebb.network.journal.JournalPayload;
 import com.crpg.ebb.network.quest.QuestTreePayload;
 import com.crpg.ebb.npc.EbbNpcEntity;
+import com.crpg.ebb.npc.knowledge.NpcKnowledgeService;
 import com.crpg.ebb.npc.profile.NpcProfileDefinition;
+import com.crpg.ebb.npc.profile.NpcProfileGenerator;
 import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
 import com.crpg.ebb.npc.ModEntityTypes;
@@ -133,6 +135,19 @@ public final class ModCommands {
                                 .executes(context -> showMemoryEpisodes(context.getSource(), 25)))
                         .then(Commands.literal("lessons")
                                 .executes(context -> showMemoryLessons(context.getSource(), 25))))
+                .then(Commands.literal("kb")
+                        .requires(EbbCommandPermissionGuards.dev())
+                        .then(Commands.literal("inspect")
+                                .then(Commands.argument("npc", StringArgumentType.string())
+                                        .executes(context -> inspectNpcKnowledge(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "npc"),
+                                                ""))
+                                        .then(Commands.argument("query", StringArgumentType.greedyString())
+                                                .executes(context -> inspectNpcKnowledge(
+                                                        context.getSource(),
+                                                        StringArgumentType.getString(context, "npc"),
+                                                        StringArgumentType.getString(context, "query")))))))
                 .then(createAttributesCommand("attributes"))
                 .then(createAttributesCommand("attr"))
                 .then(Commands.literal("dev")
@@ -197,6 +212,11 @@ public final class ModCommands {
                                         .executes(context -> showNpcProfileByKey(
                                                 context.getSource(),
                                                 StringArgumentType.getString(context, "npc_key")))))
+                        .then(Commands.literal("review")
+                                .then(Commands.argument("npc_key", StringArgumentType.string())
+                                        .executes(context -> reviewPromotedProfile(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "npc_key")))))
                         .then(Commands.literal("minorize")
                                 .then(Commands.argument("entity", EntityArgument.entity())
                                         .executes(context -> minorizeEntity(
@@ -208,6 +228,11 @@ public final class ModCommands {
                                                 context.getSource(),
                                                 EntityArgument.getEntity(context, "entity")))))
                         .then(Commands.literal("regenerate_profile")
+                                .then(Commands.argument("npc_key", StringArgumentType.string())
+                                        .executes(context -> resetPromotedProfile(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "npc_key")))))
+                        .then(Commands.literal("reject_profile")
                                 .then(Commands.argument("npc_key", StringArgumentType.string())
                                         .executes(context -> resetPromotedProfile(
                                                 context.getSource(),
@@ -362,6 +387,21 @@ public final class ModCommands {
         }));
         source.sendSuccess(() -> Component.literal("Ebb memory lessons requested."), false);
         return 1;
+    }
+
+    private static int inspectNpcKnowledge(CommandSourceStack source, String npcKey, String query) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("/ebb kb inspect <npc> can only be used by a player because KB visibility is player-specific."));
+            return 0;
+        }
+        NarrativeSavedData state = NarrativeSavedData.get((ServerLevel) player.level());
+        long dayTime = Math.floorMod(player.level().getOverworldClockTime(), 24_000L);
+        List<String> lines = NpcKnowledgeService.inspectLines(npcKey, query, state, player.getUUID(), dayTime, 32);
+        for (String line : lines) {
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
+        return lines.size();
     }
 
     private static int sendLlmStatus(CommandSourceStack source) {
@@ -774,6 +814,25 @@ public final class ModCommands {
         return 0;
     }
 
+    private static int reviewPromotedProfile(CommandSourceStack source, String rawNpcKey) {
+        Identifier npcKey;
+        try {
+            npcKey = parseEbbIdentifier(rawNpcKey);
+        } catch (RuntimeException ex) {
+            source.sendFailure(Component.literal("Invalid npc_key: " + rawNpcKey));
+            return 0;
+        }
+        NarrativeSavedData state = NarrativeSavedData.get(source.getServer());
+        Optional<JsonObject> promoted = state.promotedNpcProfile(npcKey.toString());
+        if (promoted.isEmpty()) {
+            source.sendFailure(Component.literal("Promoted NPC profile not found for dev review: " + npcKey));
+            return 0;
+        }
+        List<String> lines = NpcProfileGenerator.devReviewLines(npcKey, promoted.get());
+        sendDevSummaryLines(source, lines, 64);
+        return lines.size();
+    }
+
     private static int minorizeEntity(CommandSourceStack source, Entity entity) {
         boolean added = entity.addTag(NpcPromotionService.MINOR_NPC_TAG);
         source.sendSuccess(() -> Component.literal("Marked entity " + entity.getStringUUID()
@@ -846,6 +905,13 @@ public final class ModCommands {
                     + " fear=" + jsonString(stance, "fear", "0")
                     + " resentment=" + jsonString(stance, "resentment", "0"));
         }
+        if (profile.has("knowledge_seed")) {
+            lines.add("- knowledge_seed=" + profile.get("knowledge_seed"));
+        }
+        if (profile.has("suggested_options")) {
+            lines.add("- suggested_options=" + profile.get("suggested_options"));
+        }
+        lines.addAll(NpcProfileGenerator.devReviewLines(profileId, profile));
         sendDevSummaryLines(source, lines, limit);
     }
 

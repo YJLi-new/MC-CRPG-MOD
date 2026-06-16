@@ -1590,3 +1590,88 @@
   - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
   - `git diff --check` → passed.
 - Remaining P40 work: add demo knowledge pack JSON, `/ebb kb inspect <npc>`, hidden/visible acceptance tests, P40 static audit/docs finalization, GameTest/full smoke rerun.
+
+### Phase 40 / test compile fix
+- **Status:** fixing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- First P40 JUnit compile attempt failed because the new test used `Locale.ROOT` without importing `java.util.Locale`; added the import and will rerun the test.
+
+### Phase 40 / reveal condition authoring fix
+- **Status:** fixing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- P40 JUnit exposed that `relationship_min` is not a supported `DialogueCondition` alias; changed witness KB reveal condition to supported `relationship_at_least` with `min`.
+
+### Phase 40 / fake-client answer-change fix
+- **Status:** fixing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- P40 acceptance test showed mod-side `FakeLlmGatewayClient` still returned the legacy reply without KB visibility signal. Patched it to include `kb=public_only` or `kb=secret_visible` from `knowledgeContext`.
+
+
+### Phase 40 / PLAN.md NPC Knowledge Base completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented seven demo NPC knowledge packs, `/ebb kb inspect <npc> [query]`, visible-only prompt assembly, deterministic KB ranking, reveal-conditioned hidden chunks, and story effects `npc_kb_add_fact`, `npc_kb_add_pack`, `npc_stance_shift`.
+- Acceptance evidence:
+  - Before `ebb:demo/guestbook_gap`, innkeeper prompt context does not include `tenant paid cash`.
+  - After the clue, the same question includes the secret chunk and fake reply changes from `kb=public_only` to `kb=secret_visible`.
+  - Dev inspection lines list visible and hidden chunks.
+- Validation completed so far:
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 12 required GameTests passed.
+  - `python3 scripts/goal_static_audit.py` → passed including P40 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed.
+- Next: final build/diff confirmation and then proceed to PLAN.md P41.
+
+### Phase 40 / final build confirmation
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Final confirmation after status updates:
+  - `python3 scripts/goal_static_audit.py` → passed including P40 guardrails.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+  - Artifact hashes: jar `bcc8b8eb179cd3683c33ef70af704a56c482b4f29ae3bdbcde493129b04d3e63`, sources `4b09c667ac467dce360fd7cebe8a5545fd69988ea6306287c826b8110990d13c`.
+- Next phase: PLAN.md P41 minor NPC instant generation.
+
+
+### Phase 41 / PLAN.md minor NPC instant generation checkpoint
+- **Status:** implementation complete; validation in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Added `NpcProfileGenerator` prompt/schema and deterministic generation of character, stance, knowledge seed, suggested options, and profile generation metadata.
+- Added world-hour promotion rate limiting, `/ebb npc review <npc_key>`, `/ebb npc reject_profile <npc_key>`, and expanded generated-profile dev review output.
+- Added JUnit and GameTest coverage for rate limit helpers, dev review/reject/regenerate command paths, generated profile fields, and stable existing promoted profiles on repeated promotion attempts.
+- Validation so far:
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 12 required GameTests passed.
+- Next: validate data, static audit, smoke runner, build, hash update, and mark Phase 41 complete if evidence holds.
+
+
+### Phase 41 / stale artifact hash guardrail
+- **Status:** fixing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- `scripts/run_smoke_checks.sh` reached `GoalStaticAudit` and failed because P41 code changed the jar hash but `docs/current_status.md` still listed the P40 hash. This is the intended artifact-hash guardrail; updated the P41 artifact hashes and will rerun static/smoke.
+
+
+### Phase 41 / PLAN.md minor NPC instant generation completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Final validation after hash update:
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` → passed including P41 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+  - Artifact hashes: jar `416f0fb73ca92a1b3dc6861d96797a055eae4a254d8be670e8e35f66ca39cd5e`, sources `2491d34a2fab835948d46e4f7f127dfc763dcfd675aa1e169e085e40da1185c2`.
+- Next phase: PLAN.md P42 LLM Chat UI completion.
+
+### Push Snapshot: P40/P41 LLM NPC Knowledge and Minor NPC Generation
+- **Status:** prepared for GitHub + Google Drive push
+- **Time:** 2026-06-17 Asia/Shanghai
+- Actions taken:
+  - Re-read planning files and verified the current active state: Phase 41 complete; Phase 42 LLM Chat UI completion is next.
+  - Verified local prerequisites: GitHub CLI authenticated, `origin` points to `YJLi-new/MC-CRPG-MOD`, Drive push sync mapping is active for this repository.
+  - Re-ran `git diff --check` and `scripts/run_smoke_checks.sh` before commit/push.
+- Verification:
+  - `git diff --check` → pass.
+  - `scripts/run_smoke_checks.sh` → pass; includes Gradle build, gateway smoke checks, authoring validation, static audits, deep-research smoke, goal static audit through P41, and GUI retest issue audit.

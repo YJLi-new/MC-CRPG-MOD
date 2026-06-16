@@ -1,0 +1,20 @@
+{
+  "id": "ebb:demo/courier_route",
+  "chunks": [
+    {
+      "id": "route_public",
+      "text": "The courier usually enters from the lane, drops parcels near the kitchen, and complains if anyone blocks the rear path.",
+      "tags": ["courier", "route", "kitchen"],
+      "secret": false
+    },
+    {
+      "id": "route_private_limp",
+      "text": "The courier changed route after hurting his ankle near the side door; he may reveal this after the courier_limp clue.",
+      "tags": ["courier", "limp", "side_door", "secret"],
+      "secret": true,
+      "reveal_conditions": [
+        {"type": "clue_found", "id": "ebb:demo/courier_limp"}
+      ]
+    }
+  ]
+}

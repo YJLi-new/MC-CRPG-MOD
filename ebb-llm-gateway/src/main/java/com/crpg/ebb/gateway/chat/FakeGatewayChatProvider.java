@@ -55,6 +55,17 @@ public class FakeGatewayChatProvider implements GatewayChatProvider {
         return value == null || value.isBlank() ? fallback : value;
     }
 
+    private static String kbSignal(String sceneContext) {
+        if (sceneContext == null || sceneContext.isBlank()) {
+            return "none";
+        }
+        String lower = sceneContext.toLowerCase(Locale.ROOT);
+        if (lower.contains("tenant paid cash") || lower.contains("secret:ledger")) {
+            return "secret_visible";
+        }
+        return "public_only";
+    }
+
     private static List<String> chunk(String value, int size) {
         if (value == null || value.isEmpty()) {
             return List.of();

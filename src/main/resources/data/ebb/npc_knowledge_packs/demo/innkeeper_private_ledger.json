@@ -1,0 +1,20 @@
+{
+  "id": "ebb:demo/innkeeper_private_ledger",
+  "chunks": [
+    {
+      "id": "ledger_evasion_public",
+      "text": "The innkeeper can say the ledger was damp, rewritten, and probably harmless unless pressed with concrete evidence.",
+      "tags": ["innkeeper", "ledger", "evasion"],
+      "secret": false
+    },
+    {
+      "id": "secret_ledger_tenant_cash",
+      "text": "secret:ledger tenant paid cash for the locked room before midnight; tenant paid cash is the phrase the innkeeper is trying not to reveal.",
+      "tags": ["innkeeper", "ledger", "tenant", "cash", "secret"],
+      "secret": true,
+      "reveal_conditions": [
+        {"type": "clue_found", "id": "ebb:demo/guestbook_gap"}
+      ]
+    }
+  ]
+}

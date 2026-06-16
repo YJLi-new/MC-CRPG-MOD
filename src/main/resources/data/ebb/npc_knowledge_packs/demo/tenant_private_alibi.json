@@ -1,0 +1,20 @@
+{
+  "id": "ebb:demo/tenant_private_alibi",
+  "chunks": [
+    {
+      "id": "alibi_public",
+      "text": "The tenant says he kept to his room, heard muffled steps, and has no reason to care about the innkeeper's ledger.",
+      "tags": ["tenant", "alibi", "room"],
+      "secret": false
+    },
+    {
+      "id": "alibi_luggage_secret",
+      "text": "The tenant hid a second key in his luggage and lied about the window; this is visible after the tenant_luggage clue.",
+      "tags": ["tenant", "luggage", "window", "secret"],
+      "secret": true,
+      "reveal_conditions": [
+        {"type": "clue_found", "id": "ebb:demo/tenant_luggage"}
+      ]
+    }
+  ]
+}

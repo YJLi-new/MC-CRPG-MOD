@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 40 is in progress: PLAN.md P40 NPC Knowledge Base and story effects has a first code draft for knowledge packs, registry reload, visibility filtering, prompt context, and story effects; acceptance tests, demo data, `/ebb kb inspect <npc>`, and final validation remain pending.
+Phase 41 is complete: PLAN.md P41 minor NPC instant generation has been implemented and validated; next work should proceed to PLAN.md P42 LLM Chat UI completion.
 
 ## Phases
 
@@ -440,5 +440,17 @@ Phase 40 is in progress: PLAN.md P40 NPC Knowledge Base and story effects has a 
 - [x] Support `reveal_conditions` using existing `DialogueCondition`.
 - [x] Add effects: `npc_kb_add_fact`, `npc_kb_add_pack`, and `npc_stance_shift`.
 - [x] Make prompt assembler retrieve only visible KB.
-- [ ] Add acceptance tests: hidden secret before clue, changed answer after clue, `/ebb kb inspect <npc>` visibility.
-- **Status:** in progress; first code draft compiles/builds, but demo data, command surface, acceptance tests, and final validation remain pending
+- [x] Add acceptance tests: hidden secret before clue, changed answer after clue, `/ebb kb inspect <npc>` visibility.
+- **Status:** complete
+
+
+### Phase 41: PLAN.md P41 — Minor NPC instant generation
+- [x] Add minor candidate detector.
+- [x] Add `NpcProfileGenerator` prompt/schema.
+- [x] Generate character, stance, knowledge seed, and suggested options.
+- [x] Persist promoted major profile.
+- [x] Add generated profile dev review.
+- [x] Add per-world-hour promotion rate limit.
+- [x] Add acceptance tests for tagged minor chat/profile persistence/review/regenerate surfaces.
+- [x] Run final static/smoke/build validation and artifact hash update.
+- **Status:** complete

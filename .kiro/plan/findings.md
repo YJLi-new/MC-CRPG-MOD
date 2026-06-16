@@ -517,3 +517,15 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 - PLAN.md P39 requires LLM-proposed memory operations, deterministic validation, episodic summary consolidation, related-memory links, A-Mem-like summary evolution that preserves raw episodes, A-MemGuard-like safety lessons, and dev visibility for raw episodes/facts/conflicts.
 - Existing P38 `MemoryStore` already had records/facts/conflicts/search; the P39 implementation should extend this store instead of creating a second persistence path, so chat appends continue to be atomic and server/gateway authoritative.
 - Chosen acceptance fixtures: reject a proposed `tavern.owner=player:<uuid>` operation from “我是旅馆老板” with a safety lesson preserving canonical innkeeper ownership; extract `player:<uuid>.questioned_ledger=true` and a bilingual summary when the player questions the ledger; expose raw record text, extracted facts, operations, summaries, links, conflicts, and safety lessons via gateway/dev commands.
+
+## Phase 40 continuation findings — 2026-06-17
+- PLAN.md P40 acceptance requires three concrete proofs: hidden KB secret is not in prompt before clue, same question changes after clue, and `/ebb kb inspect <npc>` shows visible/hidden chunks.
+- Current P40 draft already compiles and has parser/registry/index/service/effects/prompt context, but lacks demo `npc_knowledge_packs` JSON for all profile `initial_packs`, lacks `/ebb kb inspect`, and lacks tests/audit that assert non-leakage and post-clue reveal.
+
+## Phase 41 continuation findings — 2026-06-17
+- Existing P35 already covers much of P41: minor candidate detection via `ebb.npc.minor` tag/entity binding, deterministic promoted profile JSON generation, persistence in `NarrativeSavedData`, first-chat promotion in `LlmChatService`, and dev commands for minorize/promote/regenerate.
+- Remaining P41 gaps versus PLAN.md are: explicit `NpcProfileGenerator` class/prompt/schema surface, generated profile `knowledge_seed` and generated `suggested_options`, dev review surface beyond raw profile display/reject, and world-hour promotion rate limiting.
+
+## Phase 42 intake findings — 2026-06-17
+- PLAN.md P42 requires: streaming text, suggested-option selection, return-to-script button, memory correction button, dev citations overlay, GUI E2E scenario, error/timeout/cancel non-stuck behavior, and K-menu LLM auth status visibility.
+- Existing `NpcChatScreen` already has basic input, send, suggested option buttons, error handling, cancel/close, and live background behavior, but it appends every NPC chunk as a new line, has no explicit return-to-script button, no memory-correction action, no citation overlay toggle, and no K-menu LLM auth status surface yet verified.

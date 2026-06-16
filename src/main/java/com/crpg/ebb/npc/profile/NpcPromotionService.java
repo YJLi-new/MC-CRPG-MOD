@@ -6,22 +6,22 @@ import com.crpg.ebb.interaction.entity.EntityBindingDefinition;
 import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.npc.EbbNpcEntity;
 import com.crpg.ebb.state.NarrativeSavedData;
-import com.google.gson.JsonArray;
+import com.crpg.ebb.story.StoryVarLayer;
 import com.google.gson.JsonObject;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 public final class NpcPromotionService {
     public static final String MINOR_NPC_TAG = "ebb.npc.minor";
+    public static final NpcTier PROMOTED_TIER = NpcTier.MAJOR_PROMOTED;
+    public static final int MAX_PROMOTIONS_PER_WORLD_HOUR = 4;
+    public static final long WORLD_HOUR_TICKS = 1_000L;
 
     private NpcPromotionService() {
     }
@@ -55,7 +55,13 @@ public final class NpcPromotionService {
         if (existing.isPresent()) {
             return new PromotionResult(profileId, existing.get(), false, "existing_promoted_major");
         }
-        JsonObject generated = generatePromotedProfileJson(entity, firstPlayerUuid, level.getGameTime(), reason);
+        long gameTime = level.getGameTime();
+        int currentCount = promotionCountForWorldHour(state, gameTime);
+        if (currentCount >= MAX_PROMOTIONS_PER_WORLD_HOUR) {
+            return new PromotionResult(profileId, NpcProfileGenerator.rateLimitedProfileJson(entity, profileId, gameTime, currentCount, MAX_PROMOTIONS_PER_WORLD_HOUR), false, "rate_limited");
+        }
+        JsonObject generated = generatePromotedProfileJson(entity, firstPlayerUuid, gameTime, reason);
+        reservePromotionSlot(state, gameTime);
         state.putPromotedNpcProfile(profileId.toString(), generated);
         state.setWorldNpcState(profileId.toString(), "promoted_major", true);
         return new PromotionResult(profileId, generated, true, "promoted_major");
@@ -70,75 +76,32 @@ public final class NpcPromotionService {
     }
 
     public static JsonObject generatePromotedProfileJson(Entity entity, UUID firstPlayerUuid, long gameTime, String reason) {
-        Identifier entityType = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
-        Optional<EntityBindingDefinition> binding = EntityBindingRegistry.resolve(entity);
-        List<String> archetypes = binding.map(EntityBindingDefinition::profileSeedArchetypes).filter(list -> !list.isEmpty())
-                .orElse(List.of("townsperson", "tavern regular", "worker", "witness"));
-        String seed = entity.level().dimension().identifier() + ":" + entity.getUUID() + ":" + entityType + ":" + gameTime;
-        int index = Math.floorMod(UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).hashCode(), archetypes.size());
-        String archetype = archetypes.get(index);
-        String displayName = entity.hasCustomName() && entity.getCustomName() != null
-                ? entity.getCustomName().getString()
-                : "Promoted " + entityType.getPath().replace('_', ' ');
-
-        JsonObject root = new JsonObject();
-        root.addProperty("id", promotedProfileId(entity).toString());
-        root.addProperty("tier", NpcTier.MAJOR_PROMOTED.serializedName());
-        root.addProperty("display_name", displayName);
-        root.addProperty("entity_uuid", entity.getStringUUID());
-        root.addProperty("entity_type", entityType.toString());
-        root.addProperty("first_player_uuid", firstPlayerUuid.toString());
-        root.addProperty("generated_reason", reason == null || reason.isBlank() ? "first_fake_chat" : reason);
-        binding.ifPresent(definition -> {
-            root.addProperty("source_binding", definition.id().toString());
-            definition.npcProfileId().ifPresent(profile -> root.addProperty("source_profile", profile.toString()));
-        });
-
-        JsonObject llm = new JsonObject();
-        llm.addProperty("enabled", true);
-        llm.addProperty("provider", "fake_or_gateway");
-        llm.addProperty("chat_model", "default_chat");
-        llm.addProperty("temperature", 0.65D);
-        llm.addProperty("max_output_tokens", 420);
-        llm.addProperty("allow_memory_write", true);
-        llm.addProperty("allow_dynamic_options", true);
-        root.add("llm", llm);
-
-        JsonObject character = new JsonObject();
-        character.addProperty("archetype", archetype);
-        character.addProperty("voice", "grounded, local, remembers why this first conversation mattered");
-        character.add("values", stringArray(List.of("staying useful", "being seen as a person", "surviving local pressure")));
-        character.add("fears", stringArray(List.of("being forgotten", "choosing the wrong side", "guard attention")));
-        character.add("speech_rules", stringArray(List.of(
-                "Keep statements consistent with the generated promoted profile.",
-                "Never claim knowledge outside the current scene unless memory/knowledge later grants it."
-        )));
-        root.add("character", character);
-
-        JsonObject stance = new JsonObject();
-        stance.addProperty("faction", "ebb:demo/tavern_locals");
-        stance.addProperty("default_attitude_to_player", "curious");
-        stance.addProperty("trust", 0);
-        stance.addProperty("fear", 0);
-        stance.addProperty("resentment", 0);
-        stance.add("secrets", new JsonArray());
-        root.add("stance", stance);
-
-        JsonObject knowledge = new JsonObject();
-        knowledge.add("initial_packs", stringArray(List.of("ebb:demo/tavern_public_lore")));
-        knowledge.add("forbidden_to_reveal_until", new JsonArray());
-        root.add("knowledge", knowledge);
-
-        JsonObject promotion = new JsonObject();
-        promotion.addProperty("can_be_demoted", false);
-        root.add("promotion", promotion);
-        return root;
+        return NpcProfileGenerator.generatePromotedProfileJson(entity, firstPlayerUuid, gameTime, reason);
     }
 
-    private static JsonArray stringArray(List<String> values) {
-        JsonArray array = new JsonArray();
-        values.forEach(array::add);
-        return array;
+    public static long currentWorldHour(long gameTime) {
+        return Math.floorDiv(Math.max(0L, gameTime), WORLD_HOUR_TICKS);
+    }
+
+    public static String rateLimitKey(long gameTime) {
+        return "llm_promotion_hour_" + currentWorldHour(gameTime);
+    }
+
+    public static int promotionCountForWorldHour(NarrativeSavedData state, long gameTime) {
+        String raw = state.getWorldStoryVariable(StoryVarLayer.MINOR, rateLimitKey(gameTime));
+        try {
+            return raw == null || raw.isBlank() ? 0 : Integer.parseInt(raw);
+        } catch (NumberFormatException ex) {
+            return 0;
+        }
+    }
+
+    public static boolean canPromoteThisWorldHour(NarrativeSavedData state, long gameTime) {
+        return promotionCountForWorldHour(state, gameTime) < MAX_PROMOTIONS_PER_WORLD_HOUR;
+    }
+
+    private static int reservePromotionSlot(NarrativeSavedData state, long gameTime) {
+        return state.addWorldStoryInt(StoryVarLayer.MINOR, rateLimitKey(gameTime), 1);
     }
 
     public static String summaryLine(NarrativeSavedData state) {

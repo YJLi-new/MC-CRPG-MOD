@@ -1,0 +1,20 @@
+{
+  "id": "ebb:demo/guard_case_notes",
+  "chunks": [
+    {
+      "id": "case_public",
+      "text": "The guard's public case note says no one should tamper with the locked door or spread accusations before the watch returns.",
+      "tags": ["guard", "case", "locked_door"],
+      "secret": false
+    },
+    {
+      "id": "case_private_denial",
+      "text": "The guard privately knows a prior denial contradicts the door scrape, but only addresses it after the guard_denial clue.",
+      "tags": ["guard", "denial", "secret"],
+      "secret": true,
+      "reveal_conditions": [
+        {"type": "clue_found", "id": "ebb:demo/guard_denial"}
+      ]
+    }
+  ]
+}

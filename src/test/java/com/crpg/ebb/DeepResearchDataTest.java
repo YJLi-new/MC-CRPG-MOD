@@ -35,7 +35,10 @@ import com.crpg.ebb.llm.auth.DevLocalLlmAuthClient;
 import com.crpg.ebb.llm.auth.LlmAuthService;
 import com.crpg.ebb.llm.auth.LlmAuthToken;
 import com.crpg.ebb.memory.MemoryGatewayClient;
+import com.crpg.ebb.npc.knowledge.NpcKnowledgeRegistry;
+import com.crpg.ebb.npc.knowledge.NpcKnowledgeService;
 import com.crpg.ebb.network.dialogue.RollResultPayload;
+import com.crpg.ebb.npc.profile.NpcProfileGenerator;
 import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
 import com.crpg.ebb.npc.profile.NpcTier;
@@ -66,6 +69,7 @@ import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.Optional;
@@ -1214,6 +1218,107 @@ final class DeepResearchDataTest {
         assertTrue(store.contains("raw_episode"));
         assertTrue(store.contains("extracted_facts"));
         assertTrue(store.contains("safetyLessons"));
+    }
+
+
+    @Test
+    void p40NpcKnowledgeHidesSecretsUntilClueAndSupportsStoryEffects() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        NpcProfileRegistry.rebuild(load(bundled.resolve("npc_profiles")));
+        NpcKnowledgeRegistry.rebuild(load(bundled.resolve("npc_knowledge_packs")));
+
+        assertTrue(NpcKnowledgeRegistry.size() >= 7, "P40 should load all demo NPC knowledge packs referenced by profiles");
+        assertTrue(NpcKnowledgeRegistry.validationMessages().isEmpty(), NpcKnowledgeRegistry.validationMessages().toString());
+        for (String pack : List.of("tavern_public_lore", "innkeeper_private_ledger", "kitchen_manifest", "courier_route", "guard_case_notes", "tenant_private_alibi", "witness_heard_knocks")) {
+            assertTrue(NpcKnowledgeRegistry.byId(Identifier.parse("ebb:demo/" + pack)).isPresent(), "missing KB pack: " + pack);
+        }
+
+        NarrativeSavedData state = new NarrativeSavedData();
+        UUID player = UUID.randomUUID();
+        String question = "What did the tenant pay in the ledger?";
+        String before = NpcKnowledgeService.promptContext("ebb:demo/innkeeper", question, state, player, 6000L, 6);
+        assertTrue(before.contains("ledger_evasion_public"), before);
+        assertFalse(before.toLowerCase(Locale.ROOT).contains("tenant paid cash"), "secret chunk should not leak before clue: " + before);
+        assertTrue(NpcKnowledgeService.inspectLines("ebb:demo/innkeeper", question, state, player, 6000L, 16).stream()
+                .anyMatch(line -> line.contains("hidden") && line.contains("secret_ledger_tenant_cash")),
+                "KB inspect should show hidden secret chunks before clue");
+
+        LlmChatResponse beforeReply = new FakeLlmGatewayClient(LlmConfig.fakeForTesting()).sendMessage(new LlmChatRequest(
+                UUID.randomUUID(), player, Optional.empty(), Identifier.parse("ebb:test/p40"), "start",
+                "ebb:demo/innkeeper", "innkeeper", "ledger", question, 1L, before)).get(3, TimeUnit.SECONDS);
+        assertTrue(beforeReply.reply().contains("kb=public_only"), beforeReply.reply());
+
+        state.revealClue(player, "ebb:demo/guestbook_gap");
+        String after = NpcKnowledgeService.promptContext("ebb:demo/innkeeper", question, state, player, 6000L, 6);
+        assertTrue(after.toLowerCase(Locale.ROOT).contains("tenant paid cash"), "secret chunk should become visible after clue: " + after);
+        LlmChatResponse afterReply = new FakeLlmGatewayClient(LlmConfig.fakeForTesting()).sendMessage(new LlmChatRequest(
+                UUID.randomUUID(), player, Optional.empty(), Identifier.parse("ebb:test/p40"), "start",
+                "ebb:demo/innkeeper", "innkeeper", "ledger", question, 2L, after)).get(3, TimeUnit.SECONDS);
+        assertTrue(afterReply.reply().contains("kb=secret_visible"), afterReply.reply());
+
+        assertTrue(parseEffect("{\"type\":\"npc_kb_add_fact\",\"npc\":\"ebb:demo/innkeeper\",\"fact\":\"player_checked_back_door\"}")
+                .apply(state, player).orElseThrow().contains("npc_kb_fact_added"));
+        assertTrue(parseEffect("{\"type\":\"npc_kb_add_pack\",\"npc\":\"ebb:demo/innkeeper\",\"pack\":\"ebb:demo/kitchen_manifest\"}")
+                .apply(state, player).orElseThrow().contains("npc_kb_pack_added"));
+        assertTrue(parseEffect("{\"type\":\"npc_stance_shift\",\"npc\":\"ebb:demo/innkeeper\",\"stance\":\"defensive\"}")
+                .apply(state, player).orElseThrow().contains("npc_stance_shift"));
+        List<String> lines = NpcKnowledgeService.inspectLines("ebb:demo/innkeeper", "kitchen manifest", state, player, 6000L, 16);
+        assertTrue(lines.stream().anyMatch(line -> line.contains("stance=defensive")), lines.toString());
+        assertTrue(lines.stream().anyMatch(line -> line.contains("kitchen_manifest")), lines.toString());
+        assertTrue(lines.stream().anyMatch(line -> line.contains("player_checked_back_door")), lines.toString());
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+        register.setAccessible(true);
+        register.invoke(null, dispatcher);
+        CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+        requireCommandPath(ebb, "kb", "inspect", "npc");
+        requireCommandPath(ebb, "kb", "inspect", "npc", "query");
+    }
+
+    @Test
+    void p41MinorNpcProfileGenerationRateLimitAndDevReviewAreAuditable() throws Exception {
+        assertTrue(NpcProfileGenerator.promptTemplate().contains("knowledge_seed"));
+        assertEquals("ebb.npc_profile_generator.v1", NpcProfileGenerator.SCHEMA_ID);
+        JsonObject schema = NpcProfileGenerator.schema();
+        assertTrue(schema.toString().contains("suggested_options"));
+        assertTrue(schema.toString().contains("knowledge_seed"));
+
+        NarrativeSavedData state = new NarrativeSavedData();
+        long gameTime = 42_000L;
+        assertTrue(NpcPromotionService.canPromoteThisWorldHour(state, gameTime));
+        for (int i = 0; i < NpcPromotionService.MAX_PROMOTIONS_PER_WORLD_HOUR; i++) {
+            state.addWorldStoryInt(StoryVarLayer.MINOR, NpcPromotionService.rateLimitKey(gameTime), 1);
+        }
+        assertFalse(NpcPromotionService.canPromoteThisWorldHour(state, gameTime),
+                "P41 should enforce a per-world-hour promoted minor NPC limit");
+        assertTrue(NpcPromotionService.canPromoteThisWorldHour(state, gameTime + NpcPromotionService.WORLD_HOUR_TICKS),
+                "P41 rate limit should reset for a later world hour");
+
+        JsonObject generated = JsonParser.parseString("""
+                {"id":"ebb:promoted/review","tier":"major_promoted","display_name":"Review NPC",
+                 "profile_generation":{"schema_id":"ebb.npc_profile_generator.v1","prompt_version":"npc_profile_generator_v1"},
+                 "character":{"speech_rules":["stay consistent"]},
+                 "knowledge_seed":{"initial_packs":["ebb:demo/tavern_public_lore"]},
+                 "suggested_options":["问你看见了什么？"]}
+                """).getAsJsonObject();
+        List<String> review = NpcProfileGenerator.devReviewLines(Identifier.parse("ebb:promoted/review"), generated);
+        assertTrue(review.stream().anyMatch(line -> line.contains("schema=ebb.npc_profile_generator.v1")), review.toString());
+        assertTrue(review.stream().anyMatch(line -> line.contains("suggested_options=1")), review.toString());
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+        register.setAccessible(true);
+        register.invoke(null, dispatcher);
+        CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+        requireCommandPath(ebb, "npc", "review", "npc_key");
+        requireCommandPath(ebb, "npc", "reject_profile", "npc_key");
+        requireCommandPath(ebb, "npc", "regenerate_profile", "npc_key");
+
+        String service = Files.readString(Path.of("src/main/java/com/crpg/ebb/npc/profile/NpcPromotionService.java"));
+        assertTrue(service.contains("MAX_PROMOTIONS_PER_WORLD_HOUR"));
+        assertTrue(service.contains("rate_limited"));
+        assertTrue(service.contains("NpcProfileGenerator.generatePromotedProfileJson"));
     }
 
     @Test
