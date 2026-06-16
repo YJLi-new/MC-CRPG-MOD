@@ -31,6 +31,9 @@ import com.crpg.ebb.llm.LlmChatSession;
 import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.LlmMode;
 import com.crpg.ebb.network.dialogue.RollResultPayload;
+import com.crpg.ebb.npc.profile.NpcProfileRegistry;
+import com.crpg.ebb.npc.profile.NpcPromotionService;
+import com.crpg.ebb.npc.profile.NpcTier;
 import com.crpg.ebb.network.dialogue.VisibleDialogueChoice;
 import com.crpg.ebb.quest.QuestBranchRegistry;
 import com.crpg.ebb.quest.TakeRootService;
@@ -81,6 +84,7 @@ final class DeepResearchDataTest {
         BlockGroupIndex.rebuild(load(bundled.resolve("interactions/block_groups")));
         EntityBindingRegistry.rebuild(load(bundled.resolve("interactions/entity_bindings")));
         NpcRoutineRegistry.rebuild(load(bundled.resolve("npc_routines")));
+        NpcProfileRegistry.rebuild(load(bundled.resolve("npc_profiles")));
         QuestBranchRegistry.rebuild(load(bundled.resolve("quest_branches")));
         FeatRegistry.rebuild(load(bundled.resolve("feats")));
         ChimeRegistry.rebuild(load(bundled.resolve("chimes")));
@@ -95,6 +99,7 @@ final class DeepResearchDataTest {
         assertTrue(BlockGroupIndex.groupCount() >= 8, "bundled vertical-slice block groups should load");
         assertTrue(EntityBindingRegistry.size() >= 2, "bundled entity bindings should load");
         assertTrue(NpcRoutineRegistry.size() >= 5, "bundled routines should load");
+        assertTrue(NpcProfileRegistry.size() >= 6, "bundled P35 NPC profiles should load");
         assertTrue(QuestBranchRegistry.size() >= 2, "bundled quest branches should load");
         assertTrue(FeatRegistry.size() >= 4, "bundled feats should load");
         assertTrue(ChimeRegistry.size() >= 8, "bundled P26 chimes should load all eight voices");
@@ -108,6 +113,7 @@ final class DeepResearchDataTest {
         assertEquals(0, BlockGroupIndex.messages().size(), "block groups should be clean");
         assertEquals(0, EntityBindingRegistry.validationMessages().size(), "entity bindings should be clean");
         assertEquals(0, NpcRoutineRegistry.validationMessages().size(), "routines should be clean");
+        assertEquals(0, NpcProfileRegistry.validationMessages().size(), "NPC profiles should be clean");
         assertEquals(0, QuestBranchRegistry.validationMessages().size(), "quest branches should be clean");
         assertEquals(0, FeatRegistry.validationMessages().size(), "feats should be clean");
         assertEquals(0, ChimeRegistry.validationMessages().size(), "chimes should be clean");
@@ -684,6 +690,7 @@ final class DeepResearchDataTest {
         BlockGroupIndex.rebuild(load(bundled.resolve("interactions/block_groups")));
         EntityBindingRegistry.rebuild(load(bundled.resolve("interactions/entity_bindings")));
         NpcRoutineRegistry.rebuild(load(bundled.resolve("npc_routines")));
+        NpcProfileRegistry.rebuild(load(bundled.resolve("npc_profiles")));
         QuestBranchRegistry.rebuild(load(bundled.resolve("quest_branches")));
         FeatRegistry.rebuild(load(bundled.resolve("feats")));
         ChimeRegistry.rebuild(load(bundled.resolve("chimes")));
@@ -730,6 +737,7 @@ final class DeepResearchDataTest {
         BlockGroupIndex.rebuild(load(bundled.resolve("interactions/block_groups")));
         EntityBindingRegistry.rebuild(load(bundled.resolve("interactions/entity_bindings")));
         NpcRoutineRegistry.rebuild(load(bundled.resolve("npc_routines")));
+        NpcProfileRegistry.rebuild(load(bundled.resolve("npc_profiles")));
         QuestBranchRegistry.rebuild(load(bundled.resolve("quest_branches")));
         FeatRegistry.rebuild(load(bundled.resolve("feats")));
         ChimeRegistry.rebuild(load(bundled.resolve("chimes")));
@@ -1073,6 +1081,87 @@ final class DeepResearchDataTest {
         } finally {
             LlmChatService.clearTestingOverrides();
         }
+    }
+
+
+    @Test
+    void p35NpcProfilesLoadAndResolveByBinding() throws Exception {
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        EntityBindingRegistry.rebuild(load(bundled.resolve("interactions/entity_bindings")));
+        NpcProfileRegistry.rebuild(load(bundled.resolve("npc_profiles")));
+
+        assertTrue(NpcProfileRegistry.size() >= 6, "P35 requires the six P30 role NPC profiles");
+        for (String role : java.util.List.of("innkeeper", "witness", "tenant", "guard", "cook", "courier")) {
+            Identifier profileId = Identifier.parse("ebb:demo/" + role);
+            var profile = NpcProfileRegistry.byId(profileId).orElseThrow();
+            assertEquals(NpcTier.MAJOR_SCRIPTED, profile.tier(), role + " should be a scripted major NPC");
+            assertTrue(profile.llm().enabled(), role + " profile should allow default fake/gateway chat policy");
+            assertFalse(profile.character().speechRules().isEmpty(), role + " should have authored speech rules");
+        }
+        var innkeeperBinding = EntityBindingRegistry.definitions().get(Identifier.parse("ebb:demo/innkeeper_ebb_npc"));
+        assertNotNull(innkeeperBinding, "innkeeper binding should load");
+        assertEquals(Optional.of(Identifier.parse("ebb:demo/innkeeper")), innkeeperBinding.npcProfileId());
+        assertEquals(NpcTier.MAJOR_SCRIPTED, innkeeperBinding.npcTier());
+        assertEquals(Identifier.parse("ebb:demo/innkeeper"),
+                NpcProfileRegistry.byEntityBinding(Identifier.parse("ebb:demo/innkeeper_ebb_npc")).orElseThrow().id());
+
+        var minorBinding = EntityBindingRegistry.definitions().get(Identifier.parse("ebb:llm/minor_villager"));
+        assertNotNull(minorBinding, "minor villager candidate binding should load");
+        assertEquals(NpcTier.MINOR_GENERATABLE, minorBinding.npcTier());
+        assertTrue(minorBinding.promoteOnFirstChat(), "minor candidate should promote on first chat");
+        assertTrue(minorBinding.profileSeedArchetypes().contains("townsperson"));
+    }
+
+    @Test
+    void p35PromotedProfilesPersistThroughSavedDataCodec() {
+        NarrativeSavedData state = new NarrativeSavedData();
+        JsonObject profile = JsonParser.parseString("""
+                {
+                  "id":"ebb:promoted/test_minor",
+                  "tier":"major_promoted",
+                  "display_name":"Promoted Test Minor",
+                  "entity_uuid":"00000000-0000-0000-0000-000000000001",
+                  "character":{"archetype":"townsperson","voice":"plain"},
+                  "stance":{"default_attitude_to_player":"curious"},
+                  "knowledge":{"initial_packs":["ebb:demo/tavern_public_lore"]},
+                  "promotion":{"can_be_demoted":false}
+                }
+                """).getAsJsonObject();
+        state.putPromotedNpcProfile("ebb:promoted/test_minor", profile);
+        state.setWorldNpcState("ebb:promoted/test_minor", "promoted_major", true);
+
+        assertTrue(state.hasPromotedNpcProfile("ebb:promoted/test_minor"));
+        assertEquals("Promoted Test Minor", state.promotedNpcProfile("ebb:promoted/test_minor").orElseThrow().get("display_name").getAsString());
+        assertTrue(state.summaryLine().contains("promoted_npc_profiles=1"));
+        assertTrue(state.promotedNpcProfileDebugLines(8).stream().anyMatch(line -> line.contains("major_promoted")));
+
+        var encoded = NarrativeSavedData.CODEC.encodeStart(JsonOps.INSTANCE, state)
+                .resultOrPartial(message -> { throw new AssertionError(message); })
+                .orElseThrow();
+        NarrativeSavedData restored = NarrativeSavedData.CODEC.parse(JsonOps.INSTANCE, encoded)
+                .resultOrPartial(message -> { throw new AssertionError(message); })
+                .orElseThrow();
+        assertEquals(NarrativeSavedData.CURRENT_SCHEMA_VERSION, restored.schemaVersion());
+        assertTrue(restored.hasPromotedNpcProfile("ebb:promoted/test_minor"));
+        assertEquals("major_promoted", restored.promotedNpcProfile("ebb:promoted/test_minor").orElseThrow().get("tier").getAsString());
+    }
+
+    @Test
+    void p35NpcCommandSurfaceIsRegistered() throws Exception {
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+        register.setAccessible(true);
+        register.invoke(null, dispatcher);
+        CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+        requireCommandPath(ebb, "npc", "profile", "target");
+        requireCommandPath(ebb, "npc", "profile", "npc_key");
+        requireCommandPath(ebb, "npc", "minorize", "entity");
+        requireCommandPath(ebb, "npc", "promote", "entity");
+        requireCommandPath(ebb, "npc", "regenerate_profile", "npc_key");
+
+        String commands = Files.readString(Path.of("src/main/java/com/crpg/ebb/registry/ModCommands.java"));
+        assertTrue(commands.contains("NpcPromotionService.ensurePromotedProfile"));
+        assertTrue(commands.contains("NpcProfileRegistry.byEntityBinding"));
     }
 
     private static DialogueEffect parseEffect(String json) {

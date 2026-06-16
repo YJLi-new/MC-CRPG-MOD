@@ -1411,3 +1411,40 @@
   - Debug entity fallback remains disabled; free chat is only reachable through scripted `llm_chat` choices on registered targets.
 - Next:
   - Start PLAN.md P35: NPC Profile / Tier / Promotion data layer.
+
+
+### Phase 35 / PLAN.md P35 NPC Profile, Tier, and Promotion data layer completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Actions taken:
+  - Added `NpcTier`, `NpcProfileDefinition`, `NpcProfileRegistry`, and `NpcPromotionService` under `com.crpg.ebb.npc.profile`.
+  - Registered `npc_profiles` as a server-data reload registry and surfaced profile counts/validation in `/ebb data` and dev snapshots.
+  - Added six scripted major P30 role profiles for innkeeper, witness, tenant, guard, cook, and courier.
+  - Extended entity bindings with `npc_tier`, `npc_profile`, `llm.promote_on_first_chat`, and `llm.profile_seed_archetypes`, including dedicated-server sync payload support.
+  - Added explicit opt-in minor villager binding with tag `ebb.npc.minor` plus `ebb:llm/minor_intro` fake/LLM chat entry. Debug entity fallback remains disabled.
+  - Added promoted profile persistence in `NarrativeSavedData.promoted_npc_profiles`, bumped schema to v3, added debug/export lines, and wired minor first-chat promotion into `LlmChatService`.
+  - Added `/ebb npc profile target`, `/ebb npc profile <npc_key>`, `/ebb npc minorize <entity>`, `/ebb npc promote <entity>`, and `/ebb npc regenerate_profile <npc_key>` dev commands.
+  - Added NPC profile schema/docs, P35 static-audit guardrails, JUnit coverage, and GameTest coverage.
+- Validation:
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` → passed including P35 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed; smoke registry logs show dialogues=20, block_groups=12, entity_bindings=15, npc_routines=7.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 8 required GameTests passed.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+- Artifact hashes:
+  - build jar: `fdab4338525cb74c42f65485fb305b0712bea467aaea18bc986f721d20ee76e1`.
+  - sources jar: `f0aaada7ead57b647afb33b49e4d7cf87bb2b87b278da919caaa78deadc26a0d`.
+- Review notes:
+  - P35 intentionally keeps real gateway/OAuth work out of the mod jar; P36 begins the separate gateway/auth service.
+  - Minor NPC promotion remains opt-in through bindings/tags/dev commands and does not reintroduce “all entities are interactable.”
+- Next:
+  - Start PLAN.md P36 gateway minimal service + OAuth/OIDC authentication.
+
+### Phase 35 / publish request
+- **Status:** publishing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- User requested a brief progress report and push to both GitHub and Google Drive.
+- Current implementation state remains: P35 complete/validated; next planned phase is P36 gateway minimal service + OAuth/OIDC authentication.

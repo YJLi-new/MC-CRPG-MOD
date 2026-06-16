@@ -14,6 +14,7 @@ import com.crpg.ebb.network.llm.LlmChatErrorPayload;
 import com.crpg.ebb.network.llm.LlmChatMessagePayload;
 import com.crpg.ebb.network.llm.LlmChatOpenedPayload;
 import com.crpg.ebb.network.llm.LlmChatOptionsPayload;
+import com.crpg.ebb.npc.profile.NpcPromotionService;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -37,6 +38,7 @@ public final class LlmChatService {
     private static final Map<UUID, LlmChatSession> SESSIONS = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> PLAYER_TO_SESSION = new ConcurrentHashMap<>();
     private static final Map<String, AtomicInteger> SECURITY_EVENTS = new ConcurrentHashMap<>();
+    private static final String PROMOTED_MAJOR_STATUS = "promoted_major";
     private static volatile LlmGatewayClient testingClient;
     private static int tickCounter;
 
@@ -75,9 +77,16 @@ public final class LlmChatService {
         long gameTime = player.level().getGameTime();
         UUID conversationId = UUID.randomUUID();
         LlmChoiceSettings settings = choice.llmSettings();
-        String npcKey = settings.npc().orElseGet(() -> inferNpcKey(dialogueSession, node));
+        Optional<NpcPromotionService.PromotionResult> promotion = NpcPromotionService.ensurePromotedIfMinor(player, dialogueSession);
+        String npcKey = promotion
+                .map(result -> result.profileId().toString())
+                .orElseGet(() -> settings.npc().orElseGet(() -> inferNpcKey(dialogueSession, node)));
+        String npcDisplayName = promotion.map(NpcPromotionService.PromotionResult::displayName).orElse(node.speaker());
         String topicHint = settings.topicHint().orElse(choice.text());
         String returnNode = settings.returnNode().orElseGet(node::id);
+        String openedStatus = promotion
+                .map(result -> result.created() ? PROMOTED_MAJOR_STATUS : result.status())
+                .orElse(config.mode().serializedName());
         LlmChatSession session = new LlmChatSession(
                 conversationId,
                 player.getUUID(),
@@ -88,7 +97,7 @@ public final class LlmChatService {
                 node.id(),
                 returnNode,
                 npcKey,
-                node.speaker(),
+                npcDisplayName,
                 topicHint,
                 gameTime,
                 gameTime,
@@ -102,10 +111,10 @@ public final class LlmChatService {
                 session.npcKey(),
                 session.npcDisplayName(),
                 Optional.ofNullable(topicHint).filter(value -> !value.isBlank()),
-                config.mode().serializedName(),
+                promotion.map(result -> openedStatus + ":" + result.profileId()).orElse(openedStatus),
                 config.maxInputChars()
         ));
-        return new OpenResult(true, "llm_chat_opened:" + config.mode().serializedName());
+        return new OpenResult(true, "llm_chat_opened:" + openedStatus);
     }
 
     public static void handleMessage(ServerPlayer player, LlmChatMessagePayload payload, PacketSender responseSender) {

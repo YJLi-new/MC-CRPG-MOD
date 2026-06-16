@@ -1,0 +1,22 @@
+{
+  "match": {
+    "entity_type": "minecraft:villager",
+    "tag": "ebb.npc.minor"
+  },
+  "dialogue": "ebb:llm/minor_intro",
+  "npc_tier": "minor_generatable",
+  "interaction_range": 2.25,
+  "highlight_range": 10.0,
+  "priority": 30,
+  "highlight": {
+    "color": "#9ED8FF",
+    "opacity": 0.55,
+    "render_mode": "outline",
+    "priority": 60
+  },
+  "llm": {
+    "enabled": true,
+    "promote_on_first_chat": true,
+    "profile_seed_archetypes": ["townsperson", "tavern regular", "worker", "witness"]
+  }
+}

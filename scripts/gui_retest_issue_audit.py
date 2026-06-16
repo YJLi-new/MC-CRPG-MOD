@@ -155,7 +155,7 @@ def audit_sources() -> None:
         if needle not in runtime_check:
             fail(f"check_pcl_runtime_loaded.py missing fatal-log guard: {needle}")
     env = read_text("tools/gui_automation/python/ebb_gui_env.py")
-    if "RuntimeCounts(dialogues=19, block_groups=12, entity_bindings=14, npc_routines=7)" not in env:
+    if "RuntimeCounts(dialogues=20, block_groups=12, entity_bindings=15, npc_routines=7)" not in env:
         fail("GUI env expected runtime counts are not updated to the P30/P31 content set")
     gui_runner = read_text("scripts/gui_e2e_run.py")
     for forbidden in ["oak_sign[facing", "setblock 4 64 8 minecraft:oak_sign", "\"stable_mud\": \"14.5 64 1.5"]:

@@ -5,6 +5,7 @@ import com.crpg.ebb.interaction.HighlightStyle;
 import com.crpg.ebb.interaction.InteractionSettings;
 import com.crpg.ebb.interaction.InteractionSyncLimits;
 import com.crpg.ebb.interaction.entity.EntityBindingDefinition;
+import com.crpg.ebb.npc.profile.NpcTier;
 import io.netty.handler.codec.DecoderException;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -82,6 +83,14 @@ public record EntityBindingSyncPayload(
         buffer.writeDouble(definition.highlightRange());
         buffer.writeVarInt(definition.priority());
         writeHighlightStyle(buffer, definition.highlightStyle());
+        buffer.writeBoolean(definition.npcProfileId().isPresent());
+        definition.npcProfileId().ifPresent(buffer::writeIdentifier);
+        buffer.writeUtf(definition.npcTier().serializedName(), MAX_STRING_LENGTH);
+        buffer.writeBoolean(definition.promoteOnFirstChat());
+        buffer.writeVarInt(definition.profileSeedArchetypes().size());
+        for (String archetype : definition.profileSeedArchetypes()) {
+            buffer.writeUtf(archetype, MAX_STRING_LENGTH);
+        }
     }
 
     private static EntityBindingDefinition readDefinition(RegistryFriendlyByteBuf buffer) {
@@ -109,10 +118,21 @@ public record EntityBindingSyncPayload(
         double highlightRange = buffer.readDouble();
         int priority = buffer.readVarInt();
         HighlightStyle highlightStyle = readHighlightStyle(buffer);
+        Optional<Identifier> npcProfileId = buffer.readBoolean() ? Optional.of(buffer.readIdentifier()) : Optional.empty();
+        NpcTier npcTier = NpcTier.parse(buffer.readUtf(MAX_STRING_LENGTH));
+        boolean promoteOnFirstChat = buffer.readBoolean();
+        int archetypeCount = buffer.readVarInt();
+        if (archetypeCount < 0 || archetypeCount > MAX_TAGS) {
+            throw new DecoderException("Invalid seed archetype count for entity binding " + id + ": " + archetypeCount);
+        }
+        List<String> profileSeedArchetypes = new ArrayList<>(archetypeCount);
+        for (int i = 0; i < archetypeCount; i++) {
+            profileSeedArchetypes.add(buffer.readUtf(MAX_STRING_LENGTH));
+        }
         if (interactionRange <= 0.0D || highlightRange < interactionRange) {
             throw new DecoderException("Invalid range for entity binding " + id + ": " + interactionRange + "/" + highlightRange);
         }
-        return new EntityBindingDefinition(id, uuid, tags, name, entityTypes, dialogueId, interactionRange, highlightRange, priority, highlightStyle);
+        return new EntityBindingDefinition(id, uuid, tags, name, entityTypes, dialogueId, interactionRange, highlightRange, priority, highlightStyle, npcProfileId, npcTier, promoteOnFirstChat, profileSeedArchetypes);
     }
 
     private static void writeSettings(RegistryFriendlyByteBuf buffer, InteractionSettings.Snapshot settings) {
@@ -151,6 +171,9 @@ public record EntityBindingSyncPayload(
         }
         if (definition.entityTypes().size() > MAX_ENTITY_TYPES) {
             throw new IllegalArgumentException("Entity binding " + definition.id() + " has too many entity types: " + definition.entityTypes().size());
+        }
+        if (definition.profileSeedArchetypes().size() > MAX_TAGS) {
+            throw new IllegalArgumentException("Entity binding " + definition.id() + " has too many seed archetypes: " + definition.profileSeedArchetypes().size());
         }
     }
 

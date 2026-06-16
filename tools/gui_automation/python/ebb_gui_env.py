@@ -10,7 +10,7 @@ from typing import Any
 from runtime_log import RuntimeCounts, parse_runtime_counts
 from server_controller import ServerController
 
-EXPECTED_COUNTS = RuntimeCounts(dialogues=19, block_groups=12, entity_bindings=14, npc_routines=7)
+EXPECTED_COUNTS = RuntimeCounts(dialogues=20, block_groups=12, entity_bindings=15, npc_routines=7)
 
 @dataclass
 class EbbGuiEnv:

@@ -82,9 +82,9 @@ def main() -> int:
                         help="PCL test profile directory")
     parser.add_argument("--build-jar", type=Path, default=DEFAULT_BUILD_JAR,
                         help="Current project build jar to compare with the profile-local installed jar")
-    parser.add_argument("--expected-dialogues", type=int, default=19)
+    parser.add_argument("--expected-dialogues", type=int, default=20)
     parser.add_argument("--expected-block-groups", type=int, default=12)
-    parser.add_argument("--expected-entity-bindings", type=int, default=14)
+    parser.add_argument("--expected-entity-bindings", type=int, default=15)
     parser.add_argument("--expected-npc-routines", type=int, default=7)
     args = parser.parse_args()
 

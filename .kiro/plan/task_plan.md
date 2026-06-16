@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 34 is complete: PLAN.md P34 LLM / Memory fake-provider foundation has been implemented and validated; next work should proceed to PLAN.md P35 NPC Profile / Tier / Promotion data layer.
+Phase 35 is complete: PLAN.md P35 NPC Profile / Tier / Promotion data layer has been implemented and validated; next work should proceed to PLAN.md P36 Gateway minimal service + OAuth/OIDC authentication.
 
 ## Phases
 
@@ -388,9 +388,18 @@ Phase 34 is complete: PLAN.md P34 LLM / Memory fake-provider foundation has been
 
 
 ### Phase 35: PLAN.md P35 — NPC Profile / Tier / Promotion Data Layer
-- [ ] Add `NpcTier`, `NpcProfileDefinition`, parser/reload registry, and safe dev status surfaces.
-- [ ] Add six P30 role NPC profile JSON definitions and profile authoring docs/schema.
-- [ ] Extend entity binding schema for minor-generatable NPC candidates without re-enabling debug fallback.
-- [ ] Add promotion service and persisted promoted profile state.
-- [ ] Add tests/GameTest/static/smoke coverage proving scripted profiles load and promoted profiles persist.
+- [x] Add `NpcTier`, `NpcProfileDefinition`, parser/reload registry, and safe dev status surfaces.
+- [x] Add six P30 role NPC profile JSON definitions and profile authoring docs/schema.
+- [x] Extend entity binding schema for minor-generatable NPC candidates without re-enabling debug fallback.
+- [x] Add promotion service and persisted promoted profile state.
+- [x] Add tests/GameTest/static/smoke coverage proving scripted profiles load and promoted profiles persist.
+- **Status:** complete
+
+
+### Phase 36: PLAN.md P36 — Gateway Minimal Service + OAuth/OIDC Authentication
+- [ ] Add `ebb-llm-gateway/` service skeleton.
+- [ ] Implement `/v1/health`, `/v1/auth/device/start`, and `/v1/auth/device/status`.
+- [ ] Implement dev-only local auth provider and production OAuth/OIDC abstraction without storing secrets in the mod jar.
+- [ ] Add Minecraft `/ebb llm auth/status/logout` flow with server-only token storage.
+- [ ] Add tests/docs/static audits proving unauthenticated chat returns auth-required, login enables fake-provider chat, logout invalidates token, and profile refresh does not leak tokens.
 - **Status:** planned

@@ -1,0 +1,27 @@
+{
+  "id": "ebb:llm/minor_intro",
+  "start": "start",
+  "nodes": {
+    "start": {
+      "speaker": "minor_npc",
+      "text": "这个人还不是故事里的主要人物，但他们正看着你，像是在等一个让自己变重要的机会。",
+      "choices": [
+        {
+          "id": "free_chat",
+          "type": "llm_chat",
+          "text": "我们聊聊。",
+          "llm": {
+            "topic_hint": "first conversation with a minor tavern NPC who may become important",
+            "return_node": "start",
+            "allow_memory_write": true
+          }
+        },
+        {
+          "id": "leave",
+          "type": "action",
+          "text": "暂时离开。"
+        }
+      ]
+    }
+  }
+}

@@ -11,5 +11,7 @@
   "dialogue": "ebb:demo/witness_intro",
   "interaction_range": 2.5,
   "highlight_range": 10.0,
-  "priority": 650
+  "priority": 650,
+  "npc_tier": "major_scripted",
+  "npc_profile": "ebb:demo/witness"
 }

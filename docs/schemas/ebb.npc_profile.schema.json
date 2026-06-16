@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ebb.npc_profile.schema.json",
+  "title": "Esoteric Ebb NPC Profile",
+  "type": "object",
+  "required": ["tier", "display_name", "character", "stance", "knowledge"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"},
+    "tier": {
+      "type": "string",
+      "enum": ["major_scripted", "minor_generatable", "major_promoted", "static_non_llm", "disabled"]
+    },
+    "display_name": {"type": "string", "minLength": 1},
+    "entity_binding": {"type": "string"},
+    "llm": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "provider": {"type": "string"},
+        "chat_model": {"type": "string"},
+        "temperature": {"type": "number", "minimum": 0, "maximum": 2},
+        "max_output_tokens": {"type": "integer", "minimum": 1},
+        "allow_memory_write": {"type": "boolean"},
+        "allow_dynamic_options": {"type": "boolean"}
+      }
+    },
+    "character": {
+      "type": "object",
+      "required": ["archetype", "voice"],
+      "properties": {
+        "archetype": {"type": "string"},
+        "voice": {"type": "string"},
+        "values": {"type": "array", "items": {"type": "string"}},
+        "fears": {"type": "array", "items": {"type": "string"}},
+        "speech_rules": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "stance": {
+      "type": "object",
+      "properties": {
+        "faction": {"type": "string"},
+        "default_attitude_to_player": {"type": "string"},
+        "trust": {"type": "integer"},
+        "fear": {"type": "integer"},
+        "resentment": {"type": "integer"},
+        "secrets": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "knowledge": {
+      "type": "object",
+      "properties": {
+        "initial_packs": {"type": "array", "items": {"type": "string"}},
+        "forbidden_to_reveal_until": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["fact", "condition"],
+            "properties": {
+              "fact": {"type": "string"},
+              "condition": {"type": "string"}
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "promotion": {
+      "type": "object",
+      "properties": {
+        "can_be_demoted": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    }
+  }
+}

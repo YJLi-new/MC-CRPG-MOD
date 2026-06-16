@@ -23,6 +23,7 @@ import com.crpg.ebb.network.sync.InteractionSyncService;
 import com.crpg.ebb.quest.QuestBranchRegistry;
 import com.crpg.ebb.relationship.RelationshipRegistry;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
+import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.state.NarrativeSavedData;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -57,6 +58,7 @@ public final class DevSnapshotService {
         lines.add("- " + BlockGroupIndex.summaryLine());
         lines.add("- " + EntityBindingRegistry.summaryLine());
         lines.add("- " + NpcRoutineRegistry.summaryLine());
+        lines.add("- " + NpcProfileRegistry.summaryLine());
         lines.add("- " + QuestBranchRegistry.summaryLine());
         lines.add("- " + FeatRegistry.summaryLine());
         lines.add("- " + ChimeRegistry.summaryLine());
@@ -70,6 +72,10 @@ public final class DevSnapshotService {
         lines.addAll(narrativeState.questFeatDebugLines(96));
         lines.add("");
         lines.addAll(narrativeState.relationshipDebugLines(96));
+        lines.add("");
+        lines.addAll(NpcProfileRegistry.debugLines(96));
+        lines.add("");
+        lines.addAll(narrativeState.promotedNpcProfileDebugLines(96));
         lines.add("");
         lines.addAll(narrativeState.investigationDebugLines(96));
         appendConflictCatalog(lines, server, narrativeState);
@@ -88,6 +94,7 @@ public final class DevSnapshotService {
         appendMessages(lines, "Block group validation", BlockGroupIndex.messages());
         appendMessages(lines, "Entity binding validation", EntityBindingRegistry.validationMessages());
         appendMessages(lines, "NPC routine validation", NpcRoutineRegistry.validationMessages());
+        appendMessages(lines, "NPC profile validation", NpcProfileRegistry.validationMessages());
         appendMessages(lines, "Quest branch validation", QuestBranchRegistry.validationMessages());
         appendMessages(lines, "Feat validation", FeatRegistry.validationMessages());
         appendMessages(lines, "Chime validation", ChimeRegistry.validationMessages());

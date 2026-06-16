@@ -452,9 +452,9 @@ Older files such as `goal_p2_*` through `goal_p8_*`, `second_review_completion_a
 
 ## Current playable slice inventory
 
-- Dialogues: 19 bundled demo/debug dialogues.
+- Dialogues: 20 bundled demo/debug/LLM dialogues.
 - Block groups: 12 interactable investigation points.
-- Entity bindings: 14 bindings including role tags and role custom-name fallbacks.
+- Entity bindings: 15 bindings including role tags, role custom-name fallbacks, and an opt-in minor villager LLM candidate.
 - NPC routines: 7 routines.
 - Role NPCs: innkeeper, witness, suspicious tenant, guard/fixer, cook, and courier.
 - Quest branches: 4 major routes and 8 minor branches, with Take Root and ending placeholders.
@@ -491,4 +491,37 @@ Phase 34 artifact hashes after the post-review rebuild:
 ```text
 build/libs/ebb-0.1.0-dev.jar         1f502a7eadb65cfe2520c7e857b4ee29b842dd786a48d4956c9697b1ac5f157d
 build/libs/ebb-0.1.0-dev-sources.jar 87cadd087bb5403b25b2bc35cc30ce1077cd75daf0c2ec289f5c10ce5564a3c1
+```
+
+## Phase 35 NPC Profile / Tier / Promotion data-layer snapshot
+
+Implemented the PLAN.md P35 data-layer slice:
+
+- Added `NpcTier` with `major_scripted`, `minor_generatable`, `major_promoted`, `static_non_llm`, and `disabled`.
+- Added `NpcProfileDefinition` and `NpcProfileRegistry` under `com.crpg.ebb.npc.profile`, plus the `npc_profiles` data reload registry and developer snapshot/status surfaces.
+- Added six P30 role profiles: `ebb:demo/innkeeper`, `ebb:demo/witness`, `ebb:demo/tenant`, `ebb:demo/guard`, `ebb:demo/cook`, and `ebb:demo/courier`.
+- Extended entity bindings with `npc_tier`, `npc_profile`, `llm.promote_on_first_chat`, and `llm.profile_seed_archetypes`; these fields sync through `EntityBindingSyncPayload`.
+- Added an explicit opt-in minor candidate binding for `minecraft:villager` with tag `ebb.npc.minor`, without re-enabling debug entity fallback.
+- Added `NpcPromotionService`, which creates deterministic-enough `major_promoted` profile JSON and stores it in `NarrativeSavedData.promoted_npc_profiles`.
+- Bumped narrative saved-data schema to v3 and added promoted profile debug/export surfaces.
+- Added `/ebb npc profile target`, `/ebb npc profile <npc_key>`, `/ebb npc minorize <entity>`, `/ebb npc promote <entity>`, and `/ebb npc regenerate_profile <npc_key>` as OP/dev inspection helpers.
+- Added authoring docs and `docs/schemas/ebb.npc_profile.schema.json`.
+
+Phase 35 validation checkpoint:
+
+```text
+scripts/gradle-local.sh --no-daemon compileJava                  -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon validateEbbData              -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon build                        -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                              -> passed including P35 guardrails
+scripts/run_smoke_checks.sh                                       -> passed with runtime counts 20/12/15/7
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 8 required GameTests passed
+```
+
+Phase 35 artifact hashes after the first successful P35 build/validation checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         fdab4338525cb74c42f65485fb305b0712bea467aaea18bc986f721d20ee76e1
+build/libs/ebb-0.1.0-dev-sources.jar f0aaada7ead57b647afb33b49e4d7cf87bb2b87b278da919caaa78deadc26a0d
 ```

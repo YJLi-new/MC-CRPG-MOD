@@ -8,6 +8,7 @@ import com.crpg.ebb.story.StoryVarLayer;
 import com.crpg.ebb.story.StoryVarValue;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.server.MinecraftServer;
@@ -22,11 +23,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 public final class NarrativeSavedData extends SavedData {
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 3;
     public static final int LEGACY_SCHEMA_VERSION = 1;
     public static final Codec<NarrativeSavedData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.unboundedMap(Codec.STRING, PlayerNarrativeState.CODEC).optionalFieldOf("players", Map.of()).forGetter(NarrativeSavedData::playersForCodec),
@@ -36,6 +38,7 @@ public final class NarrativeSavedData extends SavedData {
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("world_story_major_vars", Map.of()).forGetter(NarrativeSavedData::worldStoryMajorVariablesForCodec),
             Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("world_story_minor_vars", Map.of()).forGetter(NarrativeSavedData::worldStoryMinorVariablesForCodec),
             Codec.STRING.listOf().optionalFieldOf("world_npc_state_tags", List.of()).forGetter(NarrativeSavedData::worldNpcStateTagsForCodec),
+            Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("promoted_npc_profiles", Map.of()).forGetter(NarrativeSavedData::promotedNpcProfilesForCodec),
             Codec.INT.optionalFieldOf("version", LEGACY_SCHEMA_VERSION).forGetter(NarrativeSavedData::versionForCodec)
     ).apply(instance, NarrativeSavedData::new));
 
@@ -53,6 +56,7 @@ public final class NarrativeSavedData extends SavedData {
     private final Map<String, String> worldStoryMajorVariables = new LinkedHashMap<>();
     private final Map<String, String> worldStoryMinorVariables = new LinkedHashMap<>();
     private final Set<String> worldNpcStateTags = new LinkedHashSet<>();
+    private final Map<String, String> promotedNpcProfiles = new LinkedHashMap<>();
     private final int version;
 
     public NarrativeSavedData() {
@@ -67,6 +71,7 @@ public final class NarrativeSavedData extends SavedData {
             Map<String, String> worldStoryMajorVariables,
             Map<String, String> worldStoryMinorVariables,
             List<String> worldNpcStateTags,
+            Map<String, String> promotedNpcProfiles,
             int version
     ) {
         this.players.putAll(players);
@@ -76,6 +81,7 @@ public final class NarrativeSavedData extends SavedData {
         this.worldStoryMajorVariables.putAll(worldStoryMajorVariables);
         this.worldStoryMinorVariables.putAll(worldStoryMinorVariables);
         this.worldNpcStateTags.addAll(worldNpcStateTags);
+        this.promotedNpcProfiles.putAll(promotedNpcProfiles);
         int loadedVersion = Math.max(LEGACY_SCHEMA_VERSION, version);
         migrateLoadedData(loadedVersion);
         this.version = CURRENT_SCHEMA_VERSION;
@@ -432,6 +438,44 @@ public final class NarrativeSavedData extends SavedData {
         return Set.copyOf(worldNpcStateTags);
     }
 
+    public void putPromotedNpcProfile(String profileId, JsonObject profileJson) {
+        String normalized = normalizeId(profileId);
+        promotedNpcProfiles.put(normalized, profileJson == null ? "{}" : profileJson.toString());
+        setDirty();
+    }
+
+    public Optional<JsonObject> promotedNpcProfile(String profileId) {
+        String raw = promotedNpcProfiles.get(normalizeId(profileId));
+        if (raw == null || raw.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(JsonParser.parseString(raw).getAsJsonObject());
+        } catch (RuntimeException ex) {
+            return Optional.empty();
+        }
+    }
+
+    public boolean hasPromotedNpcProfile(String profileId) {
+        return promotedNpcProfiles.containsKey(normalizeId(profileId));
+    }
+
+    public boolean removePromotedNpcProfile(String profileId) {
+        boolean removed = promotedNpcProfiles.remove(normalizeId(profileId)) != null;
+        if (removed) {
+            setDirty();
+        }
+        return removed;
+    }
+
+    public int promotedNpcProfileCount() {
+        return promotedNpcProfiles.size();
+    }
+
+    public Set<String> promotedNpcProfileIds() {
+        return Set.copyOf(promotedNpcProfiles.keySet());
+    }
+
     public int playerCount() {
         return players.size();
     }
@@ -498,6 +542,7 @@ public final class NarrativeSavedData extends SavedData {
                 + ", journal_entries=" + journalEntryCount()
                 + ", relationships=" + relationshipCount()
                 + ", npc_state_tags=" + npcStateTagCount()
+                + ", promoted_npc_profiles=" + promotedNpcProfileCount()
                 + ", clues=" + clueCount()
                 + ", narrative_states=" + narrativeStateCount()
                 + ", conflict_scores=" + conflictScoreCount()
@@ -517,6 +562,15 @@ public final class NarrativeSavedData extends SavedData {
         JsonArray worldNpcStateTagsJson = new JsonArray();
         worldNpcStateTags.forEach(worldNpcStateTagsJson::add);
         root.add("world_npc_state_tags", worldNpcStateTagsJson);
+        JsonObject promotedProfilesJson = new JsonObject();
+        promotedNpcProfiles.forEach((id, raw) -> {
+            try {
+                promotedProfilesJson.add(id, JsonParser.parseString(raw));
+            } catch (RuntimeException ex) {
+                promotedProfilesJson.addProperty(id, raw);
+            }
+        });
+        root.add("promoted_npc_profiles", promotedProfilesJson);
         JsonObject playerObject = new JsonObject();
         for (Map.Entry<String, PlayerNarrativeState> entry : players.entrySet()) {
             PlayerNarrativeState player = entry.getValue();
@@ -634,6 +688,28 @@ public final class NarrativeSavedData extends SavedData {
         return List.copyOf(lines);
     }
 
+    public List<String> promotedNpcProfileDebugLines(int limit) {
+        List<String> lines = new ArrayList<>();
+        lines.add("Promoted NPC profiles (" + promotedNpcProfiles.size() + "):");
+        if (promotedNpcProfiles.isEmpty()) {
+            lines.add("- none");
+            return List.copyOf(lines);
+        }
+        promotedNpcProfiles.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .limit(Math.max(0, limit))
+                .forEach(entry -> promotedNpcProfile(entry.getKey()).ifPresentOrElse(profile -> {
+                    String display = profile.has("display_name") ? profile.get("display_name").getAsString() : entry.getKey();
+                    String tier = profile.has("tier") ? profile.get("tier").getAsString() : "-";
+                    String entity = profile.has("entity_uuid") ? profile.get("entity_uuid").getAsString() : "-";
+                    lines.add("- " + entry.getKey() + " tier=" + tier + " display='" + display + "' entity=" + entity);
+                }, () -> lines.add("- " + entry.getKey() + " invalid_json")));
+        if (promotedNpcProfiles.size() > limit) {
+            lines.add("- ... " + (promotedNpcProfiles.size() - limit) + " more");
+        }
+        return List.copyOf(lines);
+    }
+
     public List<String> investigationDebugLines(int limit) {
         List<String> lines = new ArrayList<>();
         lines.add("Investigation/Conflict state (clues=" + clueCount()
@@ -682,6 +758,10 @@ public final class NarrativeSavedData extends SavedData {
 
     private List<String> worldNpcStateTagsForCodec() {
         return List.copyOf(worldNpcStateTags);
+    }
+
+    private Map<String, String> promotedNpcProfilesForCodec() {
+        return Map.copyOf(promotedNpcProfiles);
     }
 
     public int schemaVersion() {

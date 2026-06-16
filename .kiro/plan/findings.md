@@ -461,3 +461,32 @@ Still needs explicit or implicit confirmation:
 - P34 is complete and verified with build/JUnit/validate/smoke/GameTest/static/diff evidence; next earliest incomplete PLAN.md item is P35 NPC Profile / Tier / Promotion data layer.
 - P35 must not make all entities interactable: minor NPC promotion may only apply to explicitly configured entity bindings/tags/custom `ebb:npc`/OP commands, preserving debug fallback disabled.
 - P35 acceptance needs both data-layer scripted profiles and persisted promoted profiles: `/ebb npc profile target` should inspect scripted profile data, and a minor fake-chat promotion path should write stable profile data to saved state.
+
+### Phase 35 / intake and code audit start
+- **Status:** started.
+- **Time:** 2026-06-15 Asia/Shanghai.
+- Read current plan/progress after P34 push; starting PLAN.md P35 NPC Profile / Tier / Promotion data layer.
+- Initial focus: registry/reload hook, entity binding extension, promoted-profile persistence, and dev command surfaces.
+
+### Phase 35 / initial code audit findings
+- PLAN P35 requires NpcTier enum, NpcProfileDefinition/parser/registry, six P30 role profile JSON files, minor-generatable entity binding schema, NpcPromotionService, and promoted profile persistence.
+- Current reload hub is com.crpg.ebb.data.NarrativeDataRegistries with no npc_profiles registry; entity bindings are in com.crpg.ebb.interaction.entity and currently lack npc_tier/llm promotion fields.
+- NarrativeSavedData schema is v2 and has world/player vars plus NPC state tags, but no promotedNpcProfiles map yet; this is the main persistence insertion point.
+- Command surface has /ebb llm and /ebb dialogue/routine/dev, but no /ebb npc profile target/key/minorize/regenerate_profile yet.
+
+### Phase 35 / compile fix checkpoint
+- First P35 compile attempt failed on ResourceKey<Level>.location() and missing UUID import in ModCommands. Fixed to use dimension().identifier() and imported java.util.UUID.
+
+### Phase 35 / data and compile checkpoint
+- Added six static role NPC profile JSON files under data/ebb/npc_profiles/demo.
+- Added npc_tier/npc_profile metadata to role entity bindings and innkeeper villager alias.
+- Added minor villager binding at data/ebb/interactions/entity_bindings/llm/minor_villager.json and LLM intro dialogue at data/ebb/dialogues/llm/minor_intro.json.
+- Updated GUI/runtime count expectations from 19/12/14/7 to 20/12/15/7.
+- `scripts/gradle-local.sh --no-daemon compileJava` passed after fixes.
+
+
+### Phase 35 / completion review findings
+- Repeated code review after P35 found and fixed two compile issues: ResourceKey dimension id API mismatch and missing UUID import.
+- Static audit initially failed because P29 expected saved-data schema v2; audit was updated to reflect the intentional P35 schema bump to v3 while preserving migration checks.
+- Runtime/test counts are now 20 dialogues, 12 block groups, 15 entity bindings, 7 routines, and 6 npc_profiles. GUI/runtime count tools were updated to use the new minimums.
+- Full smoke and GameTest validation passed after P35, including promoted profile persistence and minor NPC promotion coverage.

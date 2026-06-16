@@ -12,5 +12,7 @@
     "opacity": 0.55,
     "render_mode": "outline",
     "priority": 120
-  }
+  },
+  "npc_tier": "major_scripted",
+  "npc_profile": "ebb:demo/cook"
 }

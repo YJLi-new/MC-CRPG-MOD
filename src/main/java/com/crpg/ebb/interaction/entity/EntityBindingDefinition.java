@@ -2,6 +2,7 @@ package com.crpg.ebb.interaction.entity;
 
 import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.interaction.HighlightStyle;
+import com.crpg.ebb.npc.profile.NpcTier;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -25,7 +26,11 @@ public record EntityBindingDefinition(
         double interactionRange,
         double highlightRange,
         int priority,
-        HighlightStyle highlightStyle
+        HighlightStyle highlightStyle,
+        Optional<Identifier> npcProfileId,
+        NpcTier npcTier,
+        boolean promoteOnFirstChat,
+        List<String> profileSeedArchetypes
 ) {
     public static final double DEFAULT_INTERACTION_RANGE = 2.0D;
     public static final double DEFAULT_HIGHLIGHT_RANGE = 10.0D;
@@ -36,6 +41,9 @@ public record EntityBindingDefinition(
         name = name == null ? Optional.empty() : name;
         entityTypes = entityTypes == null ? List.of() : List.copyOf(entityTypes);
         highlightStyle = highlightStyle == null ? HighlightStyle.entityDefault() : highlightStyle;
+        npcProfileId = npcProfileId == null ? Optional.empty() : npcProfileId;
+        npcTier = npcTier == null ? NpcTier.STATIC_NON_LLM : npcTier;
+        profileSeedArchetypes = profileSeedArchetypes == null ? List.of() : List.copyOf(profileSeedArchetypes);
     }
 
     public static Optional<EntityBindingDefinition> parse(Identifier id, JsonObject json, List<String> messages) {
@@ -68,6 +76,22 @@ public record EntityBindingDefinition(
                     messages,
                     "entity binding " + id
             ).orElse(HighlightStyle.entityDefault());
+            JsonObject llm = json.has("llm") && json.get("llm").isJsonObject() ? json.getAsJsonObject("llm") : new JsonObject();
+            Optional<Identifier> npcProfileId = optionalString(json, "npc_profile")
+                    .or(() -> optionalString(json, "profile"))
+                    .or(() -> optionalString(llm, "npc_profile"))
+                    .map(value -> parseIdentifier(value, "ebb"));
+            NpcTier npcTier = optionalString(json, "npc_tier")
+                    .or(() -> optionalString(json, "tier"))
+                    .map(NpcTier::parse)
+                    .orElse(NpcTier.STATIC_NON_LLM);
+            boolean promoteOnFirstChat = optionalBoolean(llm, "promote_on_first_chat")
+                    .or(() -> optionalBoolean(json, "promote_on_first_chat"))
+                    .orElse(npcTier == NpcTier.MINOR_GENERATABLE);
+            List<String> profileSeedArchetypes = parseStringList(llm, "profile_seed_archetypes");
+            if (npcTier == NpcTier.MINOR_GENERATABLE && !promoteOnFirstChat) {
+                messages.add("entity binding " + id + ": minor_generatable without promote_on_first_chat=true will not persist a profile");
+            }
             if (interactionRange <= 0.0D) {
                 messages.add("entity binding " + id + ": interaction_range must be > 0");
                 interactionRange = DEFAULT_INTERACTION_RANGE;
@@ -76,7 +100,22 @@ public record EntityBindingDefinition(
                 messages.add("entity binding " + id + ": highlight_range is smaller than interaction_range; clamped up");
                 highlightRange = interactionRange;
             }
-            return Optional.of(new EntityBindingDefinition(id, uuid, tags, name, entityTypes, dialogue, interactionRange, highlightRange, priority, highlightStyle));
+            return Optional.of(new EntityBindingDefinition(
+                    id,
+                    uuid,
+                    tags,
+                    name,
+                    entityTypes,
+                    dialogue,
+                    interactionRange,
+                    highlightRange,
+                    priority,
+                    highlightStyle,
+                    npcProfileId,
+                    npcTier,
+                    promoteOnFirstChat,
+                    profileSeedArchetypes
+            ));
         } catch (RuntimeException ex) {
             messages.add("entity binding " + id + ": " + ex.getMessage());
             return Optional.empty();
@@ -133,6 +172,10 @@ public record EntityBindingDefinition(
                 + ") range=" + interactionRange
                 + "/" + highlightRange
                 + " priority=" + priority
+                + " npc_tier=" + npcTier.serializedName()
+                + " npc_profile=" + npcProfileId.map(Identifier::toString).orElse("-")
+                + " promote_on_first_chat=" + promoteOnFirstChat
+                + " seed_archetypes=" + profileSeedArchetypes
                 + " " + highlightStyle.debugSummary();
     }
 
@@ -180,6 +223,12 @@ public record EntityBindingDefinition(
     private static Optional<Integer> optionalInt(JsonObject json, String key) {
         return json.has(key) && !json.get(key).isJsonNull()
                 ? Optional.of(GsonHelper.getAsInt(json, key))
+                : Optional.empty();
+    }
+
+    private static Optional<Boolean> optionalBoolean(JsonObject json, String key) {
+        return json.has(key) && !json.get(key).isJsonNull()
+                ? Optional.of(GsonHelper.getAsBoolean(json, key))
                 : Optional.empty();
     }
 }

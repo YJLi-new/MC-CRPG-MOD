@@ -647,7 +647,7 @@ def audit_p29_save_multiplayer_permissions_hardening() -> None:
     require(
         "P29 saved-data migration",
         saved_data,
-        "CURRENT_SCHEMA_VERSION = 2",
+        "CURRENT_SCHEMA_VERSION = 3",
         "LEGACY_SCHEMA_VERSION",
         "migrateLoadedData",
         "migrateConflictPhasesFromLegacyStates",
@@ -696,7 +696,7 @@ def audit_p29_save_multiplayer_permissions_hardening() -> None:
         require("P29 OP command permission", permission_guards, f'group("{permission}")')
     require("P29 self-inspection commands", commands, 'Commands.literal("vars")', 'Commands.literal("journal")', 'Commands.literal("quest")', 'Commands.literal("spend")')
     docs = read("docs/json_authoring_guide.md")
-    require("P29 docs", docs, "P29 save/load, multiplayer, and permission hardening", "entity_dialogue_busy", "missing-client-mod diagnostics", "CURRENT_SCHEMA_VERSION = 2")
+    require("P29 docs", docs, "P29 save/load, multiplayer, and permission hardening", "entity_dialogue_busy", "missing-client-mod diagnostics", "CURRENT_SCHEMA_VERSION")
     test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
     require(
         "P29 JUnit coverage",
@@ -1074,6 +1074,62 @@ def audit_p34_llm_fake_provider_foundation() -> None:
             if path.name in {"LlmConfig.java", "FakeLlmGatewayClient.java", "DisabledLlmGatewayClient.java"} and ("HttpClient" in text or "java.net.http" in text):
                 raise AssertionError(f"P34 disabled/fake config/provider must not use HTTP client: {path.relative_to(ROOT)}")
 
+
+def audit_p35_npc_profile_tier_promotion_data_layer() -> None:
+    for path in [
+        "src/main/java/com/crpg/ebb/npc/profile/NpcTier.java",
+        "src/main/java/com/crpg/ebb/npc/profile/NpcProfileDefinition.java",
+        "src/main/java/com/crpg/ebb/npc/profile/NpcProfileRegistry.java",
+        "src/main/java/com/crpg/ebb/npc/profile/NpcPromotionService.java",
+        "docs/schemas/ebb.npc_profile.schema.json",
+        "src/main/resources/data/ebb/dialogues/llm/minor_intro.json",
+        "src/main/resources/data/ebb/interactions/entity_bindings/llm/minor_villager.json",
+    ]:
+        exists(path)
+
+    tier = read("src/main/java/com/crpg/ebb/npc/profile/NpcTier.java")
+    require("P35 NpcTier", tier, "MAJOR_SCRIPTED", "MINOR_GENERATABLE", "MAJOR_PROMOTED", "STATIC_NON_LLM", "DISABLED", "serializedName")
+    profile_def = read("src/main/java/com/crpg/ebb/npc/profile/NpcProfileDefinition.java")
+    require("P35 NpcProfileDefinition", profile_def, "LlmSettings", "CharacterProfile", "Stance", "Knowledge", "Promotion", "forbidden_to_reveal_until")
+    profile_registry = read("src/main/java/com/crpg/ebb/npc/profile/NpcProfileRegistry.java")
+    require("P35 NpcProfileRegistry", profile_registry, "rebuild", "byEntityBinding", "orderedDefinitions", "summaryLine", "debugLines")
+    promotion = read("src/main/java/com/crpg/ebb/npc/profile/NpcPromotionService.java")
+    require("P35 NpcPromotionService", promotion, "MINOR_NPC_TAG", "ensurePromotedIfMinor", "ensurePromotedProfile", "MAJOR_PROMOTED", "promotedProfileId", "generatePromotedProfileJson")
+
+    registries = read("src/main/java/com/crpg/ebb/data/NarrativeDataRegistries.java")
+    require("P35 data registry", registries, "NPC_PROFILES", "npc_profiles", "NpcProfileRegistry.rebuild", "NpcProfileRegistry.summaryLine")
+    saved = read("src/main/java/com/crpg/ebb/state/NarrativeSavedData.java")
+    require("P35 promoted persistence", saved, "CURRENT_SCHEMA_VERSION = 3", "promoted_npc_profiles", "putPromotedNpcProfile", "promotedNpcProfile", "promotedNpcProfileDebugLines")
+    binding = read("src/main/java/com/crpg/ebb/interaction/entity/EntityBindingDefinition.java")
+    require("P35 entity binding schema", binding, "npc_tier", "npc_profile", "promote_on_first_chat", "profile_seed_archetypes", "NpcTier.MINOR_GENERATABLE")
+    sync = read("src/main/java/com/crpg/ebb/network/sync/EntityBindingSyncPayload.java")
+    require("P35 binding sync", sync, "npcProfileId", "npcTier", "promoteOnFirstChat", "profileSeedArchetypes")
+    llm = read("src/main/java/com/crpg/ebb/llm/LlmChatService.java")
+    require("P35 LLM promotion hook", llm, "NpcPromotionService.ensurePromotedIfMinor", "promoted_major")
+    commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
+    require("P35 NPC commands", commands, "Commands.literal(\"npc\")", "showNpcProfileTarget", "showNpcProfileByKey", "minorizeEntity", "promoteEntity", "resetPromotedProfile")
+
+    roles = ["innkeeper", "witness", "tenant", "guard", "cook", "courier"]
+    for role in roles:
+        path = f"src/main/resources/data/ebb/npc_profiles/demo/{role}.json"
+        exists(path)
+        text = read(path)
+        require(f"P35 {role} profile", text, '"tier": "major_scripted"', '"display_name"', '"character"', '"stance"', '"knowledge"', '"allow_memory_write"')
+        binding_path = f"src/main/resources/data/ebb/interactions/entity_bindings/demo/{role}_ebb_npc.json"
+        require(f"P35 {role} binding metadata", read(binding_path), '"npc_tier": "major_scripted"', f'"npc_profile": "ebb:demo/{role}"')
+    require("P35 minor binding", read("src/main/resources/data/ebb/interactions/entity_bindings/llm/minor_villager.json"), '"npc_tier": "minor_generatable"', '"tag": "ebb.npc.minor"', '"promote_on_first_chat": true')
+    require("P35 minor dialogue", read("src/main/resources/data/ebb/dialogues/llm/minor_intro.json"), '"type": "llm_chat"', '"return_node": "start"')
+    schema = read("docs/schemas/ebb.npc_profile.schema.json")
+    require("P35 npc profile schema", schema, "major_scripted", "major_promoted", "character", "knowledge", "promotion")
+    docs = read("docs/json_authoring_guide.md")
+    require("P35 authoring docs", docs, "P35 NPC Profiles", "/ebb npc profile target", "minor_generatable", "promoted_npc_profiles")
+    status = read("docs/current_status.md")
+    require("P35 current status", status, "Phase 35 NPC Profile / Tier / Promotion", "promoted_npc_profiles", "NpcProfileRegistry")
+    test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
+    require("P35 JUnit coverage", test, "p35NpcProfilesLoadAndResolveByBinding", "p35PromotedProfilesPersistThroughSavedDataCodec", "p35NpcCommandSurfaceIsRegistered")
+    gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
+    require("P35 GameTest coverage", gametest, "npcProfileRegistryLoadsScriptedProfilesAndPromotesMinor", "ensurePromotedProfile", "promoted_major")
+
 def main() -> int:
     audit_p20_p21_documentation_and_baseline()
     audit_p22_interaction_highlight_polish()
@@ -1089,6 +1145,7 @@ def main() -> int:
     audit_p32_k_menu_and_live_dialogue_background()
     audit_p33_codebase_review_remediation()
     audit_p34_llm_fake_provider_foundation()
+    audit_p35_npc_profile_tier_promotion_data_layer()
 
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")

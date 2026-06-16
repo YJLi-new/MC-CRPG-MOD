@@ -14,6 +14,9 @@ import com.crpg.ebb.llm.LlmChatSession;
 import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.LlmMode;
 import com.crpg.ebb.npc.EbbNpcEntity;
+import com.crpg.ebb.npc.profile.NpcProfileRegistry;
+import com.crpg.ebb.npc.profile.NpcPromotionService;
+import com.crpg.ebb.state.NarrativeSavedData;
 import com.crpg.ebb.npc.ModEntityTypes;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -153,6 +156,27 @@ public final class EbbGameTests {
         } finally {
             LlmChatService.clearTestingOverrides();
         }
+    }
+
+
+    @GameTest(maxTicks = 20)
+    public void npcProfileRegistryLoadsScriptedProfilesAndPromotesMinor(GameTestHelper helper) {
+        helper.assertTrue(NpcProfileRegistry.byId(EbbMod.id("demo/innkeeper")).isPresent(),
+                "P35 scripted innkeeper profile should load");
+        helper.assertTrue(NpcProfileRegistry.byEntityBinding(EbbMod.id("demo/innkeeper_ebb_npc")).isPresent(),
+                "P35 profile should resolve from innkeeper binding");
+        EbbNpcEntity npc = helper.spawn(ModEntityTypes.NPC, new BlockPos(5, 2, 1));
+        npc.addTag(NpcPromotionService.MINOR_NPC_TAG);
+        helper.assertTrue(NpcPromotionService.isMinorCandidate(npc), "minor tag should mark an NPC as a promotion candidate");
+        var result = NpcPromotionService.ensurePromotedProfile(helper.getLevel(), npc, UUID.randomUUID(), "gametest");
+        helper.assertTrue(result.status().equals("promoted_major") || result.status().equals("existing_promoted_major"),
+                "minor promotion should return promoted_major status");
+        NarrativeSavedData state = NarrativeSavedData.get(helper.getLevel());
+        helper.assertTrue(state.hasPromotedNpcProfile(result.profileId().toString()),
+                "promoted profile should persist in NarrativeSavedData");
+        helper.assertTrue(state.promotedNpcProfile(result.profileId().toString()).orElseThrow().get("tier").getAsString().equals("major_promoted"),
+                "persisted profile should be major_promoted");
+        helper.succeed();
     }
 
     private static void assertLegacyRoleBinding(GameTestHelper helper, String role, Identifier expectedDialogue, BlockPos pos) {

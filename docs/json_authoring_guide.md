@@ -749,3 +749,43 @@ Commands:
 
 - `/ebb llm status` — player-safe status with mode, active session count, provider, and network policy.
 - `/ebb llm reload_config` — OP/dev reload of `config/ebb-llm-server.json`.
+
+## P35 NPC Profiles, Tiers, and Minor Promotion
+
+P35 adds `data/<namespace>/npc_profiles/<path>.json` for stable major NPC identity. A profile has a `tier`, a display name, an optional `entity_binding`, LLM policy fields, character voice rules, stance/faction values, and initial knowledge references. The current bundled schema is `docs/schemas/ebb.npc_profile.schema.json`.
+
+Supported `npc_tier` / profile `tier` values are:
+
+- `major_scripted`: data-pack authored major NPC, such as the P30 tavern roles.
+- `minor_generatable`: a candidate entity that may become important after first free chat.
+- `major_promoted`: a persisted profile generated from a minor NPC.
+- `static_non_llm`: an interactable entity that should not use LLM profile/promotion.
+- `disabled`: explicitly disabled.
+
+Bundled role profiles now exist for `ebb:demo/innkeeper`, `ebb:demo/witness`, `ebb:demo/tenant`, `ebb:demo/guard`, `ebb:demo/cook`, and `ebb:demo/courier`. Their entity bindings declare `npc_tier: "major_scripted"` and `npc_profile: "ebb:demo/<role>"`, so `/ebb npc profile target` can inspect the character profile when looking at a registered role NPC.
+
+Minor NPCs remain opt-in. Do **not** re-enable debug entity fallback just to make minor NPCs work. A minor candidate should use an explicit entity binding, for example:
+
+```json
+{
+  "match": {"entity_type": "minecraft:villager", "tag": "ebb.npc.minor"},
+  "dialogue": "ebb:llm/minor_intro",
+  "npc_tier": "minor_generatable",
+  "interaction_range": 2.25,
+  "highlight_range": 10.0,
+  "priority": 30,
+  "llm": {
+    "enabled": true,
+    "promote_on_first_chat": true,
+    "profile_seed_archetypes": ["townsperson", "tavern regular", "worker", "witness"]
+  }
+}
+```
+
+On first eligible fake/LLM chat, `NpcPromotionService` creates a deterministic-enough `major_promoted` profile from world/entity context and stores it in `NarrativeSavedData.promoted_npc_profiles`. Reloading resources does not erase promoted profiles because they live in saved data, not in the datapack registry. Developer commands:
+
+- `/ebb npc profile target`: inspect the looked-at NPC profile or promotion candidate.
+- `/ebb npc profile <npc_key>`: inspect a static or promoted profile by id.
+- `/ebb npc minorize <entity>`: OP/dev helper that adds the `ebb.npc.minor` tag.
+- `/ebb npc promote <entity>`: OP/dev helper that immediately creates/loads the promoted profile.
+- `/ebb npc regenerate_profile <npc_key>`: OP/dev helper that removes a saved promoted profile so it can be regenerated.

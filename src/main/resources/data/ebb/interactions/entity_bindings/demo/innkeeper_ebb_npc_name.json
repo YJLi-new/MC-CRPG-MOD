@@ -13,5 +13,7 @@
     "far_opacity": 0.6,
     "render_mode": "outline",
     "priority": 40
-  }
+  },
+  "npc_tier": "major_scripted",
+  "npc_profile": "ebb:demo/innkeeper"
 }

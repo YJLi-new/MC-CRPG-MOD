@@ -12,6 +12,7 @@ import com.crpg.ebb.journal.JournalEntryRegistry;
 import com.crpg.ebb.quest.QuestBranchRegistry;
 import com.crpg.ebb.relationship.RelationshipRegistry;
 import com.crpg.ebb.routine.NpcRoutineRegistry;
+import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.dialogue.DialogueRegistry;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
 import net.minecraft.server.packs.PackType;
@@ -25,6 +26,7 @@ public final class NarrativeDataRegistries {
     public static final JsonDataRegistry BLOCK_GROUPS = new JsonDataRegistry("block group", "interactions/block_groups");
     public static final JsonDataRegistry ENTITY_BINDINGS = new JsonDataRegistry("entity binding", "interactions/entity_bindings");
     public static final JsonDataRegistry NPC_ROUTINES = new JsonDataRegistry("npc routine", "npc_routines");
+    public static final JsonDataRegistry NPC_PROFILES = new JsonDataRegistry("npc profile", "npc_profiles");
     public static final JsonDataRegistry ATTRIBUTES = new JsonDataRegistry("attribute", "attributes");
     public static final JsonDataRegistry QUEST_BRANCHES = new JsonDataRegistry("quest branch", "quest_branches");
     public static final JsonDataRegistry FEATS = new JsonDataRegistry("feat", "feats");
@@ -41,6 +43,7 @@ public final class NarrativeDataRegistries {
             BLOCK_GROUPS,
             ENTITY_BINDINGS,
             NPC_ROUTINES,
+            NPC_PROFILES,
             ATTRIBUTES,
             QUEST_BRANCHES,
             FEATS,
@@ -61,6 +64,7 @@ public final class NarrativeDataRegistries {
         BLOCK_GROUPS.addReloadObserver(registry -> BlockGroupIndex.rebuild(registry.entries()));
         ENTITY_BINDINGS.addReloadObserver(registry -> EntityBindingRegistry.rebuild(registry.entries()));
         NPC_ROUTINES.addReloadObserver(registry -> NpcRoutineRegistry.rebuild(registry.entries()));
+        NPC_PROFILES.addReloadObserver(registry -> NpcProfileRegistry.rebuild(registry.entries()));
         ATTRIBUTES.addReloadObserver(registry -> AttributeRegistry.rebuild(registry.entries()));
         QUEST_BRANCHES.addReloadObserver(registry -> QuestBranchRegistry.rebuild(registry.entries()));
         FEATS.addReloadObserver(registry -> FeatRegistry.rebuild(registry.entries()));
@@ -101,6 +105,7 @@ public final class NarrativeDataRegistries {
                 + "; " + BlockGroupIndex.summaryLine()
                 + "; " + EntityBindingRegistry.summaryLine()
                 + "; " + NpcRoutineRegistry.summaryLine()
+                + "; " + NpcProfileRegistry.summaryLine()
                 + "; " + QuestBranchRegistry.summaryLine()
                 + "; " + FeatRegistry.summaryLine()
                 + "; " + ChimeRegistry.summaryLine()

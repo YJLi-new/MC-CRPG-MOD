@@ -2,6 +2,7 @@ package com.crpg.ebb.interaction;
 
 import com.crpg.ebb.EbbMod;
 import com.crpg.ebb.interaction.entity.EntityBindingDefinition;
+import com.crpg.ebb.npc.profile.NpcTier;
 import com.google.gson.JsonObject;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.GsonHelper;
@@ -68,7 +69,11 @@ public final class InteractionSettings {
                 settings.debugEntityFallbackInteractionRange(),
                 settings.debugEntityFallbackHighlightRange(),
                 Integer.MIN_VALUE,
-                HighlightStyle.entityDefault()
+                HighlightStyle.entityDefault(),
+                Optional.empty(),
+                NpcTier.STATIC_NON_LLM,
+                false,
+                List.of()
         );
     }
 

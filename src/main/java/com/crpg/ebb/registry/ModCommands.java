@@ -23,6 +23,9 @@ import com.crpg.ebb.network.dev.DevSnapshotPayload;
 import com.crpg.ebb.network.journal.JournalPayload;
 import com.crpg.ebb.network.quest.QuestTreePayload;
 import com.crpg.ebb.npc.EbbNpcEntity;
+import com.crpg.ebb.npc.profile.NpcProfileDefinition;
+import com.crpg.ebb.npc.profile.NpcProfileRegistry;
+import com.crpg.ebb.npc.profile.NpcPromotionService;
 import com.crpg.ebb.npc.ModEntityTypes;
 import com.crpg.ebb.quest.QuestTreeService;
 import com.crpg.ebb.routine.NpcRoutineDefinition;
@@ -30,6 +33,7 @@ import com.crpg.ebb.routine.NpcRoutineRegistry;
 import com.crpg.ebb.registry.commands.EbbCommandPermissionGuards;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -70,6 +74,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 public final class ModCommands {
     private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -155,6 +160,30 @@ public final class ModCommands {
                                 .executes(context -> sendQuestTree(context.getSource()))))
                 .then(Commands.literal("journal")
                         .executes(context -> sendJournal(context.getSource())))
+                .then(Commands.literal("npc")
+                        .requires(EbbCommandPermissionGuards.dev())
+                        .then(Commands.literal("profile")
+                                .then(Commands.literal("target")
+                                        .executes(context -> showNpcProfileTarget(context.getSource())))
+                                .then(Commands.argument("npc_key", StringArgumentType.string())
+                                        .executes(context -> showNpcProfileByKey(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "npc_key")))))
+                        .then(Commands.literal("minorize")
+                                .then(Commands.argument("entity", EntityArgument.entity())
+                                        .executes(context -> minorizeEntity(
+                                                context.getSource(),
+                                                EntityArgument.getEntity(context, "entity")))))
+                        .then(Commands.literal("promote")
+                                .then(Commands.argument("entity", EntityArgument.entity())
+                                        .executes(context -> promoteEntity(
+                                                context.getSource(),
+                                                EntityArgument.getEntity(context, "entity")))))
+                        .then(Commands.literal("regenerate_profile")
+                                .then(Commands.argument("npc_key", StringArgumentType.string())
+                                        .executes(context -> resetPromotedProfile(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "npc_key"))))))
                 .then(Commands.literal("routine")
                         .requires(EbbCommandPermissionGuards.routine())
                         .then(Commands.literal("inspect")
@@ -497,6 +526,177 @@ public final class ModCommands {
             sendDevSummaryLines(source, lines, 128);
         }
         return lines.size();
+    }
+
+    private static int showNpcProfileTarget(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("/ebb npc profile target can only be used by a player."));
+            return 0;
+        }
+        Optional<Entity> entity = detectServerFocusedEntity(player);
+        if (entity.isEmpty()) {
+            source.sendFailure(Component.literal("No registered Ebb entity target in the current 10-block view ray."));
+            return 0;
+        }
+        return showNpcProfileForEntity(source, entity.get());
+    }
+
+    private static int showNpcProfileForEntity(CommandSourceStack source, Entity entity) {
+        EntityBindingDefinition binding = EntityBindingRegistry.resolve(entity).orElse(null);
+        if (binding == null) {
+            source.sendFailure(Component.literal("Entity " + entity.getStringUUID() + " has no Ebb entity binding."));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("Ebb NPC profile target: entity=" + entity.getStringUUID()
+                + " binding=" + binding.id()
+                + " tier=" + binding.npcTier().serializedName()
+                + " profile=" + binding.npcProfileId().map(Identifier::toString).orElse("-")), false);
+        Optional<NpcProfileDefinition> staticProfile = binding.npcProfileId().flatMap(NpcProfileRegistry::byId)
+                .or(() -> NpcProfileRegistry.byEntityBinding(binding.id()));
+        if (staticProfile.isPresent()) {
+            sendNpcProfileDefinitionLines(source, staticProfile.get(), 96);
+            return 1;
+        }
+        NarrativeSavedData state = NarrativeSavedData.get(source.getServer());
+        Identifier promotedId = NpcPromotionService.promotedProfileId(entity);
+        Optional<JsonObject> promoted = state.promotedNpcProfile(promotedId.toString());
+        if (promoted.isPresent()) {
+            sendPromotedProfileLines(source, promotedId, promoted.get(), 96);
+            return 1;
+        }
+        if (NpcPromotionService.isMinorCandidate(entity)) {
+            source.sendSuccess(() -> Component.literal("- minor candidate: no promoted profile yet; first LLM/fake chat will create "
+                    + promotedId), false);
+            return 1;
+        }
+        source.sendFailure(Component.literal("No NPC profile mapped for binding " + binding.id()
+                + "; loaded static profiles=" + NpcProfileRegistry.size()
+                + ", promoted profiles=" + state.promotedNpcProfileCount()));
+        return 0;
+    }
+
+    private static int showNpcProfileByKey(CommandSourceStack source, String rawNpcKey) {
+        Identifier npcKey;
+        try {
+            npcKey = parseEbbIdentifier(rawNpcKey);
+        } catch (RuntimeException ex) {
+            source.sendFailure(Component.literal("Invalid npc_key: " + rawNpcKey));
+            return 0;
+        }
+        Optional<NpcProfileDefinition> staticProfile = NpcProfileRegistry.byId(npcKey);
+        if (staticProfile.isPresent()) {
+            sendNpcProfileDefinitionLines(source, staticProfile.get(), 128);
+            return 1;
+        }
+        NarrativeSavedData state = NarrativeSavedData.get(source.getServer());
+        Optional<JsonObject> promoted = state.promotedNpcProfile(npcKey.toString());
+        if (promoted.isPresent()) {
+            sendPromotedProfileLines(source, npcKey, promoted.get(), 128);
+            return 1;
+        }
+        source.sendFailure(Component.literal("NPC profile not found: " + npcKey
+                + " (static=" + NpcProfileRegistry.size()
+                + ", promoted=" + state.promotedNpcProfileCount() + ")"));
+        return 0;
+    }
+
+    private static int minorizeEntity(CommandSourceStack source, Entity entity) {
+        boolean added = entity.addTag(NpcPromotionService.MINOR_NPC_TAG);
+        source.sendSuccess(() -> Component.literal("Marked entity " + entity.getStringUUID()
+                + " as minor NPC candidate tag=" + NpcPromotionService.MINOR_NPC_TAG
+                + " added=" + added), true);
+        return added ? 1 : 0;
+    }
+
+    private static int promoteEntity(CommandSourceStack source, Entity entity) {
+        if (!(entity.level() instanceof ServerLevel level)) {
+            source.sendFailure(Component.literal("Entity is not in a server level."));
+            return 0;
+        }
+        UUID playerUuid = Optional.ofNullable(source.getPlayer()).map(ServerPlayer::getUUID).orElse(entity.getUUID());
+        NpcPromotionService.PromotionResult result = NpcPromotionService.ensurePromotedProfile(level, entity, playerUuid, "dev_command");
+        source.sendSuccess(() -> Component.literal("Promoted NPC profile: " + result.debugSummary()), true);
+        return result.created() ? 1 : 0;
+    }
+
+    private static int resetPromotedProfile(CommandSourceStack source, String rawNpcKey) {
+        Identifier npcKey;
+        try {
+            npcKey = parseEbbIdentifier(rawNpcKey);
+        } catch (RuntimeException ex) {
+            source.sendFailure(Component.literal("Invalid npc_key: " + rawNpcKey));
+            return 0;
+        }
+        NarrativeSavedData state = NarrativeSavedData.get(source.getServer());
+        boolean removed = state.removePromotedNpcProfile(npcKey.toString());
+        source.sendSuccess(() -> Component.literal("Reset promoted profile " + npcKey
+                + ": removed=" + removed + ". It will be regenerated on the next eligible minor chat."), true);
+        return removed ? 1 : 0;
+    }
+
+    private static void sendNpcProfileDefinitionLines(CommandSourceStack source, NpcProfileDefinition profile, int limit) {
+        List<String> lines = new ArrayList<>();
+        lines.add("NPC profile " + profile.id());
+        lines.add("- tier=" + profile.tier().serializedName()
+                + " display='" + profile.displayName() + "'"
+                + " binding=" + profile.entityBinding().map(Identifier::toString).orElse("-"));
+        lines.add("- llm=" + profile.llm().debugSummary());
+        lines.add("- character archetype='" + profile.character().archetype()
+                + "' voice='" + profile.character().voice() + "'");
+        lines.add("- values=" + profile.character().values());
+        lines.add("- fears=" + profile.character().fears());
+        lines.add("- speech_rules=" + profile.character().speechRules());
+        lines.add("- stance=" + profile.stance().debugSummary());
+        lines.add("- knowledge.initial_packs=" + profile.knowledge().initialPacks());
+        lines.add("- knowledge.forbidden=" + profile.knowledge().forbiddenToRevealUntil());
+        sendDevSummaryLines(source, lines, limit);
+    }
+
+    private static void sendPromotedProfileLines(CommandSourceStack source, Identifier profileId, JsonObject profile, int limit) {
+        List<String> lines = new ArrayList<>();
+        lines.add("Promoted NPC profile " + profileId);
+        lines.add("- tier=" + jsonString(profile, "tier", "-")
+                + " display='" + jsonString(profile, "display_name", profileId.toString()) + "'"
+                + " entity_uuid=" + jsonString(profile, "entity_uuid", "-"));
+        lines.add("- entity_type=" + jsonString(profile, "entity_type", "-")
+                + " source_binding=" + jsonString(profile, "source_binding", "-"));
+        if (profile.has("character") && profile.get("character").isJsonObject()) {
+            JsonObject character = profile.getAsJsonObject("character");
+            lines.add("- archetype=" + jsonString(character, "archetype", "-")
+                    + " voice=" + jsonString(character, "voice", "-"));
+        }
+        if (profile.has("stance") && profile.get("stance").isJsonObject()) {
+            JsonObject stance = profile.getAsJsonObject("stance");
+            lines.add("- attitude=" + jsonString(stance, "default_attitude_to_player", "-")
+                    + " trust=" + jsonString(stance, "trust", "0")
+                    + " fear=" + jsonString(stance, "fear", "0")
+                    + " resentment=" + jsonString(stance, "resentment", "0"));
+        }
+        sendDevSummaryLines(source, lines, limit);
+    }
+
+    private static String jsonString(JsonObject json, String key, String fallback) {
+        return json.has(key) && !json.get(key).isJsonNull() ? json.get(key).getAsString() : fallback;
+    }
+
+    private static Optional<Entity> detectServerFocusedEntity(ServerPlayer player) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getViewVector(1.0F);
+        Vec3 end = eye.add(look.scale(DEV_INSPECT_RANGE));
+        AABB searchBox = player.getBoundingBox().expandTowards(look.scale(DEV_INSPECT_RANGE)).inflate(1.0D);
+        EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
+                player,
+                eye,
+                end,
+                searchBox,
+                entity -> entity != player
+                        && entity.isPickable()
+                        && !entity.isSpectator()
+                        && EntityBindingRegistry.resolve(entity).isPresent(),
+                DEV_INSPECT_RANGE * DEV_INSPECT_RANGE
+        );
+        return entityHit == null ? Optional.empty() : Optional.of(entityHit.getEntity());
     }
 
     private static int inspectRoutine(CommandSourceStack source, Entity entity) {
