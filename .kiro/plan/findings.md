@@ -546,3 +546,8 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 - The first automation pass showed click-coordinate drift at Minecraft GUI scale. The runner now derives LLM-chat button click points from the cyan panel bounds in the screenshot instead of fixed normalized screen positions.
 - Actual `llm_chat` report `build/gui-e2e/llm-chat-report.json` had no failed steps and proved K-menu LLM status, fake-provider free chat, live-background chat panel, citations overlay, suggested-option reply, and return to scripted dialogue.
 - `scenario_llm_chat` now writes the fake server config only for actual `--gui` client testing, preventing dry-run smoke checks from modifying files outside `CRPG_MOD`.
+
+## Phase 43 implementation findings — 2026-06-17
+- P43's “high-risk effects not allowed from LLM direct output” is best enforced in two layers: gateway `GatewayChatResponse.sanitizeProposedEffects` rejects high-authority proposal strings, and Minecraft `HttpLlmGatewayClient` still ignores `proposed_effects` entirely so no direct LLM output mutates server state.
+- `scripts/p43_llm_safety_audit.py` intentionally scans tracked and currently untracked non-ignored files so it remains useful before commit, not only after `git add`.
+- GUI E2E P43 uses `llm_validation` as a dry-run-capable route. In non-GUI mode it writes only manifests/reports inside `CRPG_MOD`; profile-local config writes happen only with explicit `--gui` client testing.

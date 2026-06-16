@@ -1055,3 +1055,100 @@ Player-facing UI behavior:
 - K menu: the mod menu opened with `K` includes LLM auth status/login/logout actions; `/ebb llm status` remains the authoritative, token-redacted server status output.
 
 GUI automation includes a `llm_chat` scenario that opens the innkeeper free-chat choice, sends text, waits for a fake/gateway reply, toggles citations, clicks a suggested option, and returns to scripted dialogue.
+
+## P43 Testing / Evaluation Authoring Reference
+
+P43 freezes the LLM/NPC-memory authoring contract into docs, schemas, audits, and tests.  Treat this section as the checklist for story-pack authors and server operators before using real gateway mode.
+
+### NPC profile data
+
+NPC profiles live in `data/<namespace>/npc_profiles/<path>.json` and are validated against `docs/schemas/ebb.npc_profile.schema.json`.  Required author-facing fields are:
+
+- `tier`: one of `major_scripted`, `minor_generatable`, `major_promoted`, `static_non_llm`, or `disabled`.
+- `display_name`: player-facing name.
+- `character`: at least `archetype` and `voice`, usually with `values`, `fears`, and `speech_rules`.
+- `stance`: faction and attitude scores such as `trust`, `fear`, and `resentment`.
+- `knowledge.initial_packs`: public/hidden KB packs initially available to the NPC.
+- `llm`: optional chat policy.  `provider` is a policy hint only; server config still controls real provider mode.
+
+Promoted minor NPC profiles are saved in world data (`promoted_npc_profiles`) and must remain deterministic once created.  Do not author ordinary datapack entities as `major_promoted`; use `minor_generatable` bindings plus promotion instead.
+
+### NPC knowledge packs / KB
+
+NPC knowledge packs live in `data/<namespace>/npc_knowledge_packs/<path>.json` and are validated against `docs/schemas/ebb.npc_knowledge.schema.json`.
+
+```json
+{
+  "chunks": [
+    {
+      "id": "public_guestbook_gap",
+      "text": "The innkeeper admits the guestbook has a missing page.",
+      "tags": ["guestbook", "ledger"],
+      "secret": false
+    },
+    {
+      "id": "secret_cash_payment",
+      "text": "Secret ledger detail: the tenant paid cash.",
+      "tags": ["ledger", "tenant"],
+      "secret": true,
+      "reveal_conditions": [
+        {"type": "clue_found", "id": "ebb:demo/guestbook_gap"}
+      ]
+    }
+  ]
+}
+```
+
+Secret chunks must have `reveal_conditions`.  Prompt assembly includes only visible chunks; `/ebb kb inspect <npc> [query]` can show hidden chunk ids for OP/dev review, but client sync payloads must not include hidden KB text.
+
+### LLM server config
+
+`config/ebb-llm-server.json` is a server-side file, not datapack content.  The mod jar must not contain API keys.  Fake mode should be used in tests and GUI automation:
+
+```json
+{
+  "enabled": true,
+  "mode": "fake",
+  "require_player_auth": false,
+  "llm_chat_streaming": true,
+  "structured_output": true,
+  "openai_store": false,
+  "fake_reply": "FAKE_NPC_REPLY"
+}
+```
+
+Gateway mode is a server-to-gateway dry-run or real-provider path.  It still sends only server-owned data and optional server-only opaque player tokens to the gateway; the Minecraft client never receives tokens or OpenAI secrets:
+
+```json
+{
+  "enabled": true,
+  "mode": "gateway",
+  "gateway_base_url": "http://127.0.0.1:8787",
+  "require_player_auth": true,
+  "default_chat_model": "gpt-5.2",
+  "llm_chat_streaming": true,
+  "structured_output": true,
+  "openai_store": false
+}
+```
+
+### Memory effects and LLM memory writes
+
+Scripted dialogue can update memory/KB through ordinary server-authoritative effects:
+
+```json
+{"type":"npc_kb_add_fact","npc":"ebb:demo/innkeeper","fact":"player_checked_back_door"}
+{"type":"npc_kb_add_pack","npc":"ebb:demo/innkeeper","pack":"ebb:demo/kitchen_manifest"}
+{"type":"npc_stance_shift","npc":"ebb:demo/innkeeper","stance":"defensive"}
+{"type":"add_relation","relation":"ebb:demo/innkeeper","amount":1}
+{"type":"set_npc_state","npc":"ebb:demo/innkeeper","tag":"player_apologized"}
+```
+
+LLM/gateway `memory_writes` are proposals.  They pass through deterministic validation, can create `MemoryConflict` rows, and may create safety lessons when they contradict canonical facts.  `proposed_effects` from the LLM are **not** applied directly to Minecraft state; high-risk effects such as quest completion, item grants, flags, routine changes, clue reveals, relation mutation, or commands are rejected/sanitized and must be implemented as scripted dialogue effects instead.
+
+### P43 verification matrix
+
+- Static audit: `scripts/p43_llm_safety_audit.py` plus `scripts/goal_static_audit.py` check no secret-like API key literals, fake/mock providers in tests, no hidden KB text in client sync payloads, and no high-risk direct LLM effects.
+- JUnit: `p43TestingEvaluationAndSafetyGatesAreAuditable` covers memory conflict evidence, promotion persistence, prompt/KB pack assembly, docs/schemas, and GUI route markers.
+- GameTest: `p43FakeChatMinorPromotionAndRelationshipDeltaAreDeterministic` covers fake-provider chat, minor promotion persistence, and relationship delta state in a headless Minecraft server.
+- GUI E2E: `scripts/gui_e2e_run.py --scenario llm_validation` documents auth-disabled/status, fake chat, and gateway dry-run routes; use `--gui` for a live client run.

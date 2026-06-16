@@ -1603,6 +1603,78 @@ final class DeepResearchDataTest {
         requireCommandPath(ebb, "llm", "logout");
     }
 
+    @Test
+    void p43TestingEvaluationAndSafetyGatesAreAuditable() throws Exception {
+        JsonObject npcProfileSchema = JsonParser.parseString(Files.readString(Path.of("docs/schemas/ebb.npc_profile.schema.json"))).getAsJsonObject();
+        JsonObject npcKnowledgeSchema = JsonParser.parseString(Files.readString(Path.of("docs/schemas/ebb.npc_knowledge.schema.json"))).getAsJsonObject();
+        assertTrue(npcProfileSchema.toString().contains("major_promoted"), "P43 NPC profile schema should cover promoted profiles");
+        assertTrue(npcKnowledgeSchema.toString().contains("reveal_conditions"), "P43 NPC knowledge schema should require reveal conditions for secret chunks");
+
+        String docs = Files.readString(Path.of("docs/json_authoring_guide.md"));
+        assertTrue(docs.contains("P43 Testing / Evaluation Authoring Reference"));
+        assertTrue(docs.contains("NPC profile data"));
+        assertTrue(docs.contains("NPC knowledge packs / KB"));
+        assertTrue(docs.contains("LLM server config"));
+        assertTrue(docs.contains("Memory effects and LLM memory writes"));
+
+        String safetyAudit = Files.readString(Path.of("scripts/p43_llm_safety_audit.py"));
+        assertTrue(safetyAudit.contains("audit_no_api_key_literals"));
+        assertTrue(safetyAudit.contains("audit_fake_provider_in_tests"));
+        assertTrue(safetyAudit.contains("audit_hidden_knowledge_not_in_client_sync"));
+        assertTrue(safetyAudit.contains("audit_high_risk_effects_not_direct_llm_output"));
+
+        String gatewayResponse = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/GatewayChatResponse.java"));
+        assertTrue(gatewayResponse.contains("sanitizeProposedEffects"));
+        assertTrue(gatewayResponse.contains("high_risk_effects_rejected_from_llm_output"));
+        assertTrue(gatewayResponse.contains("complete_quest_branch"));
+        assertFalse(Files.readString(Path.of("src/main/java/com/crpg/ebb/llm/HttpLlmGatewayClient.java")).contains("proposed_effects"),
+                "Minecraft-side gateway client should ignore direct LLM proposed_effects");
+
+        String smoke = Files.readString(Path.of("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java"));
+        assertTrue(smoke.contains("favorite=blue") && smoke.contains("favorite=red"),
+                "P43 JUnit should confirm gateway smoke contains explicit memory conflict coverage");
+        assertTrue(smoke.contains("FAKE_GATEWAY_REPLY") && smoke.contains("mock_openai_responses"),
+                "P43 tests/smokes should use fake/mock providers");
+
+        NarrativeSavedData state = new NarrativeSavedData();
+        JsonObject profile = JsonParser.parseString("""
+                {"id":"ebb:promoted/p43","tier":"major_promoted","display_name":"P43 Promoted",
+                 "profile_generation":{"schema_id":"ebb.npc_profile_generator.v1"},
+                 "character":{"archetype":"witness","voice":"careful","speech_rules":["stay consistent"]},
+                 "stance":{"default_attitude_to_player":"curious"},
+                 "knowledge":{"initial_packs":["ebb:demo/tavern_public_lore"]},
+                 "knowledge_seed":{"initial_packs":["ebb:demo/tavern_public_lore"]},
+                 "suggested_options":["你看见了什么？"]}
+                """).getAsJsonObject();
+        state.putPromotedNpcProfile("ebb:promoted/p43", profile);
+        var encoded = NarrativeSavedData.CODEC.encodeStart(JsonOps.INSTANCE, state)
+                .resultOrPartial(message -> { throw new AssertionError(message); })
+                .orElseThrow();
+        NarrativeSavedData restored = NarrativeSavedData.CODEC.parse(JsonOps.INSTANCE, encoded)
+                .resultOrPartial(message -> { throw new AssertionError(message); })
+                .orElseThrow();
+        assertTrue(restored.hasPromotedNpcProfile("ebb:promoted/p43"),
+                "P43 promotion persistence should survive saved-data codec round trip");
+        assertTrue(restored.promotedNpcProfile("ebb:promoted/p43").orElseThrow().has("suggested_options"));
+
+        Path bundled = Path.of("src/main/resources/data/ebb");
+        NpcProfileRegistry.rebuild(load(bundled.resolve("npc_profiles")));
+        NpcKnowledgeRegistry.rebuild(load(bundled.resolve("npc_knowledge_packs")));
+        UUID player = UUID.randomUUID();
+        String publicContext = NpcKnowledgeService.promptContext("ebb:demo/innkeeper", "guestbook ledger", new NarrativeSavedData(), player, 6000L, 8);
+        assertTrue(publicContext.contains("visible chunks only"));
+        assertTrue(publicContext.contains("ebb:demo/tavern_public_lore") || publicContext.contains("ledger_evasion_public"),
+                "P43 prompt pack assembly should include visible profile KB packs");
+        assertFalse(publicContext.toLowerCase(Locale.ROOT).contains("tenant paid cash"),
+                "P43 prompt pack assembly must not include hidden KB without reveal state");
+
+        String gui = Files.readString(Path.of("scripts/gui_e2e_run.py"));
+        assertTrue(gui.contains("scenario_llm_validation"));
+        assertTrue(gui.contains("auth_disabled"));
+        assertTrue(gui.contains("fake_provider_chat_route"));
+        assertTrue(gui.contains("real_gateway_dry_run"));
+    }
+
     private static DialogueEffect parseEffect(String json) {
         return DialogueEffect.parse(JsonParser.parseString(json).getAsJsonObject(), "test.effect", new java.util.ArrayList<>()).orElseThrow();
     }

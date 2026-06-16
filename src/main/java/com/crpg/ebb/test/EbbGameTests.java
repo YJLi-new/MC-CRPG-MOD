@@ -297,6 +297,43 @@ public final class EbbGameTests {
         helper.succeed();
     }
 
+    @GameTest(maxTicks = 20)
+    public void p43FakeChatMinorPromotionAndRelationshipDeltaAreDeterministic(GameTestHelper helper) {
+        UUID player = UUID.randomUUID();
+        LlmChatResponse fake = new FakeLlmGatewayClient(LlmConfig.fakeForTesting()).sendMessage(new LlmChatRequest(
+                UUID.randomUUID(),
+                player,
+                Optional.empty(),
+                EbbMod.id("test/p43"),
+                "start",
+                "ebb:demo/innkeeper",
+                "innkeeper",
+                "P43 fake provider chat",
+                "hello",
+                helper.getLevel().getGameTime(),
+                "NPC KB visible chunks only for ebb:demo/innkeeper"
+        )).join();
+        helper.assertTrue(fake.reply().contains("FAKE_NPC_REPLY"),
+                "P43 fake provider chat should be deterministic and network-free");
+
+        EbbNpcEntity npc = helper.spawn(ModEntityTypes.NPC, new BlockPos(6, 2, 1));
+        npc.addTag(NpcPromotionService.MINOR_NPC_TAG);
+        var promotion = NpcPromotionService.ensurePromotedProfile(helper.getLevel(), npc, player, "p43_gametest");
+        helper.assertTrue("promoted_major".equals(promotion.status()) || "existing_promoted_major".equals(promotion.status()),
+                "P43 minor promotion should produce or reuse a persisted major profile");
+        NarrativeSavedData state = NarrativeSavedData.get(helper.getLevel());
+        helper.assertTrue(state.hasPromotedNpcProfile(promotion.profileId().toString()),
+                "P43 promoted minor profile should persist in world saved data");
+
+        int before = state.getRelation(player, "ebb:demo/innkeeper");
+        int after = state.addRelation(player, "ebb:demo/innkeeper", 2);
+        helper.assertTrue(after == before + 2,
+                "P43 relationship delta should be applied to narrative state");
+        helper.assertTrue(state.getRelation(player, "ebb:demo/innkeeper") == after,
+                "P43 relationship delta should be readable after mutation");
+        helper.succeed();
+    }
+
     private static void assertLegacyRoleBinding(GameTestHelper helper, String role, Identifier expectedDialogue, BlockPos pos) {
         EbbNpcEntity npc = helper.spawn(ModEntityTypes.NPC, pos);
         npc.addTag("ebb.npc");

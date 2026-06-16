@@ -1734,3 +1734,31 @@
   - `python3 scripts/goal_static_audit.py` -> pass.
   - `git diff --check` -> pass.
   - `scripts/run_smoke_checks.sh` -> pass.
+
+### Phase 43 / PLAN.md testing-evaluation-documentation completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented P43 deliverables:
+  - Expanded `docs/json_authoring_guide.md` with NPC profile, NPC knowledge/KB, LLM server config, and memory-effect/proposed-memory-write references.
+  - Added `docs/schemas/ebb.npc_knowledge.schema.json` and audited existing `docs/schemas/ebb.npc_profile.schema.json`.
+  - Added `scripts/p43_llm_safety_audit.py` and wired it into `scripts/run_smoke_checks.sh`; it checks secret-like API key literals, fake/mock provider use in tests, hidden KB non-sync, and high-risk LLM `proposed_effects` rejection/ignore behavior.
+  - Hardened gateway `GatewayChatResponse` with `sanitizeProposedEffects` / `containsHighRiskEffectVerb` so direct model output cannot smuggle quest/item/flag/clue/relation/routine/command effects.
+  - Added JUnit `p43TestingEvaluationAndSafetyGatesAreAuditable` for memory conflict evidence, promotion persistence, prompt pack assembly, schemas/docs, static audit markers, and GUI route markers.
+  - Added GameTest `p43FakeChatMinorPromotionAndRelationshipDeltaAreDeterministic` for fake provider chat, promoted minor persistence, and relationship delta mutation.
+  - Added GUI E2E `llm_validation` scenario/manifest for auth-disabled status, fake chat, and real-gateway dry-run route without using real OpenAI.
+- Validation completed:
+  - `python3 -m py_compile scripts/gui_e2e_run.py scripts/goal_static_audit.py scripts/p43_llm_safety_audit.py` -> pass.
+  - `python3 scripts/p43_llm_safety_audit.py` -> pass.
+  - `python3 scripts/goal_static_audit.py` -> passed including P43 guardrails.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` -> BUILD SUCCESSFUL.
+  - `scripts/p36_gateway_smoke.sh` -> BUILD SUCCESSFUL.
+  - `scripts/run_gui_automation_smoke.sh` -> pass including `llm_validation` dry-run manifest/report.
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> BUILD SUCCESSFUL; all 14 required GameTests passed.
+  - `scripts/run_smoke_checks.sh` -> pass, including the new P43 safety audit.
+  - `git diff --check` -> pass.
+- Artifact hashes after P43 build:
+  - build jar: `1d2cfee8a3b323151c7eeda5c0c4c2201f0d97a67f1f8b7c4199d77aedafc1d8`.
+  - sources jar: `6d867b388a9e16ce2cbc1c228de2c39576936b90ad044918544a714727590ee4`.
+- Next: perform a final requirement-by-requirement audit of all PLAN.md sections and acceptance table before considering the persistent goal complete.

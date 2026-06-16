@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1442,6 +1443,121 @@ def audit_p42_llm_chat_ui_completion() -> None:
     gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
     require("P42 GameTest coverage", gametest, "llmChatStreamingChunksAndUiContractsArePresent", "P42 streaming helper")
 
+def audit_p43_testing_evaluation_documentation() -> None:
+    for path in [
+        "docs/schemas/ebb.npc_profile.schema.json",
+        "docs/schemas/ebb.npc_knowledge.schema.json",
+        "scripts/p43_llm_safety_audit.py",
+    ]:
+        exists(path)
+
+    docs = read("docs/json_authoring_guide.md")
+    require(
+        "P43 authoring docs",
+        docs,
+        "P43 Testing / Evaluation Authoring Reference",
+        "NPC profile data",
+        "NPC knowledge packs / KB",
+        "LLM server config",
+        "Memory effects and LLM memory writes",
+        "P43 verification matrix",
+    )
+    profile_schema = read("docs/schemas/ebb.npc_profile.schema.json")
+    require("P43 NPC profile schema", profile_schema, "major_scripted", "major_promoted", "character", "stance", "knowledge", "allow_memory_write")
+    knowledge_schema = read("docs/schemas/ebb.npc_knowledge.schema.json")
+    require("P43 NPC knowledge schema", knowledge_schema, "chunks", "secret", "reveal_conditions", "clue_found", "minItems")
+
+    safety_audit = read("scripts/p43_llm_safety_audit.py")
+    require(
+        "P43 safety static audit",
+        safety_audit,
+        "audit_no_api_key_literals",
+        "audit_fake_provider_in_tests",
+        "audit_hidden_knowledge_not_in_client_sync",
+        "audit_high_risk_effects_not_direct_llm_output",
+        "SECRET_PATTERNS",
+        "high-risk direct LLM effects",
+    )
+    if "scripts/p43_llm_safety_audit.py" not in read("scripts/run_smoke_checks.sh"):
+        raise AssertionError("P43 safety audit must be part of scripts/run_smoke_checks.sh")
+
+    secret_patterns = [
+        re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
+        re.compile(r"\bgh[oprsu]_[A-Za-z0-9_]{20,}\b"),
+        re.compile(r"\bAIza[0-9A-Za-z_-]{20,}\b"),
+        re.compile(r"Bearer\s+[A-Za-z0-9._~+/-]{20,}", re.IGNORECASE),
+    ]
+    for relative in [
+        "src/main/java",
+        "src/client/java",
+        "src/test/java",
+        "ebb-llm-gateway/src/main/java",
+        "ebb-llm-gateway/src/test/java",
+        "docs",
+        "scripts",
+    ]:
+        root = ROOT / relative
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix.lower() not in {".java", ".py", ".sh", ".json", ".md", ".kts"}:
+                continue
+            body = path.read_text(encoding="utf-8", errors="replace")
+            for pattern in secret_patterns:
+                if pattern.search(body):
+                    raise AssertionError(f"P43 secret-like literal in {path.relative_to(ROOT)}")
+
+    test_text = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
+    require(
+        "P43 JUnit coverage",
+        test_text,
+        "p43TestingEvaluationAndSafetyGatesAreAuditable",
+        "favorite=blue",
+        "favorite=red",
+        "promoted_npc_profiles",
+        "prompt pack assembly",
+        "scenario_llm_validation",
+    )
+    gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
+    require(
+        "P43 GameTest coverage",
+        gametest,
+        "p43FakeChatMinorPromotionAndRelationshipDeltaAreDeterministic",
+        "FAKE_NPC_REPLY",
+        "ensurePromotedProfile",
+        "addRelation",
+    )
+
+    gui = read("scripts/gui_e2e_run.py") + read("scripts/run_gui_automation_smoke.sh")
+    require(
+        "P43 GUI E2E coverage",
+        gui,
+        "scenario_llm_validation",
+        "auth_disabled",
+        "fake_provider_chat_route",
+        "real_gateway_dry_run",
+        "expected-p43-llm-validation-manifest.json",
+    )
+
+    sync_payloads = "\n".join(path.read_text(encoding="utf-8", errors="replace") for path in (ROOT / "src/main/java/com/crpg/ebb/network").rglob("*.java"))
+    client_sources = "\n".join(path.read_text(encoding="utf-8", errors="replace") for path in (ROOT / "src/client/java").rglob("*.java"))
+    forbidden_sync_tokens = ["NpcKnowledgePackDefinition", "NpcKnowledgeService", "npc_knowledge_packs", "hiddenChunks", "secret_ledger_tenant_cash", "tenant paid cash"]
+    for token in forbidden_sync_tokens:
+        if token in sync_payloads or token in client_sources:
+            raise AssertionError(f"P43 hidden KB token leaked to client/sync source: {token}")
+
+    gateway_response = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/GatewayChatResponse.java")
+    require(
+        "P43 high-risk proposed effect guard",
+        gateway_response,
+        "sanitizeProposedEffects",
+        "containsHighRiskEffectVerb",
+        "high_risk_effects_rejected_from_llm_output",
+        "complete_quest_branch",
+        "give_item",
+        "set_npc_routine",
+    )
+    if "proposed_effects" in read("src/main/java/com/crpg/ebb/llm/HttpLlmGatewayClient.java"):
+        raise AssertionError("P43 Minecraft-side gateway client must ignore direct LLM proposed_effects")
+
 def main() -> int:
     audit_p20_p21_documentation_and_baseline()
     audit_p22_interaction_highlight_polish()
@@ -1465,6 +1581,7 @@ def main() -> int:
     audit_p40_npc_knowledge_base_story_effects()
     audit_p41_minor_npc_instant_generation()
     audit_p42_llm_chat_ui_completion()
+    audit_p43_testing_evaluation_documentation()
 
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")
@@ -1675,7 +1792,7 @@ def main() -> int:
     require("Authoring docs P8", docs, "Playable Tavern Vertical Slice Content Map", "eight block-group investigation points", "back door / ending placeholder")
     require("P8 completion audit", read("docs/goal_p8_vertical_slice_2026-06-01.md"), "four role NPCs", "eight interactable investigation points", "Ending placeholders")
 
-    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P35 guardrails cover NPC profile/tier/promotion data; P36 guardrails cover gateway auth endpoints, dev local/OIDC auth providers, Minecraft auth commands, auth_required gating, server-only token storage, redaction, and gateway smoke; P37 guardrails cover OpenAI Responses gateway chat, structured/chunked output, circuit breaker, store:false privacy, mock provider, and Minecraft HTTP gateway client; P38 guardrails cover gateway DB migration, append-only memory records, facts/conflicts, deterministic embeddings, hybrid retrieval, citation ids, and Minecraft memory dev commands; P39 guardrails cover LLM-proposed memory ops, deterministic validation, episodic summaries, related-memory links, A-Mem-like evolution, A-MemGuard safety lessons, and raw/fact/conflict dev visibility; P40 guardrails cover NPC KB packs, reveal-conditioned visible-only prompt assembly, KB story effects, /ebb kb inspect, and hidden-secret acceptance tests; P41 guardrails cover minor NPC candidate detection, profile generator prompt/schema, generated knowledge seeds/options, persistence, dev review/reject/regenerate commands, and world-hour rate limiting; P42 guardrails cover LLM chat streaming UI, suggested-option GUI automation, return-to-script, memory correction, dev citations overlay, timeout/error/cancel non-stuck behavior, and K-menu auth status; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
+    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P35 guardrails cover NPC profile/tier/promotion data; P36 guardrails cover gateway auth endpoints, dev local/OIDC auth providers, Minecraft auth commands, auth_required gating, server-only token storage, redaction, and gateway smoke; P37 guardrails cover OpenAI Responses gateway chat, structured/chunked output, circuit breaker, store:false privacy, mock provider, and Minecraft HTTP gateway client; P38 guardrails cover gateway DB migration, append-only memory records, facts/conflicts, deterministic embeddings, hybrid retrieval, citation ids, and Minecraft memory dev commands; P39 guardrails cover LLM-proposed memory ops, deterministic validation, episodic summaries, related-memory links, A-Mem-like evolution, A-MemGuard safety lessons, and raw/fact/conflict dev visibility; P40 guardrails cover NPC KB packs, reveal-conditioned visible-only prompt assembly, KB story effects, /ebb kb inspect, and hidden-secret acceptance tests; P41 guardrails cover minor NPC candidate detection, profile generator prompt/schema, generated knowledge seeds/options, persistence, dev review/reject/regenerate commands, and world-hour rate limiting; P42 guardrails cover LLM chat streaming UI, suggested-option GUI automation, return-to-script, memory correction, dev citations overlay, timeout/error/cancel non-stuck behavior, and K-menu auth status; P43 guardrails cover NPC profile/knowledge schemas, LLM config and memory-effect docs, secret-literal/fake-provider/hidden-KB/high-risk-effect static audits, JUnit/GameTest coverage, and GUI E2E auth-disabled/fake-chat/gateway-dry-run routes; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
     return 0
 
 

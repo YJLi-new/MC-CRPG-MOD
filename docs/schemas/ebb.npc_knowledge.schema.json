@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ebb.npc_knowledge.schema.json",
+  "title": "Esoteric Ebb NPC Knowledge Pack",
+  "type": "object",
+  "required": ["chunks"],
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "chunks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9_.-]+$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tags": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "array", "items": {"type": "string"}}
+            ]
+          },
+          "secret": {
+            "type": "boolean",
+            "default": false
+          },
+          "reveal_conditions": {
+            "type": "array",
+            "description": "DialogueCondition objects; all conditions must pass before a secret chunk enters prompt context, e.g. type=clue_found.",
+            "items": {
+              "type": "object",
+              "required": ["type"],
+              "additionalProperties": true,
+              "properties": {
+                "type": {"type": "string"},
+                "id": {"type": "string"},
+                "key": {"type": "string"},
+                "value": {},
+                "min": {"type": "number"},
+                "layer": {"type": "string"},
+                "npc": {"type": "string"},
+                "relation": {"type": "string"}
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"secret": {"const": true}}, "required": ["secret"]},
+            "then": {
+              "required": ["reveal_conditions"],
+              "properties": {
+                "reveal_conditions": {"minItems": 1}
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -168,6 +168,41 @@ def write_llm_chat_manifest(env: EbbGuiEnv) -> Path:
     return path
 
 
+def write_p43_llm_validation_manifest(env: EbbGuiEnv) -> Path:
+    manifest = {
+        "scenario": "llm_validation",
+        "expected_checks": [
+            "auth_disabled_status_route",
+            "fake_provider_chat_route",
+            "real_gateway_dry_run_status_route",
+        ],
+        "configs": {
+            "auth_disabled": {"enabled": False, "mode": "disabled"},
+            "fake_chat": {
+                "enabled": True,
+                "mode": "fake",
+                "require_player_auth": False,
+                "openai_store": False,
+                "fake_reply": "FAKE_NPC_REPLY: GUI P43 fake chat",
+            },
+            "real_gateway_dry_run": {
+                "enabled": True,
+                "mode": "gateway",
+                "gateway_base_url": "http://127.0.0.1:65535",
+                "require_player_auth": False,
+                "openai_store": False,
+            },
+        },
+        "commands": ["/ebb llm reload_config", "/ebb llm status"],
+        "no_real_openai": True,
+    }
+    path = env.work_dir / "expected-p43-llm-validation-manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    env.log_step("write_p43_llm_validation_manifest", True, path=str(path), manifest=manifest)
+    return path
+
+
 def _cyan_screen_pixels(path: Path) -> int:
     import warnings
     from PIL import Image
@@ -495,9 +530,103 @@ def scenario_llm_chat(env: EbbGuiEnv, args: argparse.Namespace) -> int:
     return 0 if runtime_ok or args.allow_stale_runtime else 2
 
 
+def _write_gui_llm_config(env: EbbGuiEnv, name: str, config: dict[str, object]) -> Path:
+    llm_config = env.profile_dir / "config" / "ebb-llm-server.json"
+    llm_config.parent.mkdir(parents=True, exist_ok=True)
+    llm_config.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    env.log_step("write_p43_llm_config", True, name=name, path=str(llm_config), mode=config.get("mode"))
+    return llm_config
+
+
+def scenario_llm_validation(env: EbbGuiEnv, args: argparse.Namespace) -> int:
+    env.report["scenario"] = "llm_validation"
+    env.work_dir.mkdir(parents=True, exist_ok=True)
+    write_p43_llm_validation_manifest(env)
+    runtime_ok = env.check_runtime_loaded()
+    if not args.gui:
+        env.log_step(
+            "p43_gui_control_skipped",
+            True,
+            reason="--gui not set; generated P43 auth-disabled/fake-chat/gateway-dry-run manifest/report only",
+        )
+        path = env.write_report("p43-llm-validation-report.json")
+        print(f"report={path}")
+        return 0 if runtime_ok or args.allow_stale_runtime else 2
+
+    import time as _time
+    configs = [
+        ("auth_disabled", {
+            "enabled": False,
+            "mode": "disabled",
+            "require_player_auth": True,
+            "openai_store": False,
+        }),
+        ("fake_chat", {
+            "enabled": True,
+            "mode": "fake",
+            "require_player_auth": False,
+            "llm_chat_streaming": True,
+            "structured_output": True,
+            "openai_store": False,
+            "fake_reply": "FAKE_NPC_REPLY: GUI P43 fake chat",
+        }),
+        ("real_gateway_dry_run", {
+            "enabled": True,
+            "mode": "gateway",
+            "gateway_base_url": "http://127.0.0.1:65535",
+            "gateway_timeout_ms": 1500,
+            "require_player_auth": False,
+            "llm_chat_streaming": True,
+            "structured_output": True,
+            "openai_store": False,
+        }),
+    ]
+    env.windows_gui("focus", "--title", args.window_title)
+    for name, config in configs:
+        _write_gui_llm_config(env, name, config)
+        reload_shot = env.gui_chat_command("/ebb llm reload_config", args.window_title, f"p43_{name}_reload.png", wait_seconds=args.gui_wait)
+        status_shot = env.gui_chat_command("/ebb llm status", args.window_title, f"p43_{name}_status.png", wait_seconds=args.gui_wait)
+        env.log_step(
+            f"p43_{name}_status_route",
+            reload_shot.exists() and status_shot.exists(),
+            config=name,
+            reload_screenshot=str(reload_shot),
+            status_screenshot=str(status_shot),
+            signals=summarize_signals(status_shot) if status_shot.exists() else None,
+        )
+        if name == "fake_chat":
+            if not args.skip_demo_setup:
+                for idx, command in enumerate(DEMO_SETUP_COMMANDS, start=1):
+                    env.gui_chat_command(command, args.window_title, f"p43_fake_setup_{idx:02d}.png", wait_seconds=max(0.35, args.gui_wait / 2))
+            env.gui_chat_command(ROLE_TP_COMMANDS["innkeeper"], args.window_title, "p43_fake_innkeeper_tp.png", wait_seconds=args.gui_wait)
+            env.windows_gui("press", "--title", args.window_title, "--key", "x")
+            _time.sleep(args.gui_wait)
+            env.windows_gui("press", "--title", args.window_title, "--key", "3")
+            _time.sleep(args.gui_wait + 0.8)
+            opened = env.work_dir / "p43_fake_chat_open.png"
+            env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(opened))
+            env.windows_gui("send-text", "--title", args.window_title, "--text", "P43 fake chat smoke")
+            _time.sleep(args.gui_wait + 1.2)
+            reply = env.work_dir / "p43_fake_chat_reply.png"
+            env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(reply))
+            live_bg, top_luma = _assert_live_world_background(reply)
+            env.log_step(
+                "p43_fake_chat_route",
+                reply.exists() and live_bg,
+                open_screenshot=str(opened),
+                reply_screenshot=str(reply),
+                top_band_luminance=top_luma,
+                signals=summarize_signals(reply) if reply.exists() else None,
+            )
+            close_interaction_screen_if_open(env, args, reply)
+    path = env.write_report("p43-llm-validation-report.json")
+    print(f"report={path}")
+    return 0 if runtime_ok or args.allow_stale_runtime else 2
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Esoteric Ebb GUI E2E automation scenarios.")
-    parser.add_argument("--scenario", choices=["dry_run", "runtime_check", "bot_probe", "gui_retest", "llm_chat"], default="dry_run")
+    parser.add_argument("--scenario", choices=["dry_run", "runtime_check", "bot_probe", "gui_retest", "llm_chat", "llm_validation"], default="dry_run")
     parser.add_argument("--profile", default="26.1.2-Fabric-Ebb-Test")
     parser.add_argument("--mc-dir", type=Path, default=Path("/mnt/e/MC/PCL/.minecraft"))
     parser.add_argument("--save-name", default="新的世界 (1)")
@@ -527,6 +656,8 @@ def main() -> int:
         return scenario_bot_probe(env, args)
     if args.scenario == "llm_chat":
         return scenario_llm_chat(env, args)
+    if args.scenario == "llm_validation":
+        return scenario_llm_validation(env, args)
     return scenario_gui_retest(env, args)
 
 

@@ -842,3 +842,46 @@ Actual GUI screenshot evidence:
 - `build/gui-e2e/llm_returned_to_script.png` — Return to Script reopened the scripted dialogue at `ebb:demo/innkeeper_intro / start` with `returned_from_llm_chat` status.
 
 Automation hygiene note: `scenario_llm_chat` now writes its fake LLM server config only when `--gui` is used, so dry-run smoke/report generation does not modify the external PCL test profile.
+
+## Phase 43 Testing / Evaluation / Documentation snapshot
+
+Implemented PLAN.md P43 validation and documentation layer:
+
+- Expanded `docs/json_authoring_guide.md` with a P43 reference for NPC profiles, NPC knowledge packs / KB, LLM server config, and memory effects / proposed LLM memory writes.
+- Added `docs/schemas/ebb.npc_knowledge.schema.json`; retained and audited `docs/schemas/ebb.npc_profile.schema.json`.
+- Added `scripts/p43_llm_safety_audit.py` and wired it into `scripts/run_smoke_checks.sh`.  The audit checks no secret-like API key literals, fake/mock LLM providers in tests, no hidden KB text in client/sync payloads, and rejection/ignoring of high-risk direct LLM `proposed_effects`.
+- Added gateway-side `GatewayChatResponse.sanitizeProposedEffects` so direct model output cannot smuggle high-authority game mutations such as quest completion, item grants, flags, clue reveals, relation changes, routines, or commands through `proposed_effects`.
+- Added JUnit coverage through `p43TestingEvaluationAndSafetyGatesAreAuditable`: memory conflict evidence, promotion persistence, prompt pack assembly, docs/schemas, static audit markers, and GUI route markers.
+- Added GameTest coverage through `p43FakeChatMinorPromotionAndRelationshipDeltaAreDeterministic`: fake-provider chat, minor promotion persistence, and relationship delta mutation in a real headless Minecraft server.
+- Added GUI E2E manifest/route `scripts/gui_e2e_run.py --scenario llm_validation` for auth-disabled status, fake chat, and real-gateway dry-run status without using real OpenAI.
+
+Phase 43 artifact hashes after the P43 build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         1d2cfee8a3b323151c7eeda5c0c4c2201f0d97a67f1f8b7c4199d77aedafc1d8
+build/libs/ebb-0.1.0-dev-sources.jar 6d867b388a9e16ce2cbc1c228de2c39576936b90ad044918544a714727590ee4
+```
+
+Phase 43 validation checkpoint so far:
+
+```text
+python3 -m py_compile scripts/gui_e2e_run.py scripts/goal_static_audit.py scripts/p43_llm_safety_audit.py -> pass
+python3 scripts/p43_llm_safety_audit.py                    -> pass
+python3 scripts/goal_static_audit.py                       -> passed including P43 guardrails
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/p36_gateway_smoke.sh                               -> BUILD SUCCESSFUL
+scripts/run_gui_automation_smoke.sh                        -> pass, including llm_validation dry-run manifest/report
+scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
+```
+
+Phase 43 final validation update:
+
+```text
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 14 required GameTests passed
+scripts/run_smoke_checks.sh                                -> passed including P43LlmSafetyAudit
+python3 scripts/goal_static_audit.py                       -> passed including P43 guardrails
+git diff --check                                           -> passed
+```
+
+P43 status: complete. Next repository task is a final requirement-by-requirement audit of `E:\MC\PCL\PLAN.md` before declaring the overall persistent goal complete.

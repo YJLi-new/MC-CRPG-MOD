@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 42 is complete with code, automated validation, and actual Windows GUI `llm_chat` evidence; next work should proceed to PLAN.md P43 testing, evaluation, schemas, audits, and documentation.
+Phase 43 is complete with docs/schemas/static audits/JUnit/GameTest/GUI-E2E route validation; next work should perform a final requirement-by-requirement PLAN.md completion audit before claiming the whole goal complete.
 
 ## Phases
 
@@ -472,10 +472,19 @@ Phase 42 is complete with code, automated validation, and actual Windows GUI `ll
 
 
 ### Phase 43: PLAN.md P43 — Testing, Evaluation, and Documentation
-- [ ] Expand JSON authoring guide for NPC profiles, NPC knowledge/Kb, LLM config, and memory effects.
-- [ ] Add/verify schemas `ebb.npc_profile.schema.json` and `ebb.npc_knowledge.schema.json`.
-- [ ] Add static audits for API-key literals, fake LLM provider in tests, hidden knowledge not in client sync payloads, and high-risk effects not accepted directly from LLM output.
-- [ ] Add JUnit coverage for memory conflict, promotion persistence, and prompt pack assembly.
-- [ ] Add GameTest coverage for fake provider chat, minor promotion, and relationship delta.
-- [ ] Add GUI E2E coverage for auth disabled, fake chat, and real gateway dry-run.
+- [x] Expand JSON authoring guide for NPC profiles, NPC knowledge/Kb, LLM config, and memory effects.
+- [x] Add/verify schemas `ebb.npc_profile.schema.json` and `ebb.npc_knowledge.schema.json`.
+- [x] Add static audits for API-key literals, fake LLM provider in tests, hidden knowledge not in client sync payloads, and high-risk effects not accepted directly from LLM output.
+- [x] Add JUnit coverage for memory conflict, promotion persistence, and prompt pack assembly.
+- [x] Add GameTest coverage for fake provider chat, minor promotion, and relationship delta.
+- [x] Add GUI E2E coverage for auth disabled, fake chat, and real gateway dry-run.
+- **Status:** complete
+
+
+
+### Phase 44: PLAN.md Final Completion Audit
+- [ ] Derive explicit requirements from `E:\MC\PCL\PLAN.md` sections 1-16 and the acceptance table.
+- [ ] Map each requirement to current files, tests, runtime evidence, and validation output.
+- [ ] Re-run the full mandatory verification sequence from PLAN.md section 15 after any audit fixes.
+- [ ] Record a requirement-by-requirement completion report and only then decide whether the active goal is fully complete.
 - **Status:** pending
