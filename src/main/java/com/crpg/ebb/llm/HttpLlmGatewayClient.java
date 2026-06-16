@@ -123,10 +123,14 @@ public final class HttpLlmGatewayClient implements LlmGatewayClient {
     }
 
     private static String sceneContext(LlmChatRequest request) {
-        return "dialogue=" + request.dialogueId()
+        String context = "dialogue=" + request.dialogueId()
                 + " node=" + request.nodeId()
                 + " topic=" + request.topicHint()
                 + " game_time=" + request.gameTime();
+        if (!request.knowledgeContext().isBlank()) {
+            context += "\n" + request.knowledgeContext();
+        }
+        return context;
     }
 
     private static List<String> stringList(JsonElement element) {

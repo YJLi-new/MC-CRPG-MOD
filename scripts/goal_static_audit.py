@@ -1303,6 +1303,51 @@ def audit_p38_memory_store_mvp() -> None:
     gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
     require("P38 GameTest coverage", gametest, "memoryGatewayClientSurfaceIsServerOnly", "MemoryGatewayClient", "P38 memory dev commands")
 
+
+def audit_p39_memory_extraction_consolidation() -> None:
+    for path in [
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/LlmMemoryOperationExtractor.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/DeterministicMemoryValidator.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryConsolidator.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryOperation.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemorySummary.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryLink.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemorySafetyLesson.java",
+        "scripts/p39_memory_consolidation_smoke.sh",
+    ]:
+        exists(path)
+
+    migration = read("ebb-llm-gateway/src/main/resources/db/migration/V001__memory_store.sql")
+    require("P39 memory migration", migration, "memory_operations", "memory_summaries", "memory_links", "memory_safety_lessons", "summary", "related_memory_ids")
+    extractor = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/LlmMemoryOperationExtractor.java")
+    require("P39 LLM extractor proposals", extractor, "memory_writes", "llm_structured_json", "deterministic_ledger_question_extractor", "questioned_ledger", "我是旅馆老板", "tavern", "owner")
+    validator = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/DeterministicMemoryValidator.java")
+    require("P39 deterministic validator", validator, "CANONICAL_FACTS", "canonical_conflict", "tavern", "owner", "innkeeper", "confidence_below_threshold")
+    consolidator = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryConsolidator.java")
+    require("P39 background summarizer/evolution", consolidator, "backgroundSummarize", "evolveSummary", "raw episode text is preserved", "A-MemGuard safety lesson", "questioned_ledger")
+    store = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryStore.java")
+    require("P39 MemoryStore integration", store, "llmExtractor.propose", "validator.validate", "insertOperation", "insertSummary", "insertLink", "insertSafetyLesson", "evolveOldSummary", "raw_episode", "extracted_facts", "safetyLessons")
+    gateway = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java")
+    require("P39 gateway dev endpoints", gateway, "/v1/memory/episodes", "/v1/memory/lessons", "handleMemoryEpisodes", "handleMemoryLessons")
+    prompt = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/GatewayChatRequest.java")
+    require("P39 chat prompt memory writes", prompt, "memory_writes", "fact:player.questioned_ledger=true", "lesson:")
+    openai = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/OpenAiResponsesChatProvider.java")
+    require("P39 structured memory writes", openai, "memory_writes", "HttpJson.stringArrayValue", "GatewayChatResponse")
+    client = read("src/main/java/com/crpg/ebb/memory/MemoryGatewayClient.java")
+    require("P39 Minecraft memory client", client, "/v1/memory/episodes", "/v1/memory/lessons", "episodes", "lessons")
+    commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
+    require("P39 Minecraft memory commands", commands, "Commands.literal(\"episodes\")", "Commands.literal(\"lessons\")", "Ebb memory safety lessons", "raw summaries")
+    smoke = read("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java")
+    require("P39 gateway smoke", smoke, "P39 memory consolidation smoke passed", "canonical owner remains innkeeper", "questioned_ledger", "raw_episode", "extracted_facts")
+    docs = read("docs/json_authoring_guide.md")
+    require("P39 authoring docs", docs, "P39 Memory extraction / consolidation", "memory_writes", "canonical owner remains innkeeper", "/ebb memory episodes", "/ebb memory lessons")
+    status = read("docs/current_status.md")
+    require("P39 current status", status, "Phase 39 Memory extraction", "A-Mem-like", "A-MemGuard", "questioned_ledger")
+    test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
+    require("P39 JUnit coverage", test, "p39MemoryExtractionConsolidationAndSafetyAreAuditable", "canonical owner remains innkeeper", "questioned_ledger", "memory_safety_lessons")
+    gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
+    require("P39 GameTest coverage", gametest, "P39 memory episodes/lessons dev surfaces", "MemoryGatewayClient")
+
 def main() -> int:
     audit_p20_p21_documentation_and_baseline()
     audit_p22_interaction_highlight_polish()
@@ -1322,6 +1367,7 @@ def main() -> int:
     audit_p36_gateway_auth_minimal_service()
     audit_p37_openai_responses_gateway_chat()
     audit_p38_memory_store_mvp()
+    audit_p39_memory_extraction_consolidation()
 
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")
@@ -1532,7 +1578,7 @@ def main() -> int:
     require("Authoring docs P8", docs, "Playable Tavern Vertical Slice Content Map", "eight block-group investigation points", "back door / ending placeholder")
     require("P8 completion audit", read("docs/goal_p8_vertical_slice_2026-06-01.md"), "four role NPCs", "eight interactable investigation points", "Ending placeholders")
 
-    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P35 guardrails cover NPC profile/tier/promotion data; P36 guardrails cover gateway auth endpoints, dev local/OIDC auth providers, Minecraft auth commands, auth_required gating, server-only token storage, redaction, and gateway smoke; P37 guardrails cover OpenAI Responses gateway chat, structured/chunked output, circuit breaker, store:false privacy, mock provider, and Minecraft HTTP gateway client; P38 guardrails cover gateway DB migration, append-only memory records, facts/conflicts, deterministic embeddings, hybrid retrieval, citation ids, and Minecraft memory dev commands; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
+    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P35 guardrails cover NPC profile/tier/promotion data; P36 guardrails cover gateway auth endpoints, dev local/OIDC auth providers, Minecraft auth commands, auth_required gating, server-only token storage, redaction, and gateway smoke; P37 guardrails cover OpenAI Responses gateway chat, structured/chunked output, circuit breaker, store:false privacy, mock provider, and Minecraft HTTP gateway client; P38 guardrails cover gateway DB migration, append-only memory records, facts/conflicts, deterministic embeddings, hybrid retrieval, citation ids, and Minecraft memory dev commands; P39 guardrails cover LLM-proposed memory ops, deterministic validation, episodic summaries, related-memory links, A-Mem-like evolution, A-MemGuard safety lessons, and raw/fact/conflict dev visibility; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
     return 0
 
 

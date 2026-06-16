@@ -83,8 +83,8 @@ public record GatewayChatRequest(
             prompt.append("Scene context: ").append(sceneContext).append('\n');
         }
         if (structured) {
-            prompt.append("Return JSON with keys npc_reply, mood, suggested_options, citations, warnings. ");
-            prompt.append("suggested_options should be short player-facing follow-up labels.\n");
+            prompt.append("Return JSON with keys npc_reply, mood, suggested_options, citations, warnings, memory_writes. ");
+            prompt.append("suggested_options should be short player-facing follow-up labels; memory_writes are proposals only, e.g. fact:player.questioned_ledger=true, summary:..., or lesson:... .\n");
         }
         prompt.append("Player says: ").append(message);
         return prompt.toString();

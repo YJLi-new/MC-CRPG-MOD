@@ -52,6 +52,24 @@ public final class HttpJson {
         return Optional.ofNullable(objectStrings(json).get(key));
     }
 
+
+    public static List<String> stringArrayValue(String json, String key) {
+        if (json == null || key == null || key.isBlank()) {
+            return List.of();
+        }
+        Pattern arrayPattern = Pattern.compile("\\\"" + Pattern.quote(key) + "\\\"\\s*:\\s*\\[(.*?)]", Pattern.DOTALL);
+        Matcher array = arrayPattern.matcher(json);
+        if (!array.find()) {
+            return List.of();
+        }
+        List<String> values = new java.util.ArrayList<>();
+        Matcher strings = Pattern.compile("\\\"((?:\\\\\\.|[^\\\\\\\\\"])*)\\\"").matcher(array.group(1));
+        while (strings.find()) {
+            values.add(unescape(strings.group(1)));
+        }
+        return List.copyOf(values);
+    }
+
     public static boolean booleanValue(String json, String key, boolean fallback) {
         return stringValue(json, key).map(value -> {
             if ("true".equalsIgnoreCase(value)) {

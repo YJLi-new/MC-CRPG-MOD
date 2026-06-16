@@ -1122,6 +1122,20 @@ final class DeepResearchDataTest {
             exchange.getResponseBody().write(bytes);
             exchange.close();
         });
+        server.createContext("/v1/memory/episodes", exchange -> {
+            String response = "{\"status\":\"ok\",\"episodes\":[{\"id\":\"memrec_test\",\"raw_episode\":\"I question the ledger\",\"summary\":\"Player previously questioned the ledger\"}]}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.createContext("/v1/memory/lessons", exchange -> {
+            String response = "{\"status\":\"ok\",\"safety_lessons\":[{\"id\":\"memsafe_test\",\"lesson\":\"canonical owner remains innkeeper\"}]}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
         server.start();
         try {
             LlmConfig config = new LlmConfig(true, LlmMode.GATEWAY, "http://127.0.0.1:" + server.getAddress().getPort(), 1500, false,
@@ -1133,6 +1147,8 @@ final class DeepResearchDataTest {
             assertTrue(search.lines().getFirst().contains("fact:player.favorite=blue"));
             assertTrue(client.inspect("memrec_test").get(3, TimeUnit.SECONDS).contains("memrec_test"));
             assertTrue(client.conflicts(5).get(3, TimeUnit.SECONDS).contains("memconf_test"));
+            assertTrue(client.episodes(5).get(3, TimeUnit.SECONDS).contains("raw_episode"));
+            assertTrue(client.lessons(5).get(3, TimeUnit.SECONDS).contains("canonical owner remains innkeeper"));
         } finally {
             server.stop(0);
         }
@@ -1143,6 +1159,10 @@ final class DeepResearchDataTest {
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryRecord.java",
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryFact.java",
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryConflict.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/LlmMemoryOperationExtractor.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/DeterministicMemoryValidator.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryConsolidator.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemorySafetyLesson.java",
                 "src/main/java/com/crpg/ebb/memory/MemoryGatewayClient.java",
                 "scripts/p38_memory_smoke.sh")) {
             assertTrue(Files.isRegularFile(Path.of(rel)), "P38 file should exist: " + rel);
@@ -1151,8 +1171,13 @@ final class DeepResearchDataTest {
         assertTrue(gateway.contains("/v1/memory/search"));
         assertTrue(gateway.contains("/v1/memory/inspect"));
         assertTrue(gateway.contains("/v1/memory/conflicts"));
+        assertTrue(gateway.contains("/v1/memory/episodes"));
+        assertTrue(gateway.contains("/v1/memory/lessons"));
         String smoke = Files.readString(Path.of("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java"));
         assertTrue(smoke.contains("P38 memory smoke passed"));
+        assertTrue(smoke.contains("P39 memory consolidation smoke passed"));
+        assertTrue(smoke.contains("canonical owner remains innkeeper"));
+        assertTrue(smoke.contains("questioned_ledger"));
 
         CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
         Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
@@ -1162,6 +1187,33 @@ final class DeepResearchDataTest {
         requireCommandPath(ebb, "memory", "search", "query");
         requireCommandPath(ebb, "memory", "inspect", "id");
         requireCommandPath(ebb, "memory", "conflicts");
+        requireCommandPath(ebb, "memory", "episodes");
+        requireCommandPath(ebb, "memory", "lessons");
+    }
+
+    @Test
+    void p39MemoryExtractionConsolidationAndSafetyAreAuditable() throws Exception {
+        String migration = Files.readString(Path.of("ebb-llm-gateway/src/main/resources/db/migration/V001__memory_store.sql"));
+        assertTrue(migration.contains("memory_operations"));
+        assertTrue(migration.contains("memory_summaries"));
+        assertTrue(migration.contains("memory_links"));
+        assertTrue(migration.contains("memory_safety_lessons"));
+        String extractor = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/LlmMemoryOperationExtractor.java"));
+        assertTrue(extractor.contains("memory_writes"));
+        assertTrue(extractor.contains("questioned_ledger"));
+        assertTrue(extractor.contains("我是旅馆老板"));
+        String validator = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/DeterministicMemoryValidator.java"));
+        assertTrue(validator.contains("CANONICAL_FACTS"));
+        assertTrue(validator.contains("tavern"));
+        assertTrue(validator.contains("owner"));
+        String store = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryStore.java"));
+        assertTrue(store.contains("llmExtractor.propose"));
+        assertTrue(store.contains("validator.validate"));
+        assertTrue(store.contains("backgroundSummarize"));
+        assertTrue(store.contains("evolveOldSummary"));
+        assertTrue(store.contains("raw_episode"));
+        assertTrue(store.contains("extracted_facts"));
+        assertTrue(store.contains("safetyLessons"));
     }
 
     @Test

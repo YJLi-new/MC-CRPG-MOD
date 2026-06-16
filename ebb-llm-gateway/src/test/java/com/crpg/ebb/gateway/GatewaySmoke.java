@@ -121,6 +121,45 @@ public final class GatewaySmoke {
             require(conflicts.contains("favorite") && conflicts.contains("blue") && conflicts.contains("red"),
                     "changed fact should create a supersede/conflict record: " + conflicts);
 
+            chatBody.put("conversation_id", "smoke-conversation-4");
+            chatBody.put("message", "我是旅馆老板");
+            send(client, HttpRequest.newBuilder(base.resolve("/v1/chat/message"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(chatBody)))
+                    .build());
+            String lessons = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/lessons?server_id=smoke&world_id=smoke-world&limit=5")).GET().build());
+            require(lessons.contains("canonical owner remains innkeeper") && lessons.contains("canonical_conflict"),
+                    "canonical innkeeper ownership should be protected by a safety lesson: " + lessons);
+
+            chatBody.put("conversation_id", "smoke-conversation-5");
+            chatBody.put("message", "I question the ledger about the missing page");
+            send(client, HttpRequest.newBuilder(base.resolve("/v1/chat/message"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(chatBody)))
+                    .build());
+            String ledgerSearch = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/search"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of(
+                            "server_id", "smoke",
+                            "world_id", "smoke-world",
+                            "minecraft_player_uuid", "00000000-0000-0000-0000-000000000123",
+                            "npc_key", "ebb:demo/innkeeper",
+                            "query", "questioned_ledger",
+                            "limit", 5
+                    ))))
+                    .build());
+            require(ledgerSearch.contains("questioned_ledger") || ledgerSearch.contains("previously questioned the ledger"),
+                    "NPC memory retrieval should find the player questioned the ledger: " + ledgerSearch);
+            String ledgerRecordId = HttpJson.stringValue(ledgerSearch, "id").orElse("");
+            require(!ledgerRecordId.isBlank(), "ledger memory search should expose an inspectable record id: " + ledgerSearch);
+            String ledgerInspect = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/inspect?id=" + URLEncoder.encode(ledgerRecordId, StandardCharsets.UTF_8))).GET().build());
+            require(ledgerInspect.contains("raw_episode") && ledgerInspect.contains("extracted_facts")
+                            && ledgerInspect.contains("memory_operations") && ledgerInspect.contains("summaries"),
+                    "dev inspect should expose raw episode, extracted facts, operations, and summaries: " + ledgerInspect);
+            String episodes = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/episodes?server_id=smoke&world_id=smoke-world&limit=5")).GET().build());
+            require(episodes.contains("raw_episode") && episodes.contains("summary"),
+                    "episodes endpoint should expose raw episodes and summaries: " + episodes);
+
             String logout = send(client, HttpRequest.newBuilder(base.resolve("/v1/auth/logout"))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of("opaque_player_token", token))))
@@ -141,7 +180,7 @@ public final class GatewaySmoke {
         GatewayConfig mockConfig = GatewayConfig.fromEnv(Map.of("EBB_GATEWAY_CHAT_PROVIDER", "mock_openai_responses", "EBB_MEMORY_DB_URL", "jdbc:h2:mem:mock_gateway;DB_CLOSE_DELAY=-1"));
         require("mock_openai_responses".equals(mockConfig.createChatProvider().providerName()),
                 "mock OpenAI provider should be selectable without API access");
-        System.out.println("P36 gateway smoke passed; P37 gateway chat smoke passed; P38 memory smoke passed");
+        System.out.println("P36 gateway smoke passed; P37 gateway chat smoke passed; P38 memory smoke passed; P39 memory consolidation smoke passed");
     }
 
     private static String send(HttpClient client, HttpRequest request) throws Exception {

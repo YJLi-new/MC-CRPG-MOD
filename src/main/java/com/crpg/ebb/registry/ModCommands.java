@@ -128,7 +128,11 @@ public final class ModCommands {
                                                 context.getSource(),
                                                 StringArgumentType.getString(context, "id")))))
                         .then(Commands.literal("conflicts")
-                                .executes(context -> showMemoryConflicts(context.getSource(), 25))))
+                                .executes(context -> showMemoryConflicts(context.getSource(), 25)))
+                        .then(Commands.literal("episodes")
+                                .executes(context -> showMemoryEpisodes(context.getSource(), 25)))
+                        .then(Commands.literal("lessons")
+                                .executes(context -> showMemoryLessons(context.getSource(), 25))))
                 .then(createAttributesCommand("attributes"))
                 .then(createAttributesCommand("attr"))
                 .then(Commands.literal("dev")
@@ -322,6 +326,41 @@ public final class ModCommands {
             }
         }));
         source.sendSuccess(() -> Component.literal("Ebb memory conflicts requested."), false);
+        return 1;
+    }
+
+
+    private static int showMemoryEpisodes(CommandSourceStack source, int limit) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory episodes requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        new MemoryGatewayClient(config).episodes(limit).thenAccept(result -> source.getServer().execute(() -> {
+            if (result.contains("\"error\"")) {
+                source.sendFailure(Component.literal("Ebb memory episodes failed: " + result));
+            } else {
+                source.sendSuccess(() -> Component.literal("Ebb memory episodes/raw summaries: " + result), false);
+            }
+        }));
+        source.sendSuccess(() -> Component.literal("Ebb memory episodes requested."), false);
+        return 1;
+    }
+
+    private static int showMemoryLessons(CommandSourceStack source, int limit) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory lessons requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        new MemoryGatewayClient(config).lessons(limit).thenAccept(result -> source.getServer().execute(() -> {
+            if (result.contains("\"error\"")) {
+                source.sendFailure(Component.literal("Ebb memory lessons failed: " + result));
+            } else {
+                source.sendSuccess(() -> Component.literal("Ebb memory safety lessons: " + result), false);
+            }
+        }));
+        source.sendSuccess(() -> Component.literal("Ebb memory lessons requested."), false);
         return 1;
     }
 

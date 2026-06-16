@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 38 is complete: PLAN.md P38 MemoryStore MVP has been implemented and validated; next work should proceed to PLAN.md P39 Memory extraction / consolidation.
+Phase 40 is in progress: PLAN.md P40 NPC Knowledge Base and story effects has a first code draft for knowledge packs, registry reload, visibility filtering, prompt context, and story effects; acceptance tests, demo data, `/ebb kb inspect <npc>`, and final validation remain pending.
 
 ## Phases
 
@@ -424,9 +424,21 @@ Phase 38 is complete: PLAN.md P38 MemoryStore MVP has been implemented and valid
 
 
 ### Phase 39: PLAN.md P39 — Memory extraction / consolidation
-- [ ] Add LLM extractor that proposes memory operations.
-- [ ] Add deterministic validator applying memory operations.
-- [ ] Add background summarizer for episodic summaries and related-memory links.
-- [ ] Add A-Mem-like evolution while preserving raw episodes.
-- [ ] Add A-MemGuard-like safety lessons and dev UI for raw episodes/facts/conflicts.
-- **Status:** planned
+- [x] Add LLM extractor that proposes memory operations.
+- [x] Add deterministic validator applying memory operations.
+- [x] Add background summarizer for episodic summaries and related-memory links.
+- [x] Add A-Mem-like evolution while preserving raw episodes.
+- [x] Add A-MemGuard-like safety lessons and dev UI for raw episodes/facts/conflicts.
+- [x] Run final build/static/smoke/GameTest validation and artifact hash update.
+- **Status:** complete
+
+
+### Phase 40: PLAN.md P40 — NPC Knowledge Base and story effects
+- [x] Add `NpcKnowledgePackDefinition` parser.
+- [x] Add `NpcKnowledgeRegistry` reload.
+- [x] Add KB chunk embedding/indexing.
+- [x] Support `reveal_conditions` using existing `DialogueCondition`.
+- [x] Add effects: `npc_kb_add_fact`, `npc_kb_add_pack`, and `npc_stance_shift`.
+- [x] Make prompt assembler retrieve only visible KB.
+- [ ] Add acceptance tests: hidden secret before clue, changed answer after clue, `/ebb kb inspect <npc>` visibility.
+- **Status:** in progress; first code draft compiles/builds, but demo data, command surface, acceptance tests, and final validation remain pending

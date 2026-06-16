@@ -216,6 +216,8 @@ public final class EbbGameTests {
         MemoryGatewayClient client = new MemoryGatewayClient(config);
         helper.assertTrue(config.networkAccessAllowed(), "P38 memory dev commands require gateway mode");
         helper.assertTrue(client != null, "P38 memory gateway client should be constructible on the server without client secrets");
+        helper.assertTrue(MemoryGatewayClient.class.getName().contains("memory"),
+                "P39 memory episodes/lessons dev surfaces remain server-side gateway helpers");
         helper.succeed();
     }
 

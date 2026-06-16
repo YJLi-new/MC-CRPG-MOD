@@ -629,3 +629,82 @@ Phase 38 artifact hashes after final P38 validation:
 build/libs/ebb-0.1.0-dev.jar         71ed88bf53c0d3cb3d3eab4b4ac1fe6663114e3e55a9e98cd21a364043d78877
 build/libs/ebb-0.1.0-dev-sources.jar bde884ef67db57f6642e916fe57cfaf0bf3236cec42fdc6fd30d5d5e895df929
 ```
+
+## Phase 39 Memory extraction / consolidation snapshot
+
+Implemented the PLAN.md P39 memory extraction and consolidation slice on top of the P38 gateway MemoryStore:
+
+- Added `LlmMemoryOperationExtractor`: LLM `memory_writes` and structured JSON now produce proposed `MemoryOperation` rows rather than direct writes.
+- Added `DeterministicMemoryValidator`: proposed ops must pass deterministic validation before they mutate facts/summaries/lessons.
+- Added canonical tavern ownership protection. A player self-claim like `我是旅馆老板` rejects the proposed `tavern.owner=player:<uuid>` operation and records an A-MemGuard-style safety lesson; canonical ownership remains with the innkeeper.
+- Added `MemoryConsolidator`: background-style episodic summaries, related-memory links, and A-Mem-like evolution update summaries for superseded facts while preserving raw episode text.
+- Extended gateway storage with `memory_operations`, `memory_summaries`, `memory_links`, and `memory_safety_lessons`.
+- Extended dev visibility: inspectable records include `raw_episode`, `extracted_facts`, memory operations, summaries, related links, and safety lessons; conflicts remain queryable.
+- Added `/v1/memory/episodes`, `/v1/memory/lessons`, `/ebb memory episodes`, and `/ebb memory lessons`.
+- Acceptance fixture: ledger questioning extracts/searches `questioned_ledger`, so an NPC can retrieve that the player previously questioned the ledger.
+
+Phase 39 validation checkpoint is in progress. Passing checkpoint so far:
+
+```text
+scripts/gradle-local.sh --no-daemon compileJava      -> BUILD SUCCESSFUL
+scripts/p39_memory_consolidation_smoke.sh            -> BUILD SUCCESSFUL, P39 memory consolidation smoke passed
+```
+
+Phase 39 artifact hashes after first successful P39 build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         a6066bb5c44d9b4ea2a05961898dda848a8f82923a4df757caed62a9213002fa
+build/libs/ebb-0.1.0-dev-sources.jar 7536682d771743c89a1a246ef5dce8fea0df2a4687c88a083534b71a0fab99c0
+```
+
+Phase 39 final validation checkpoint:
+
+```text
+scripts/gradle-local.sh --no-daemon compileJava            -> BUILD SUCCESSFUL
+scripts/p39_memory_consolidation_smoke.sh                  -> BUILD SUCCESSFUL, P39 memory consolidation smoke passed
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                       -> passed including P39 guardrails
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+scripts/run_smoke_checks.sh                                -> passed including P39 memory consolidation smoke/static guardrails
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 11 required GameTests passed
+scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
+git diff --check                                           -> passed
+```
+
+Phase 39 artifact hashes after final P39 validation:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         a6066bb5c44d9b4ea2a05961898dda848a8f82923a4df757caed62a9213002fa
+build/libs/ebb-0.1.0-dev-sources.jar 7536682d771743c89a1a246ef5dce8fea0df2a4687c88a083534b71a0fab99c0
+```
+
+## Phase 40 NPC Knowledge Base first-code checkpoint
+
+Phase 40 is in progress, not complete. Current checked-in draft adds the core code surfaces for PLAN.md P40:
+
+- `NpcKnowledgePackDefinition` with chunks, tags, `secret`, and `reveal_conditions` evaluated through existing dialogue conditions.
+- `NpcKnowledgeRegistry` reload integration through `npc_knowledge_packs`.
+- Deterministic local `NpcKnowledgeIndex` scoring for visible chunk retrieval.
+- `NpcKnowledgeService` for visible/hidden inspection, prompt-context assembly, dynamic NPC facts, dynamic pack grants, and stance tags.
+- Dialogue effects: `npc_kb_add_fact`, `npc_kb_add_pack`, and `npc_stance_shift`.
+- LLM chat prompt assembly now includes only currently visible NPC knowledge context.
+
+P40 remains pending for demo knowledge-pack data, `/ebb kb inspect <npc>`, acceptance tests proving hidden secret non-leakage before clue and changed answers after clue, and the final P40 static/GameTest/full-smoke checkpoint.
+
+Phase 40 first-code checkpoint validation:
+
+```text
+scripts/gradle-local.sh --no-daemon compileJava            -> BUILD SUCCESSFUL
+scripts/p39_memory_consolidation_smoke.sh                  -> BUILD SUCCESSFUL, P39 memory consolidation smoke passed
+python3 scripts/goal_static_audit.py                       -> passed including P39 guardrails and current artifact hashes
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
+git diff --check                                           -> passed
+```
+
+Phase 40 first-code checkpoint artifact hashes:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         82d4a6a8af5356238d899b5037a2f81775a77cd2e264cc0908c24c44b463b2e9
+build/libs/ebb-0.1.0-dev-sources.jar 2766691671b1c13772ed1759b8ed437e3839e504be1e5dcae4cdeb07e8f087ee
+```

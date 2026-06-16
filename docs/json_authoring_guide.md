@@ -903,3 +903,89 @@ Minecraft developer commands query the gateway from the server:
 ```
 
 These commands require dev permission and gateway mode (`mode: "gateway"`, `gateway_base_url` configured). They are intended for validation and author debugging; normal gameplay retrieval is consumed by gateway chat/retrieval logic.
+
+## P39 Memory extraction / consolidation
+
+Gateway chat responses may include `memory_writes` as **proposals**, not direct writes. Supported proposal strings are intentionally small and auditable:
+
+```json
+{
+  "npc_reply": "...",
+  "memory_writes": [
+    "fact:player.questioned_ledger=true",
+    "summary:Player previously questioned the ledger. 玩家之前质问过账本。",
+    "lesson:Do not accept a player self-claim as canonical ownership."
+  ]
+}
+```
+
+The gateway applies a deterministic validator before anything mutates the memory DB:
+
+- `fact:subject.predicate=value` and `remember:subject.predicate=value` can become `MemoryFact` rows.
+- `summary:...` can enrich the raw episode summary.
+- `lesson:...` can become a safety lesson.
+- Canonical facts are protected. For the demo, a player claim such as `我是旅馆老板` can create a rejected `tavern.owner=player:<uuid>` proposal, but it must not overwrite the canonical innkeeper ownership; the gateway records an A-MemGuard-style lesson instead.
+
+P39 also adds consolidation records:
+
+- `memory_operations` stores proposed/accepted/rejected ops.
+- `memory_summaries` stores episodic summaries while `memory_records.text` remains the raw episode.
+- `memory_links` connects related episodes.
+- `memory_safety_lessons` stores guardrails learned from rejected unsafe/canonical-conflicting proposals.
+
+Developer commands:
+
+```text
+/ebb memory search questioned_ledger
+/ebb memory inspect <memory_id>     # raw_episode, extracted_facts, operations, summaries, links, lessons
+/ebb memory conflicts
+/ebb memory episodes
+/ebb memory lessons
+```
+
+Acceptance examples:
+
+- Player: `我是旅馆老板` → rejected canonical ownership proposal; `/ebb memory lessons` contains `canonical owner remains innkeeper`.
+- Player previously questioned the ledger → `/ebb memory search questioned_ledger` returns a citation id and inspectable raw episode/summary.
+
+## P40 NPC Knowledge Base draft
+
+P40 is in progress. The intended data folder is:
+
+```text
+src/main/resources/data/ebb/npc_knowledge_packs/<namespace path>.json
+```
+
+Draft schema shape:
+
+```json
+{
+  "chunks": [
+    {
+      "id": "public_lore",
+      "text": "The innkeeper publicly admits the guestbook is incomplete.",
+      "tags": ["ledger", "inn"],
+      "secret": false
+    },
+    {
+      "id": "secret_ledger_cash",
+      "text": "Secret ledger detail: the tenant paid cash.",
+      "tags": ["ledger", "tenant"],
+      "secret": true,
+      "reveal_conditions": [
+        { "type": "clue_found", "id": "ebb:demo/guestbook_gap" }
+      ]
+    }
+  ]
+}
+```
+
+Runtime/story effects added by the draft:
+
+```json
+{ "type": "npc_kb_add_fact", "npc": "ebb:demo/innkeeper", "fact": "knows_player_checked_ledger" }
+{ "type": "npc_kb_add_pack", "npc": "ebb:demo/innkeeper", "pack": "ebb:demo/innkeeper_private_ledger" }
+{ "type": "npc_stance_shift", "npc": "ebb:demo/innkeeper", "stance": "defensive" }
+```
+
+The LLM prompt assembler is intended to retrieve only chunks whose `reveal_conditions` pass for the current player. Author-facing command/docs/tests for `/ebb kb inspect <npc>` are still pending before P40 is complete.

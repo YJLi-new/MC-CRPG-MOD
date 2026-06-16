@@ -74,6 +74,8 @@ public final class GatewayServer implements AutoCloseable {
         server.createContext("/v1/memory/search", this::handleMemorySearch);
         server.createContext("/v1/memory/inspect", this::handleMemoryInspect);
         server.createContext("/v1/memory/conflicts", this::handleMemoryConflicts);
+        server.createContext("/v1/memory/episodes", this::handleMemoryEpisodes);
+        server.createContext("/v1/memory/lessons", this::handleMemoryLessons);
         server.createContext("/", exchange -> HttpJson.writeJson(exchange, 404, HttpJson.object(Map.of("error", "not_found"))));
     }
 
@@ -204,6 +206,41 @@ public final class GatewayServer implements AutoCloseable {
                 "status", "ok",
                 "conflicts", conflicts,
                 "count", conflicts.size()
+        )));
+    }
+
+
+    private void handleMemoryEpisodes(HttpExchange exchange) throws IOException {
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            HttpJson.methodNotAllowed(exchange);
+            return;
+        }
+        Map<String, String> query = HttpJson.query(exchange.getRequestURI());
+        String serverId = query.getOrDefault("server_id", "local-dev");
+        String worldId = query.getOrDefault("world_id", "unknown-world");
+        int limit = parseInt(query.getOrDefault("limit", "25"), 25);
+        var episodes = memoryStore.episodes(serverId, worldId, limit).stream().map(record -> record.toJsonMap()).toList();
+        HttpJson.writeJson(exchange, 200, HttpJson.object(Map.of(
+                "status", "ok",
+                "episodes", episodes,
+                "count", episodes.size()
+        )));
+    }
+
+    private void handleMemoryLessons(HttpExchange exchange) throws IOException {
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            HttpJson.methodNotAllowed(exchange);
+            return;
+        }
+        Map<String, String> query = HttpJson.query(exchange.getRequestURI());
+        String serverId = query.getOrDefault("server_id", "local-dev");
+        String worldId = query.getOrDefault("world_id", "unknown-world");
+        int limit = parseInt(query.getOrDefault("limit", "25"), 25);
+        var lessons = memoryStore.safetyLessons(serverId, worldId, limit).stream().map(lesson -> lesson.toJsonMap()).toList();
+        HttpJson.writeJson(exchange, 200, HttpJson.object(Map.of(
+                "status", "ok",
+                "safety_lessons", lessons,
+                "count", lessons.size()
         )));
     }
 

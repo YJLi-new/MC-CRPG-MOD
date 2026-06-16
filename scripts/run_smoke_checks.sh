@@ -7,6 +7,7 @@ scripts/gradle-local.sh --no-daemon build
 scripts/p36_gateway_smoke.sh
 scripts/p37_gateway_chat_smoke.sh
 scripts/p38_memory_smoke.sh
+scripts/p39_memory_consolidation_smoke.sh
 scripts/compile_authoring_sources.py --clean
 scripts/compile_authoring_sources.py --source authoring/examples/tavern_case --out build/generated/ebb_authoring_examples/tavern_case/data/ebb --clean
 scripts/p24_authoring_validation.py

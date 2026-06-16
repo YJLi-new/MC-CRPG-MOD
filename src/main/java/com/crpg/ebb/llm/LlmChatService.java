@@ -16,6 +16,8 @@ import com.crpg.ebb.network.llm.LlmChatOpenedPayload;
 import com.crpg.ebb.network.llm.LlmChatOptionsPayload;
 import com.crpg.ebb.llm.auth.LlmAuthService;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
+import com.crpg.ebb.npc.knowledge.NpcKnowledgeService;
+import com.crpg.ebb.state.NarrativeSavedData;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -168,6 +170,15 @@ public final class LlmChatService {
         SESSIONS.put(awaiting.conversationId(), awaiting);
         responseSender.sendPacket(new LlmChatChunkPayload(payload.conversationId(), "player", message, true, Optional.of("player_turn"), List.of()));
 
+        NarrativeSavedData narrativeState = NarrativeSavedData.get((ServerLevel) player.level());
+        String knowledgeContext = NpcKnowledgeService.promptContext(
+                awaiting.npcKey(),
+                awaiting.topicHint() + " " + message,
+                narrativeState,
+                player.getUUID(),
+                currentDayTime(player),
+                6
+        );
         LlmChatRequest request = new LlmChatRequest(
                 awaiting.conversationId(),
                 awaiting.playerUuid(),
@@ -178,7 +189,8 @@ public final class LlmChatService {
                 awaiting.npcDisplayName(),
                 awaiting.topicHint(),
                 message,
-                gameTime
+                gameTime,
+                knowledgeContext
         );
         LlmGatewayClient client = clientFor(config);
         CompletableFuture<LlmChatResponse> future = client.sendMessage(request);
@@ -354,6 +366,10 @@ public final class LlmChatService {
     private static void remove(LlmChatSession session) {
         SESSIONS.remove(session.conversationId());
         PLAYER_TO_SESSION.remove(session.playerUuid(), session.conversationId());
+    }
+
+    private static long currentDayTime(ServerPlayer player) {
+        return Math.floorMod(player.level().getOverworldClockTime(), 24_000L);
     }
 
     private static LlmGatewayClient clientFor(LlmConfig config) {

@@ -1539,3 +1539,54 @@
   - sources jar: `bde884ef67db57f6642e916fe57cfaf0bf3236cec42fdc6fd30d5d5e895df929`.
 - Review notes: Memory DB/API lives in the gateway; Minecraft receives only developer command summaries and citation ids. Tests use H2 in-memory databases and fake/mock gateway providers.
 - Next: PLAN.md P39 Memory extraction / consolidation.
+
+
+### Phase 39 / PLAN.md Memory extraction-consolidation implementation checkpoint
+- **Status:** implementation complete; validation in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented P39 gateway memory consolidation layer:
+  - Added `LlmMemoryOperationExtractor` to treat LLM `memory_writes` / structured JSON as proposed memory ops, with deterministic ledger-question and ownership-claim fallback extraction.
+  - Added `DeterministicMemoryValidator` with canonical tavern ownership protection. Player claims like “我是旅馆老板” reject `tavern.owner=player:<uuid>` instead of overwriting innkeeper ownership.
+  - Added `MemoryOperation`, `MemorySummary`, `MemoryLink`, and `MemorySafetyLesson` persistence via the H2 migration.
+  - Added `MemoryConsolidator` background-style summaries, related memory links, A-Mem-like summary evolution on superseded facts while preserving raw episode text, and A-MemGuard-like safety lessons.
+  - Extended inspect/search/dev surfaces with raw episodes, extracted facts, operations, summaries, related links, conflicts, `/v1/memory/episodes`, `/v1/memory/lessons`, `/ebb memory episodes`, and `/ebb memory lessons`.
+  - Updated gateway smoke to assert canonical owner protection, ledger-question retrieval, raw episode/fact/summary inspectability, and P39 completion output.
+- Checkpoint validation:
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL for the mod.
+  - `scripts/p39_memory_consolidation_smoke.sh` → BUILD SUCCESSFUL; `P39 memory consolidation smoke passed`.
+- Next: run full static/JUnit/data/smoke/GameTest/build/diff validation, update docs/current_status hashes, then mark P39 complete if evidence holds.
+
+
+### Phase 39 / PLAN.md Memory extraction-consolidation completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Final validation after implementation/review:
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL.
+  - `scripts/p39_memory_consolidation_smoke.sh` → BUILD SUCCESSFUL; `P39 memory consolidation smoke passed`.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` → passed including P39 guardrails.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` → passed including P39 gateway smoke/static guardrails.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 11 required GameTests passed.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+- Artifact hashes after final P39 validation:
+  - build jar: `a6066bb5c44d9b4ea2a05961898dda848a8f82923a4df757caed62a9213002fa`.
+  - sources jar: `7536682d771743c89a1a246ef5dce8fea0df2a4687c88a083534b71a0fab99c0`.
+- Review notes: P39 keeps raw `memory_records.text` immutable, writes LLM-derived content through explicit operation rows plus deterministic validation, and stores safety lessons instead of trusting canonical-conflicting player claims. The implementation is gateway-owned; Minecraft receives only dev command summaries and raw JSON from gateway endpoints.
+- Next: PLAN.md P40 NPC Knowledge Base and story effects.
+
+### Phase 40 / PLAN.md NPC Knowledge Base first-code checkpoint
+- **Status:** in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Added first draft classes for `NpcKnowledgePackDefinition`, `NpcKnowledgeRegistry`, deterministic `NpcKnowledgeIndex`, and `NpcKnowledgeService`.
+- Wired `npc_knowledge_packs` into data reload registries, made `DialogueCondition.parse` reusable for `reveal_conditions`, added story effects `npc_kb_add_fact`, `npc_kb_add_pack`, and `npc_stance_shift`, and passed visible KB context into LLM prompt assembly.
+- Fixed a compile issue by using `getOverworldClockTime()` for day-time condition evaluation.
+- Checkpoint validation before publishing request:
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL.
+  - `scripts/p39_memory_consolidation_smoke.sh` → BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` → passed including P39 and artifact checks after docs hash update.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+- Remaining P40 work: add demo knowledge pack JSON, `/ebb kb inspect <npc>`, hidden/visible acceptance tests, P40 static audit/docs finalization, GameTest/full smoke rerun.

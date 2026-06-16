@@ -48,13 +48,14 @@ public final class OpenAiResponsesChatProvider implements GatewayChatProvider {
                             .schema(ResponseFormatTextJsonSchemaConfig.Schema.builder()
                                     .putAdditionalProperty("type", JsonValue.from("object"))
                                     .putAdditionalProperty("additionalProperties", JsonValue.from(false))
-                                    .putAdditionalProperty("required", JsonValue.from(List.of("npc_reply", "mood", "suggested_options", "citations", "warnings")))
+                                    .putAdditionalProperty("required", JsonValue.from(List.of("npc_reply", "mood", "suggested_options", "citations", "warnings", "memory_writes")))
                                     .putAdditionalProperty("properties", JsonValue.from(Map.of(
                                             "npc_reply", Map.of("type", "string"),
                                             "mood", Map.of("type", "string"),
                                             "suggested_options", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 4),
                                             "citations", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 8),
-                                            "warnings", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 4)
+                                            "warnings", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 4),
+                                            "memory_writes", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 8)
                                     )))
                                     .build())
                             .build())
@@ -79,15 +80,18 @@ public final class OpenAiResponsesChatProvider implements GatewayChatProvider {
         String reply = structured.isBlank() ? rawReply
                 : HttpJson.objectStrings(structured).getOrDefault("npc_reply", rawReply);
         List<String> displayChunks = chunks.isEmpty() || !structured.isBlank() ? chunk(reply, 80) : List.copyOf(chunks);
-        return GatewayChatResponse.ok(request, reply,
-                List.of("继续追问", "换个角度", "结束自由交谈"),
-                List.of("openai:responses:" + request.conversationId()),
-                displayChunks,
-                structured,
-                providerName(),
-                model,
-                request.store() && allowStore,
-                "openai_responses_streamed_store_" + (request.store() && allowStore));
+        return new GatewayChatResponse(request.conversationId(), reply, "guarded",
+                structured.isBlank() ? List.of("继续追问", "换个角度", "结束自由交谈") : nonEmpty(HttpJson.stringArrayValue(structured, "suggested_options"), List.of("继续追问", "换个角度", "结束自由交谈")),
+                structured.isBlank() ? List.of() : HttpJson.stringArrayValue(structured, "memory_writes"),
+                structured.isBlank() ? List.of("openai:responses:" + request.conversationId()) : nonEmpty(HttpJson.stringArrayValue(structured, "citations"), List.of("openai:responses:" + request.conversationId())),
+                List.of(),
+                structured.isBlank() ? List.of() : HttpJson.stringArrayValue(structured, "warnings"),
+                displayChunks, structured, providerName(), model, request.store() && allowStore, !displayChunks.isEmpty(),
+                "openai_responses_streamed_store_" + (request.store() && allowStore), "");
+    }
+
+    private static List<String> nonEmpty(List<String> value, List<String> fallback) {
+        return value == null || value.isEmpty() ? fallback : value;
     }
 
     private static List<String> chunk(String value, int size) {

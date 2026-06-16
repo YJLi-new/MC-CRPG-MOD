@@ -83,6 +83,33 @@ public final class MemoryGatewayClient {
                 .exceptionally(error -> "memory_gateway_error");
     }
 
+
+    public CompletableFuture<String> episodes(int limit) {
+        if (baseUrl.isBlank()) {
+            return CompletableFuture.completedFuture("gateway_url_missing");
+        }
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/episodes?server_id=minecraft-server&world_id=minecraft-world&limit=" + Math.max(1, limit)))
+                .timeout(timeout)
+                .GET()
+                .build();
+        return CompletableFuture.supplyAsync(() -> send(request))
+                .orTimeout(timeout.toMillis() + 1000L, TimeUnit.MILLISECONDS)
+                .exceptionally(error -> "memory_gateway_error");
+    }
+
+    public CompletableFuture<String> lessons(int limit) {
+        if (baseUrl.isBlank()) {
+            return CompletableFuture.completedFuture("gateway_url_missing");
+        }
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/lessons?server_id=minecraft-server&world_id=minecraft-world&limit=" + Math.max(1, limit)))
+                .timeout(timeout)
+                .GET()
+                .build();
+        return CompletableFuture.supplyAsync(() -> send(request))
+                .orTimeout(timeout.toMillis() + 1000L, TimeUnit.MILLISECONDS)
+                .exceptionally(error -> "memory_gateway_error");
+    }
+
     private String send(HttpRequest request) {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

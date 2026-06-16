@@ -74,7 +74,7 @@ public record DialogueCondition(
         }
     }
 
-    static Optional<DialogueCondition> parse(JsonObject json, String path, List<String> messages) {
+    public static Optional<DialogueCondition> parse(JsonObject json, String path, List<String> messages) {
         String rawType = optionalString(json, "type").orElse("flag");
         Optional<ConditionType> type = ConditionType.parse(rawType);
         if (type.isEmpty()) {

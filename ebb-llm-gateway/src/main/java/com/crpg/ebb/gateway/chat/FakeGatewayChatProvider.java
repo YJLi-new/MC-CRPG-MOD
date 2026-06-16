@@ -23,17 +23,22 @@ public class FakeGatewayChatProvider implements GatewayChatProvider {
                 "mood", "guarded",
                 "suggested_options", List.of("继续追问", "换个角度", "结束自由交谈"),
                 "citations", List.of("fake:profile:" + request.npcKey()),
-                "warnings", List.of()
+                "warnings", List.of(),
+                "memory_writes", memoryWrites(request)
         ));
-        return GatewayChatResponse.ok(request, reply,
+        return new GatewayChatResponse(request.conversationId(), reply, "guarded",
                 List.of("继续追问", "换个角度", "结束自由交谈"),
+                memoryWrites(request),
                 List.of("fake:profile:" + request.npcKey(), "fake:conversation:" + request.conversationId()),
-                chunks,
-                structured,
-                providerName(),
-                request.modelOrDefault(model),
-                false,
-                "fake_gateway_reply");
+                List.of(), List.of(), chunks, structured, providerName(), request.modelOrDefault(model), false, !chunks.isEmpty(), "fake_gateway_reply", "");
+    }
+
+    private static List<String> memoryWrites(GatewayChatRequest request) {
+        String lower = request.message() == null ? "" : request.message().toLowerCase(Locale.ROOT);
+        if (lower.contains("ledger") || lower.contains("账本") || lower.contains("帳本")) {
+            return List.of("fact:player.questioned_ledger=true", "summary:Player previously questioned the ledger. 玩家之前质问过账本。");
+        }
+        return List.of();
     }
 
     @Override

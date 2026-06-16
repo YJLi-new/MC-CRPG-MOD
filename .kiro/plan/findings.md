@@ -512,3 +512,8 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 - H2 treats `VALUE` as reserved; migration/code use `fact_value`, `old_fact_value`, and `new_fact_value` columns.
 - P38 does not call OpenAI embeddings yet; it adds a deterministic gateway embedding write path so tests do not consume API and later OpenAI embedding replacement can keep the same retrieval contract.
 - GameTest avoids live gateway calls; HTTP behavior is covered by GatewaySmoke and JUnit local HttpServer tests.
+
+### Phase 39 intake / design notes — 2026-06-17 Asia/Shanghai
+- PLAN.md P39 requires LLM-proposed memory operations, deterministic validation, episodic summary consolidation, related-memory links, A-Mem-like summary evolution that preserves raw episodes, A-MemGuard-like safety lessons, and dev visibility for raw episodes/facts/conflicts.
+- Existing P38 `MemoryStore` already had records/facts/conflicts/search; the P39 implementation should extend this store instead of creating a second persistence path, so chat appends continue to be atomic and server/gateway authoritative.
+- Chosen acceptance fixtures: reject a proposed `tavern.owner=player:<uuid>` operation from “我是旅馆老板” with a safety lesson preserving canonical innkeeper ownership; extract `player:<uuid>.questioned_ledger=true` and a bilingual summary when the player questions the ledger; expose raw record text, extracted facts, operations, summaries, links, conflicts, and safety lessons via gateway/dev commands.

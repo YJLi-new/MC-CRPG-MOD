@@ -7,6 +7,7 @@ import com.crpg.ebb.quest.TakeRootService;
 import com.crpg.ebb.journal.JournalService;
 import com.crpg.ebb.investigation.InvestigationService;
 import com.crpg.ebb.conflict.ConflictService;
+import com.crpg.ebb.npc.knowledge.NpcKnowledgeService;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -58,6 +59,9 @@ public record DialogueEffect(
         SET_CONFLICT_STATE,
         APPLY_CONFLICT_OUTCOME,
         SET_SCENE_PHASE,
+        NPC_KB_ADD_FACT,
+        NPC_KB_ADD_PACK,
+        NPC_STANCE_SHIFT,
         ADD_TRAIT,
         REMOVE_TRAIT,
         ADD_THOUGHT,
@@ -129,6 +133,15 @@ public record DialogueEffect(
             } else if ("REMOVE_NPC_STATE".equals(normalized) || "CLEAR_NPC_TAG".equals(normalized)
                     || "REMOVE_NPC_TAG".equals(normalized) || "CLEAR_STATE_TAG".equals(normalized)) {
                 normalized = "CLEAR_NPC_STATE";
+            } else if ("NPC_KB_FACT".equals(normalized) || "ADD_NPC_KB_FACT".equals(normalized)
+                    || "NPC_KB_ADD_FACT".equals(normalized)) {
+                normalized = "NPC_KB_ADD_FACT";
+            } else if ("NPC_KB_PACK".equals(normalized) || "ADD_NPC_KB_PACK".equals(normalized)
+                    || "NPC_KB_ADD_PACK".equals(normalized)) {
+                normalized = "NPC_KB_ADD_PACK";
+            } else if ("STANCE_SHIFT".equals(normalized) || "SHIFT_NPC_STANCE".equals(normalized)
+                    || "NPC_STANCE".equals(normalized)) {
+                normalized = "NPC_STANCE_SHIFT";
             } else if ("UNLOCK".equals(normalized) || "UNLOCK_RETRYABLE".equals(normalized)) {
                 normalized = "UNLOCK_RETRY";
             }
@@ -199,6 +212,7 @@ public record DialogueEffect(
                 .or(() -> optionalString(json, "npc"))
                 .or(() -> optionalString(json, "npc_id"))
                 .or(() -> optionalString(json, "npcId"))
+                .or(() -> optionalString(json, "kb_npc"))
                 .or(() -> optionalString(json, "setFlag"))
                 .or(() -> optionalString(json, "clearFlag"))
                 .or(() -> optionalString(json, "attribute"))
@@ -233,6 +247,9 @@ public record DialogueEffect(
                 .or(() -> optionalString(json, "outcomeId"))
                 .or(() -> optionalString(json, "state_tag"))
                 .or(() -> optionalString(json, "stateTag"))
+                .or(() -> optionalString(json, "fact"))
+                .or(() -> optionalString(json, "pack"))
+                .or(() -> optionalString(json, "stance"))
                 .or(() -> type.get() == EffectType.SET_VARIABLE || type.get() == EffectType.SET_STORY_VAR
                         || type.get() == EffectType.APPLY_CONFLICT_OUTCOME
                         ? optionalScalarString(json, "value") : Optional.empty());
@@ -266,6 +283,11 @@ public record DialogueEffect(
         }
         if (type.get() == EffectType.APPLY_CONFLICT_OUTCOME && stringValue.isEmpty()) {
             messages.add(path + ": apply_conflict_outcome requires outcome/outcome_id/value");
+            return Optional.empty();
+        }
+        if ((type.get() == EffectType.NPC_KB_ADD_FACT || type.get() == EffectType.NPC_KB_ADD_PACK || type.get() == EffectType.NPC_STANCE_SHIFT)
+                && stringValue.isEmpty()) {
+            messages.add(path + ": npc_kb_add_fact/npc_kb_add_pack/npc_stance_shift require fact/pack/stance/string_value");
             return Optional.empty();
         }
         Optional<Integer> integerValue = type.get() == EffectType.ADD_STORY_INT
@@ -363,6 +385,24 @@ public record DialogueEffect(
                 state.setScenePhase(playerUuid, id, stringValue.orElse(""));
                 return Optional.of("scene_phase:" + id + "=" + state.getScenePhase(playerUuid, id));
             }
+            case NPC_KB_ADD_FACT -> {
+                if (scope == DialogueScope.WORLD) {
+                    return Optional.of("world_npc_kb_fact_ignored:" + id);
+                }
+                return Optional.of(NpcKnowledgeService.addFact(state, playerUuid, id, stringValue.orElse("")));
+            }
+            case NPC_KB_ADD_PACK -> {
+                if (scope == DialogueScope.WORLD) {
+                    return Optional.of("world_npc_kb_pack_ignored:" + id);
+                }
+                return Optional.of(NpcKnowledgeService.addPack(state, playerUuid, id, stringValue.orElse("")));
+            }
+            case NPC_STANCE_SHIFT -> {
+                if (scope == DialogueScope.WORLD) {
+                    return Optional.of("world_npc_stance_ignored:" + id);
+                }
+                return Optional.of(NpcKnowledgeService.shiftStance(state, playerUuid, id, stringValue.orElse("neutral")));
+            }
             case ADD_TRAIT, ADD_THOUGHT, UNLOCK_RETRY -> setFlag(state, playerUuid, true);
             case REMOVE_TRAIT, REMOVE_THOUGHT -> setFlag(state, playerUuid, false);
             case GIVE_ITEM_PLACEHOLDER -> {
@@ -409,6 +449,9 @@ public record DialogueEffect(
                     SET_CONFLICT_STATE,
                     APPLY_CONFLICT_OUTCOME,
                     SET_SCENE_PHASE,
+                    NPC_KB_ADD_FACT,
+                    NPC_KB_ADD_PACK,
+                    NPC_STANCE_SHIFT,
                     SET_RELATION,
                     ADD_RELATION,
                     SET_NPC_STATE,
@@ -472,6 +515,11 @@ public record DialogueEffect(
         if (json.has("conflict") && (json.has("outcome") || json.has("outcome_id") || json.has("outcomeId"))) return Optional.of("apply_conflict_outcome");
         if (json.has("conflict")) return Optional.of("start_conflict");
         if (json.has("scene") && (json.has("phase") || json.has("state"))) return Optional.of("set_scene_phase");
+        if (json.has("npc") && (json.has("fact") || json.has("pack") || json.has("stance"))) {
+            if (json.has("fact")) return Optional.of("npc_kb_add_fact");
+            if (json.has("pack")) return Optional.of("npc_kb_add_pack");
+            return Optional.of("npc_stance_shift");
+        }
         if (json.has("npc") && (json.has("tag") || json.has("state") || json.has("state_tag") || json.has("stateTag"))) return Optional.of("set_npc_state");
         if (json.has("routine")) return Optional.of("set_npc_routine");
         if (json.has("addTrait")) return Optional.of("add_trait");
