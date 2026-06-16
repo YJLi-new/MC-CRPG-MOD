@@ -17,6 +17,8 @@ public record LlmConfig(
         boolean enabled,
         LlmMode mode,
         String gatewayUrl,
+        int gatewayTimeoutMs,
+        boolean requirePlayerAuth,
         int maxInputChars,
         int maxOutputChars,
         int sessionTimeoutTicks,
@@ -24,6 +26,8 @@ public record LlmConfig(
         String fakeReply
 ) {
     public static final Path SERVER_CONFIG_PATH = Path.of("config", "ebb-llm-server.json");
+    public static final int DEFAULT_GATEWAY_TIMEOUT_MS = 30000;
+    public static final boolean DEFAULT_REQUIRE_PLAYER_AUTH = true;
     public static final int DEFAULT_MAX_INPUT_CHARS = 512;
     public static final int DEFAULT_MAX_OUTPUT_CHARS = 700;
     public static final int DEFAULT_SESSION_TIMEOUT_TICKS = 20 * 60;
@@ -36,6 +40,7 @@ public record LlmConfig(
     public LlmConfig {
         mode = mode == null ? LlmMode.DISABLED : mode;
         gatewayUrl = gatewayUrl == null ? "" : gatewayUrl.trim();
+        gatewayTimeoutMs = clamp(gatewayTimeoutMs, 1000, 120000);
         maxInputChars = clamp(maxInputChars, 32, 4096);
         maxOutputChars = clamp(maxOutputChars, 64, 4096);
         sessionTimeoutTicks = clamp(sessionTimeoutTicks, 20, 20 * 60 * 30);
@@ -51,13 +56,13 @@ public record LlmConfig(
     }
 
     public static LlmConfig disabled() {
-        return new LlmConfig(false, LlmMode.DISABLED, "", DEFAULT_MAX_INPUT_CHARS,
-                DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
+        return new LlmConfig(false, LlmMode.DISABLED, "", DEFAULT_GATEWAY_TIMEOUT_MS, DEFAULT_REQUIRE_PLAYER_AUTH,
+                DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
     }
 
     public static LlmConfig fakeForTesting() {
-        return new LlmConfig(true, LlmMode.FAKE, "", DEFAULT_MAX_INPUT_CHARS,
-                DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
+        return new LlmConfig(true, LlmMode.FAKE, "", DEFAULT_GATEWAY_TIMEOUT_MS, false,
+                DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
     }
 
     public static LlmConfig current() {
@@ -108,13 +113,16 @@ public record LlmConfig(
         LlmMode mode = Optional.ofNullable(GsonHelper.getAsString(json, "mode", enabled ? "fake" : "disabled"))
                 .flatMap(LlmMode::parse)
                 .orElse(enabled ? LlmMode.FAKE : LlmMode.DISABLED);
-        String gatewayUrl = GsonHelper.getAsString(json, "gateway_url", GsonHelper.getAsString(json, "gatewayUrl", ""));
+        String gatewayUrl = GsonHelper.getAsString(json, "gateway_base_url",
+                GsonHelper.getAsString(json, "gateway_url", GsonHelper.getAsString(json, "gatewayUrl", "")));
+        int gatewayTimeout = GsonHelper.getAsInt(json, "gateway_timeout_ms", DEFAULT_GATEWAY_TIMEOUT_MS);
+        boolean requireAuth = GsonHelper.getAsBoolean(json, "require_player_auth", DEFAULT_REQUIRE_PLAYER_AUTH);
         int maxInput = GsonHelper.getAsInt(json, "max_input_chars", DEFAULT_MAX_INPUT_CHARS);
         int maxOutput = GsonHelper.getAsInt(json, "max_output_chars", DEFAULT_MAX_OUTPUT_CHARS);
         int timeout = GsonHelper.getAsInt(json, "session_timeout_ticks", DEFAULT_SESSION_TIMEOUT_TICKS);
         int rate = GsonHelper.getAsInt(json, "rate_limit_per_minute", DEFAULT_RATE_LIMIT_PER_MINUTE);
         String fakeReply = GsonHelper.getAsString(json, "fake_reply", DEFAULT_FAKE_REPLY);
-        return new LlmConfig(enabled, mode, gatewayUrl, maxInput, maxOutput, timeout, rate, fakeReply);
+        return new LlmConfig(enabled, mode, gatewayUrl, gatewayTimeout, requireAuth, maxInput, maxOutput, timeout, rate, fakeReply);
     }
 
     public boolean active() {
@@ -131,11 +139,13 @@ public record LlmConfig(
 
     public String summary() {
         return String.format(Locale.ROOT,
-                "enabled=%s mode=%s provider=%s network=%s max_input=%d timeout_ticks=%d active_fake=%s",
+                "enabled=%s mode=%s provider=%s network=%s auth_required=%s gateway_timeout_ms=%d max_input=%d timeout_ticks=%d active_fake=%s",
                 enabled,
                 mode.serializedName(),
                 mode == LlmMode.FAKE ? "fake" : mode == LlmMode.GATEWAY ? "gateway" : "disabled",
                 networkAccessAllowed() ? "gateway_only" : "blocked",
+                requirePlayerAuth,
+                gatewayTimeoutMs,
                 maxInputChars,
                 sessionTimeoutTicks,
                 fakeMode());
@@ -145,7 +155,10 @@ public record LlmConfig(
         JsonObject json = new JsonObject();
         json.addProperty("enabled", enabled);
         json.addProperty("mode", mode.serializedName());
+        json.addProperty("gateway_base_url_configured", !gatewayUrl.isBlank());
         json.addProperty("gateway_url_configured", !gatewayUrl.isBlank());
+        json.addProperty("gateway_timeout_ms", gatewayTimeoutMs);
+        json.addProperty("require_player_auth", requirePlayerAuth);
         json.addProperty("max_input_chars", maxInputChars);
         json.addProperty("max_output_chars", maxOutputChars);
         json.addProperty("session_timeout_ticks", sessionTimeoutTicks);

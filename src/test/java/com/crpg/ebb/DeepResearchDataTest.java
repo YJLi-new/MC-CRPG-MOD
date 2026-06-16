@@ -30,6 +30,8 @@ import com.crpg.ebb.llm.LlmChatService;
 import com.crpg.ebb.llm.LlmChatSession;
 import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.LlmMode;
+import com.crpg.ebb.llm.auth.DevLocalLlmAuthClient;
+import com.crpg.ebb.llm.auth.LlmAuthService;
 import com.crpg.ebb.network.dialogue.RollResultPayload;
 import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
@@ -1039,7 +1041,7 @@ final class DeepResearchDataTest {
     @Test
     void p34LlmDisabledModeTimeoutAndCommandsAreAuditable() throws Exception {
         try {
-            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", 128, 256, 20, 10, "FAKE_NPC_REPLY"));
+            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS, false, 128, 256, 20, 10, "FAKE_NPC_REPLY"));
             LlmChatService.setClientForTesting(new FakeLlmGatewayClient(LlmConfig.current()));
             UUID conversation = UUID.randomUUID();
             UUID player = UUID.randomUUID();
@@ -1083,6 +1085,87 @@ final class DeepResearchDataTest {
         }
     }
 
+
+
+
+    @Test
+    void p36GatewayAuthFlowRequiresLoginAndKeepsTokensServerSide() throws Exception {
+        try {
+            UUID player = UUID.randomUUID();
+            LlmConfig config = new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS,
+                    true, 128, 256, 20, 10, "FAKE_NPC_REPLY");
+            LlmConfig.setForTesting(config);
+            LlmAuthService.setClientForTesting(new DevLocalLlmAuthClient());
+
+            assertEquals("auth_required", LlmAuthService.chatGateStatus(player, config),
+                    "P36 fake/gateway chat should be gated when require_player_auth=true and no token is stored");
+            var start = LlmAuthService.startDeviceAuth(player, "junit-server").get();
+            assertTrue(start.started(), "dev local auth should start without an external browser dependency");
+            assertFalse(start.authSessionId().isBlank());
+            assertTrue(start.verificationUrl().contains("auth_session_id"));
+
+            var status = LlmAuthService.pollDeviceAuth(player).get();
+            assertTrue(status.authenticated(), "dev local provider should authenticate on status poll");
+            String opaque = status.token().orElseThrow().opaqueToken();
+            assertTrue(LlmAuthService.hasValidToken(player));
+            assertEquals("authenticated", LlmAuthService.chatGateStatus(player, config));
+            String safeLine = LlmAuthService.safeStatusLine(player);
+            assertTrue(safeLine.contains("token=redacted"), safeLine);
+            assertFalse(safeLine.contains(opaque), "status/debug surfaces must not print the raw opaque player token");
+
+            LlmChatResponse fake = new FakeLlmGatewayClient(config).sendMessage(new LlmChatRequest(
+                    UUID.randomUUID(), player, Optional.empty(), Identifier.parse("ebb:test/llm"), "start",
+                    "ebb:demo/innkeeper", "innkeeper", "auth smoke", "hello after login", 7L
+            )).get();
+            assertTrue(fake.reply().contains("FAKE_NPC_REPLY"), "logged-in fake provider chat should still work");
+
+            assertTrue(LlmAuthService.logout(player).get(), "logout should remove and revoke the server token");
+            assertFalse(LlmAuthService.hasValidToken(player));
+            assertEquals("auth_required", LlmAuthService.chatGateStatus(player, config),
+                    "logout should invalidate the auth gate");
+        } finally {
+            LlmChatService.clearTestingOverrides();
+        }
+    }
+
+    @Test
+    void p36GatewayProjectConfigAndCommandSurfaceAreAuditable() throws Exception {
+        JsonObject json = JsonParser.parseString("""
+                {"enabled":true,"mode":"gateway","gateway_base_url":"http://127.0.0.1:8787","gateway_timeout_ms":12345,"require_player_auth":false}
+                """).getAsJsonObject();
+        LlmConfig parsed = LlmConfig.parse(json);
+        assertEquals(LlmMode.GATEWAY, parsed.mode());
+        assertEquals("http://127.0.0.1:8787", parsed.gatewayUrl());
+        assertEquals(12345, parsed.gatewayTimeoutMs());
+        assertFalse(parsed.requirePlayerAuth());
+        assertTrue(parsed.toSafeJson().has("require_player_auth"));
+        assertFalse(parsed.toString().contains("opaque_player_token"));
+
+        for (String rel : java.util.List.of(
+                "ebb-llm-gateway/build.gradle.kts",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DevLocalAuthProvider.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java",
+                "scripts/p36_gateway_smoke.sh")) {
+            assertTrue(Files.isRegularFile(Path.of(rel)), "P36 file should exist: " + rel);
+        }
+        String gateway = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java"));
+        assertTrue(gateway.contains("/v1/health"));
+        assertTrue(gateway.contains("/v1/auth/device/start"));
+        assertTrue(gateway.contains("/v1/auth/device/status"));
+
+        String clientScreen = Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java"));
+        assertFalse(clientScreen.contains("opaque_player_token"), "client UI must not know or log opaque player tokens");
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+        register.setAccessible(true);
+        register.invoke(null, dispatcher);
+        CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+        requireCommandPath(ebb, "llm", "auth");
+        requireCommandPath(ebb, "llm", "status");
+        requireCommandPath(ebb, "llm", "logout");
+    }
 
     @Test
     void p35NpcProfilesLoadAndResolveByBinding() throws Exception {

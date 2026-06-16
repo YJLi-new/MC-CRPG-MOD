@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 35 is complete: PLAN.md P35 NPC Profile / Tier / Promotion data layer has been implemented and validated; next work should proceed to PLAN.md P36 Gateway minimal service + OAuth/OIDC authentication.
+Phase 36 is complete: PLAN.md P36 Gateway minimal service + OAuth/OIDC authentication has been implemented and validated; next work should proceed to PLAN.md P37 OpenAI Responses API integration.
 
 ## Phases
 
@@ -397,9 +397,18 @@ Phase 35 is complete: PLAN.md P35 NPC Profile / Tier / Promotion data layer has 
 
 
 ### Phase 36: PLAN.md P36 — Gateway Minimal Service + OAuth/OIDC Authentication
-- [ ] Add `ebb-llm-gateway/` service skeleton.
-- [ ] Implement `/v1/health`, `/v1/auth/device/start`, and `/v1/auth/device/status`.
-- [ ] Implement dev-only local auth provider and production OAuth/OIDC abstraction without storing secrets in the mod jar.
-- [ ] Add Minecraft `/ebb llm auth/status/logout` flow with server-only token storage.
-- [ ] Add tests/docs/static audits proving unauthenticated chat returns auth-required, login enables fake-provider chat, logout invalidates token, and profile refresh does not leak tokens.
+- [x] Add `ebb-llm-gateway/` service skeleton.
+- [x] Implement `/v1/health`, `/v1/auth/device/start`, and `/v1/auth/device/status`.
+- [x] Implement dev-only local auth provider and production OAuth/OIDC abstraction without storing secrets in the mod jar.
+- [x] Add Minecraft `/ebb llm auth/status/logout` flow with server-only token storage.
+- [x] Add tests/docs/static audits proving unauthenticated chat returns auth-required, login enables fake-provider chat, logout invalidates token, and profile refresh does not leak tokens.
+- **Status:** complete
+
+
+### Phase 37: PLAN.md P37 — OpenAI Responses API Integration
+- [ ] Add gateway `/v1/chat/message`.
+- [ ] Use an official OpenAI SDK path in the gateway while keeping tests mocked by default.
+- [ ] Support structured JSON output, streaming/chunked response, timeout/circuit breaker, model config, and `store:false` default privacy.
+- [ ] Connect Minecraft gateway mode to the real/fake gateway chat endpoint without blocking UI or leaking secrets.
+- [ ] Add tests/docs/static audits proving fake/real provider switching and graceful failure.
 - **Status:** planned

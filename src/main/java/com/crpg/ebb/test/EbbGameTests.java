@@ -13,6 +13,8 @@ import com.crpg.ebb.llm.LlmChatService;
 import com.crpg.ebb.llm.LlmChatSession;
 import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.LlmMode;
+import com.crpg.ebb.llm.auth.DevLocalLlmAuthClient;
+import com.crpg.ebb.llm.auth.LlmAuthService;
 import com.crpg.ebb.npc.EbbNpcEntity;
 import com.crpg.ebb.npc.profile.NpcProfileRegistry;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
@@ -111,7 +113,7 @@ public final class EbbGameTests {
     @GameTest(maxTicks = 20)
     public void llmFakeDisabledAndTimeoutFoundationIsDeterministic(GameTestHelper helper) {
         try {
-            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", 128, 256, 10, 10, "FAKE_NPC_REPLY"));
+            LlmConfig.setForTesting(new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS, false, 128, 256, 10, 10, "FAKE_NPC_REPLY"));
             UUID conversation = UUID.randomUUID();
             UUID player = UUID.randomUUID();
             LlmChatRequest request = new LlmChatRequest(
@@ -152,6 +154,34 @@ public final class EbbGameTests {
             );
             LlmChatService.addSessionForTesting(session);
             helper.assertTrue(LlmChatService.closeExpiredSessionsForTesting(100L) == 1, "expired LLM chat sessions should close");
+            helper.succeed();
+        } finally {
+            LlmChatService.clearTestingOverrides();
+        }
+    }
+
+
+    @GameTest(maxTicks = 20)
+    public void llmAuthGateDevLocalLoginAndLogoutAreServerSide(GameTestHelper helper) {
+        try {
+            LlmConfig config = new LlmConfig(true, LlmMode.FAKE, "", LlmConfig.DEFAULT_GATEWAY_TIMEOUT_MS,
+                    true, 128, 256, 10, 10, "FAKE_NPC_REPLY");
+            LlmConfig.setForTesting(config);
+            LlmAuthService.setClientForTesting(new DevLocalLlmAuthClient());
+            UUID player = UUID.randomUUID();
+            helper.assertTrue(LlmAuthService.chatGateStatus(player, config).equals("auth_required"),
+                    "P36 require_player_auth should gate unauthenticated fake chat");
+            var start = LlmAuthService.startDeviceAuth(player, "gametest").join();
+            helper.assertTrue(start.started(), "dev local auth should start");
+            var status = LlmAuthService.pollDeviceAuth(player).join();
+            helper.assertTrue(status.authenticated(), "dev local status poll should authenticate");
+            helper.assertTrue(LlmAuthService.safeStatusLine(player).contains("token=redacted"),
+                    "auth status should redact server-only tokens");
+            helper.assertTrue(LlmAuthService.chatGateStatus(player, config).equals("authenticated"),
+                    "logged-in player should pass the auth gate");
+            helper.assertTrue(LlmAuthService.logout(player).join(), "logout should revoke server token");
+            helper.assertTrue(LlmAuthService.chatGateStatus(player, config).equals("auth_required"),
+                    "logout should return the player to auth_required");
             helper.succeed();
         } finally {
             LlmChatService.clearTestingOverrides();

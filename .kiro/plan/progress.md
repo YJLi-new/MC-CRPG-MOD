@@ -1448,3 +1448,38 @@
 - **Time:** 2026-06-17 Asia/Shanghai.
 - User requested a brief progress report and push to both GitHub and Google Drive.
 - Current implementation state remains: P35 complete/validated; next planned phase is P36 gateway minimal service + OAuth/OIDC authentication.
+
+### Phase 36 / PLAN.md gateway auth implementation start
+- **Status:** started.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Re-read `.kiro/plan/task_plan.md`, recent progress, and `/mnt/e/MC/PCL/PLAN.md` P36.
+- Requirement map: add `ebb-llm-gateway/`, `/v1/health`, `/v1/auth/device/start`, `/v1/auth/device/status`, dev local auth, production OAuth/OIDC abstraction, Minecraft `/ebb llm auth/status/logout`, server-only token storage, auth-required chat gating, fake-provider success after login, logout invalidation, and token redaction/no client leakage.
+
+### Phase 36 / implementation checkpoint
+- **Status:** implementation complete; validation in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Added independent `ebb-llm-gateway/` Java 25 service with `/v1/health`, `/v1/auth/device/start`, `/v1/auth/device/status`, and `/v1/auth/logout`.
+- Added gateway `dev_local` auth provider plus generic OIDC device-flow adapter configurable for Keycloak/Auth0/Stytch-style providers.
+- Added mod-side server-only auth token storage, dev-local and HTTP gateway auth clients, `/ebb llm auth/status/logout`, and `auth_required` gating in `LlmChatService`.
+- Added P36 docs, static-audit guardrails, JUnit/GameTest coverage, and `scripts/p36_gateway_smoke.sh`.
+- Checkpoint validation: `scripts/p36_gateway_smoke.sh`, `scripts/gradle-local.sh --no-daemon compileJava`, P36 static audit, and `DeepResearchDataTest` passed before full-suite rerun.
+
+
+### Phase 36 / PLAN.md Gateway auth completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented and reviewed the P36 gateway/auth slice.
+- Final validation:
+  - `scripts/p36_gateway_smoke.sh` → BUILD SUCCESSFUL; `P36 gateway smoke passed`.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` → BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` → passed including P36 guardrails.
+  - `scripts/run_smoke_checks.sh` → passed including P36 gateway smoke/static checks.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` → BUILD SUCCESSFUL; 9 required GameTests passed.
+  - `scripts/gradle-local.sh --no-daemon build` → BUILD SUCCESSFUL.
+  - `git diff --check` → passed.
+- Artifact hashes:
+  - build jar: `0e22ea2023c8159b6263bd4a6d0e9b9aa474a065d22ece951b25e5e8ddf1eca7`.
+  - sources jar: `8bbc5b0c42ce6f59a67c4ad9b1556f0affcdde6ee79e7e7ab32bade68536ccc1`.
+- Review notes: auth tokens are held only in server-side maps, `/ebb llm status` uses redacted fingerprints, client LLM UI/networking has no `opaque_player_token`, and fake mode remains network-free after auth.
+- Next: PLAN.md P37 OpenAI Responses API integration in the gateway with tests mocked by default.

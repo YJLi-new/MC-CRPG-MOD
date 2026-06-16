@@ -1130,6 +1130,69 @@ def audit_p35_npc_profile_tier_promotion_data_layer() -> None:
     gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
     require("P35 GameTest coverage", gametest, "npcProfileRegistryLoadsScriptedProfilesAndPromotesMinor", "ensurePromotedProfile", "promoted_major")
 
+
+
+def audit_p36_gateway_auth_minimal_service() -> None:
+    for path in [
+        "ebb-llm-gateway/build.gradle.kts",
+        "ebb-llm-gateway/settings.gradle.kts",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayMain.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayConfig.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/AuthProvider.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DeviceAuthService.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DevLocalAuthProvider.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java",
+        "ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java",
+        "scripts/p36_gateway_smoke.sh",
+        "src/main/java/com/crpg/ebb/llm/auth/LlmAuthService.java",
+        "src/main/java/com/crpg/ebb/llm/auth/HttpLlmGatewayAuthClient.java",
+        "src/main/java/com/crpg/ebb/llm/auth/DevLocalLlmAuthClient.java",
+        "src/main/java/com/crpg/ebb/llm/auth/LlmAuthToken.java",
+    ]:
+        exists(path)
+
+    gateway = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java")
+    require("P36 gateway endpoints", gateway, "/v1/health", "/v1/auth/device/start", "/v1/auth/device/status", "/v1/auth/logout", "DeviceAuthService")
+    dev_provider = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DevLocalAuthProvider.java")
+    require("P36 dev local auth provider", dev_provider, "dev_local", "llm:chat", "memory:read_self", "memory:write_self")
+    oidc_provider = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java")
+    require("P36 production OIDC provider", oidc_provider, "DEVICE_CODE_GRANT", "EBB_OIDC_DEVICE_AUTH_URL", "authorization_pending", "keycloak", "auth0", "stytch")
+    config = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayConfig.java")
+    require("P36 gateway config", config, "EBB_GATEWAY_AUTH_PROVIDER", "keycloak", "auth0", "stytch", "createAuthProvider")
+    smoke = read("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java")
+    require("P36 gateway smoke", smoke, "P36 gateway smoke passed", "/v1/health", "opaque_player_token", "/v1/auth/logout")
+
+    llm_config = read("src/main/java/com/crpg/ebb/llm/LlmConfig.java")
+    require("P36 LLM config auth fields", llm_config, "gateway_base_url", "gateway_timeout_ms", "require_player_auth", "DEFAULT_REQUIRE_PLAYER_AUTH", "toSafeJson")
+    auth_service = read("src/main/java/com/crpg/ebb/llm/auth/LlmAuthService.java")
+    require("P36 LLM auth service", auth_service, "requiresAuth", "chatGateStatus", "server-only", "auth_required", "safeStatusLine", "token_value", "redacted")
+    http_client = read("src/main/java/com/crpg/ebb/llm/auth/HttpLlmGatewayAuthClient.java")
+    require("P36 Minecraft gateway auth client", http_client, "/v1/auth/device/start", "/v1/auth/device/status", "/v1/auth/logout", "opaque_player_token")
+    token = read("src/main/java/com/crpg/ebb/llm/auth/LlmAuthToken.java")
+    require("P36 token redaction", token, "redactedSummary", "SHA-256", "token=redacted")
+
+    llm_service = read("src/main/java/com/crpg/ebb/llm/LlmChatService.java")
+    require("P36 chat auth gate", llm_service, "LlmAuthService.requiresAuth", "auth_required", "llm_auth_required", "llm_auth_required_message")
+    commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
+    require("P36 llm auth commands", commands, "Commands.literal(\"auth\")", "Commands.literal(\"logout\")", "startLlmAuth", "logoutLlmAuth", "sendLlmAuthStartResult", "redactedSummary")
+
+    client_screen = read("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java")
+    if "opaque_player_token" in client_screen or "redactedSummary" in client_screen:
+        raise AssertionError("P36 client UI must not receive or render server auth tokens")
+    client_network = read("src/client/java/com/crpg/ebb/client/network/ClientInteractionNetworking.java")
+    if "opaque_player_token" in client_network:
+        raise AssertionError("P36 client networking must not receive opaque auth tokens")
+
+    docs = read("docs/json_authoring_guide.md")
+    require("P36 authoring docs", docs, "P36 Gateway Auth", "/ebb llm auth", "require_player_auth", "server-side only")
+    status = read("docs/current_status.md")
+    require("P36 current status", status, "Phase 36 Gateway", "ebb-llm-gateway", "auth_required", "server-only token")
+    test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
+    require("P36 JUnit coverage", test, "p36GatewayAuthFlowRequiresLoginAndKeepsTokensServerSide", "p36GatewayProjectConfigAndCommandSurfaceAreAuditable", "auth_required", "token=redacted")
+    gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
+    require("P36 GameTest coverage", gametest, "llmAuthGateDevLocalLoginAndLogoutAreServerSide", "DevLocalLlmAuthClient", "auth_required")
+
 def main() -> int:
     audit_p20_p21_documentation_and_baseline()
     audit_p22_interaction_highlight_polish()
@@ -1146,6 +1209,7 @@ def main() -> int:
     audit_p33_codebase_review_remediation()
     audit_p34_llm_fake_provider_foundation()
     audit_p35_npc_profile_tier_promotion_data_layer()
+    audit_p36_gateway_auth_minimal_service()
 
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")
@@ -1356,7 +1420,7 @@ def main() -> int:
     require("Authoring docs P8", docs, "Playable Tavern Vertical Slice Content Map", "eight block-group investigation points", "back door / ending placeholder")
     require("P8 completion audit", read("docs/goal_p8_vertical_slice_2026-06-01.md"), "four role NPCs", "eight interactable investigation points", "Ending placeholders")
 
-    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
+    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P35 guardrails cover NPC profile/tier/promotion data; P36 guardrails cover gateway auth endpoints, dev local/OIDC auth providers, Minecraft auth commands, auth_required gating, server-only token storage, redaction, and gateway smoke; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
     return 0
 
 

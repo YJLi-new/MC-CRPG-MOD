@@ -19,6 +19,9 @@ import com.crpg.ebb.interaction.entity.EntityBindingRegistry;
 import com.crpg.ebb.journal.JournalService;
 import com.crpg.ebb.llm.LlmChatService;
 import com.crpg.ebb.llm.LlmConfig;
+import com.crpg.ebb.llm.auth.DeviceAuthStartResponse;
+import com.crpg.ebb.llm.auth.DeviceAuthStatusResponse;
+import com.crpg.ebb.llm.auth.LlmAuthService;
 import com.crpg.ebb.network.dev.DevSnapshotPayload;
 import com.crpg.ebb.network.journal.JournalPayload;
 import com.crpg.ebb.network.quest.QuestTreePayload;
@@ -102,6 +105,10 @@ public final class ModCommands {
                         .executes(context -> sendLlmStatus(context.getSource()))
                         .then(Commands.literal("status")
                                 .executes(context -> sendLlmStatus(context.getSource())))
+                        .then(Commands.literal("auth")
+                                .executes(context -> startLlmAuth(context.getSource())))
+                        .then(Commands.literal("logout")
+                                .executes(context -> logoutLlmAuth(context.getSource())))
                         .then(Commands.literal("reload_config")
                                 .requires(EbbCommandPermissionGuards.dev())
                                 .executes(context -> reloadLlmConfig(context.getSource()))))
@@ -248,7 +255,60 @@ public final class ModCommands {
         source.sendSuccess(() -> Component.literal(LlmChatService.statusLine()), false);
         source.sendSuccess(() -> Component.literal("Config path: " + LlmConfig.SERVER_CONFIG_PATH
                 + " (safe fields only; no API keys or player tokens are read by the mod jar)"), false);
+        ServerPlayer player = source.getPlayer();
+        if (player != null) {
+            source.sendSuccess(() -> Component.literal("LLM auth: " + LlmAuthService.safeStatusLine(player.getUUID())), false);
+            LlmAuthService.pollDeviceAuth(player).thenAccept(status -> source.getServer().execute(() -> sendLlmAuthStatusResult(source, status, false)));
+        }
         return LlmChatService.activeSessionCount();
+    }
+
+    private static int startLlmAuth(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("/ebb llm auth can only be used by a player."));
+            return 0;
+        }
+        LlmAuthService.startDeviceAuth(player).thenAccept(response -> source.getServer().execute(() -> sendLlmAuthStartResult(source, response)));
+        source.sendSuccess(() -> Component.literal("Starting Ebb LLM browser auth..."), false);
+        return 1;
+    }
+
+    private static int logoutLlmAuth(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("/ebb llm logout can only be used by a player."));
+            return 0;
+        }
+        LlmAuthService.logout(player).thenAccept(revoked -> source.getServer().execute(() ->
+                source.sendSuccess(() -> Component.literal("Ebb LLM logout complete: server token removed; gateway_revoked=" + revoked), false)));
+        return 1;
+    }
+
+    private static void sendLlmAuthStartResult(CommandSourceStack source, DeviceAuthStartResponse response) {
+        if (!response.started()) {
+            source.sendFailure(Component.literal("Ebb LLM auth start failed: " + response.error()));
+            return;
+        }
+        source.sendSuccess(() -> Component.literal("Ebb LLM auth provider=" + response.provider()
+                + " session=" + response.authSessionId()
+                + " code=" + response.userCode()), false);
+        source.sendSuccess(() -> Component.literal("Open this URL in your browser: " + response.verificationUrl()), false);
+        source.sendSuccess(() -> Component.literal("Then run /ebb llm status to finish login. Tokens stay server-side only."), false);
+    }
+
+    private static void sendLlmAuthStatusResult(CommandSourceStack source, DeviceAuthStatusResponse status, boolean verbosePending) {
+        if (status.authenticated()) {
+            source.sendSuccess(() -> Component.literal("Ebb LLM auth: authenticated ("
+                    + status.token().orElseThrow().redactedSummary() + ")"), false);
+        } else if ("pending".equals(status.status())) {
+            if (verbosePending) {
+                source.sendSuccess(() -> Component.literal("Ebb LLM auth: pending; try /ebb llm status again in "
+                        + status.intervalSeconds() + "s."), false);
+            }
+        } else if (!"not_authenticated".equals(status.error())) {
+            source.sendFailure(Component.literal("Ebb LLM auth: " + status.error()));
+        }
     }
 
     private static int reloadLlmConfig(CommandSourceStack source) {

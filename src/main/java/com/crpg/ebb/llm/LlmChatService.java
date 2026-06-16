@@ -14,6 +14,7 @@ import com.crpg.ebb.network.llm.LlmChatErrorPayload;
 import com.crpg.ebb.network.llm.LlmChatMessagePayload;
 import com.crpg.ebb.network.llm.LlmChatOpenedPayload;
 import com.crpg.ebb.network.llm.LlmChatOptionsPayload;
+import com.crpg.ebb.llm.auth.LlmAuthService;
 import com.crpg.ebb.npc.profile.NpcPromotionService;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -66,6 +67,10 @@ public final class LlmChatService {
         if (!config.active()) {
             recordSecurityEvent("llm_disabled");
             return new OpenResult(false, "llm_disabled");
+        }
+        if (LlmAuthService.requiresAuth(config) && !LlmAuthService.hasValidToken(player.getUUID())) {
+            recordSecurityEvent("llm_auth_required");
+            return new OpenResult(false, "auth_required");
         }
         InteractionValidationResult targetValidation = InteractionService.validateSessionTarget(player, dialogueSession);
         if (!targetValidation.allowed()) {
@@ -129,6 +134,11 @@ public final class LlmChatService {
         if (!config.active()) {
             recordSecurityEvent("llm_disabled_message");
             responseSender.sendPacket(new LlmChatErrorPayload(payload.conversationId(), "llm_disabled"));
+            return;
+        }
+        if (LlmAuthService.requiresAuth(config) && !LlmAuthService.hasValidToken(player.getUUID())) {
+            recordSecurityEvent("llm_auth_required_message");
+            responseSender.sendPacket(new LlmChatErrorPayload(payload.conversationId(), "auth_required"));
             return;
         }
         String message = payload.message() == null ? "" : payload.message().strip();
@@ -218,6 +228,7 @@ public final class LlmChatService {
         LlmConfig config = LlmConfig.current();
         return "Ebb LLM: " + config.summary() + " active_sessions=" + activeSessionCount()
                 + " client=" + clientFor(config).providerName()
+                + " auth_gate=server_only"
                 + " no_secrets_in_payloads=true";
     }
 
@@ -237,6 +248,7 @@ public final class LlmChatService {
         testingClient = null;
         clearAll("testing_reset");
         SECURITY_EVENTS.clear();
+        LlmAuthService.clearTestingOverrides();
         LlmConfig.clearTestingOverride();
     }
 

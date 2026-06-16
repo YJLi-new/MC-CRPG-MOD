@@ -789,3 +789,33 @@ On first eligible fake/LLM chat, `NpcPromotionService` creates a deterministic-e
 - `/ebb npc minorize <entity>`: OP/dev helper that adds the `ebb.npc.minor` tag.
 - `/ebb npc promote <entity>`: OP/dev helper that immediately creates/loads the promoted profile.
 - `/ebb npc regenerate_profile <npc_key>`: OP/dev helper that removes a saved promoted profile so it can be regenerated.
+
+## P36 Gateway Auth
+
+P36 introduces a separate `ebb-llm-gateway/` service for browser/device authentication. The Minecraft mod still owns gameplay authority, but LLM authentication state is **server-side only**: the client UI never receives `opaque_player_token`, and `/ebb llm status` prints only redacted token fingerprints.
+
+Server config additions in `config/ebb-llm-server.json`:
+
+```json
+{
+  "enabled": true,
+  "mode": "fake",
+  "gateway_base_url": "http://127.0.0.1:8787",
+  "gateway_timeout_ms": 30000,
+  "require_player_auth": true
+}
+```
+
+Commands:
+
+- `/ebb llm auth` starts device/browser login and prints a verification URL plus user code.
+- `/ebb llm status` reports provider/auth state and completes a pending login when the gateway returns authenticated.
+- `/ebb llm logout` removes the server-only token and asks the gateway to invalidate it.
+
+Local development may use the gateway's `dev_local` auth provider or the mod-side `DevLocalLlmAuthClient`; production gateway auth supports OIDC device-flow configuration for providers such as Keycloak/Auth0/Stytch through environment variables on the gateway process. Keep provider secrets outside datapacks, resource packs, and the mod jar.
+
+Runtime gating:
+
+- If `require_player_auth=true`, choosing an `llm_chat`/`free_chat` option before login returns `auth_required`.
+- After `/ebb llm auth` + `/ebb llm status`, fake-provider chat works without network/OpenAI usage.
+- After `/ebb llm logout`, the next chat attempt is again `auth_required`.

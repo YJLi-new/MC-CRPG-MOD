@@ -490,3 +490,9 @@ Still needs explicit or implicit confirmation:
 - Static audit initially failed because P29 expected saved-data schema v2; audit was updated to reflect the intentional P35 schema bump to v3 while preserving migration checks.
 - Runtime/test counts are now 20 dialogues, 12 block groups, 15 entity bindings, 7 routines, and 6 npc_profiles. GUI/runtime count tools were updated to use the new minimums.
 - Full smoke and GameTest validation passed after P35, including promoted profile persistence and minor NPC promotion coverage.
+P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are independent gateway skeleton/endpoints, dev local auth, production OIDC abstraction, Minecraft /ebb llm auth/status/logout, server-only token storage, auth-required gating, fake chat after login, logout invalidation, and token redaction/no client leakage.
+
+### P37 requirements and SDK source notes
+- PLAN.md P37 requires gateway `/v1/chat/message`, official OpenAI Java/Node SDK path, Responses API, structured JSON output, streaming/chunked response, timeout/circuit breaker, model config, and default `store:false` unless explicitly enabled.
+- Official OpenAI Java SDK README shows Gradle dependency `implementation("com.openai:openai-java:4.39.1")`, Responses API usage via `OpenAIClient`, `OpenAIOkHttpClient.fromEnv()`, `ResponseCreateParams`, and streaming Responses helpers with `ResponseAccumulator` and `client.responses().createStreaming(...)`.
+- Current mod `LlmChatService.clientFor` still returns fake or disabled only; P37 must add a gateway chat client for `mode=gateway` and make provider failures return an error payload rather than hanging the UI.

@@ -525,3 +525,37 @@ Phase 35 artifact hashes after the first successful P35 build/validation checkpo
 build/libs/ebb-0.1.0-dev.jar         fdab4338525cb74c42f65485fb305b0712bea467aaea18bc986f721d20ee76e1
 build/libs/ebb-0.1.0-dev-sources.jar f0aaada7ead57b647afb33b49e4d7cf87bb2b87b278da919caaa78deadc26a0d
 ```
+
+## Phase 36 Gateway / OAuth-OIDC auth snapshot
+
+Implemented the PLAN.md P36 gateway-auth slice:
+
+- Added independent `ebb-llm-gateway/` Java 25 service with dependency-free HTTP handlers for `/v1/health`, `/v1/auth/device/start`, `/v1/auth/device/status`, and `/v1/auth/logout`.
+- Added gateway auth providers: `dev_local` for local testing and a generic OIDC device-flow adapter configurable for production providers such as Keycloak/Auth0/Stytch.
+- Extended `LlmConfig` with `gateway_base_url`, `gateway_timeout_ms`, and `require_player_auth`; safe config JSON still does not expose secrets or player tokens.
+- Added Minecraft server-side auth classes under `com.crpg.ebb.llm.auth`, including server-only token storage, redacted status summaries, dev-local auth client, and HTTP gateway auth client.
+- Added `/ebb llm auth`, `/ebb llm status`, and `/ebb llm logout`; raw opaque player tokens are never sent to the client UI.
+- `LlmChatService` now gates free-chat opening/message sends with `auth_required` when `require_player_auth=true`; after login fake-provider chat remains deterministic, and logout invalidates access.
+- Added P36 JUnit/GameTest/static-audit coverage plus `scripts/p36_gateway_smoke.sh`.
+
+Phase 36 validation checkpoint:
+
+```text
+scripts/p36_gateway_smoke.sh                                  -> BUILD SUCCESSFUL, P36 gateway smoke passed
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon validateEbbData           -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                          -> passed including P36 guardrails
+scripts/run_smoke_checks.sh                                   -> passed including P36 gateway smoke/static guardrails
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 9 required GameTests passed
+scripts/gradle-local.sh --no-daemon build                     -> BUILD SUCCESSFUL
+git diff --check                                               -> passed
+```
+
+Current proofs: gateway smoke passes, unauthenticated chat gate returns `auth_required`, dev-local login enables fake chat, logout restores `auth_required`, and client LLM UI/networking contains no `opaque_player_token` surface.
+
+Phase 36 artifact hashes after the first successful P36 build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         0e22ea2023c8159b6263bd4a6d0e9b9aa474a065d22ece951b25e5e8ddf1eca7
+build/libs/ebb-0.1.0-dev-sources.jar 8bbc5b0c42ce6f59a67c4ad9b1556f0affcdde6ee79e7e7ab32bade68536ccc1
+```
