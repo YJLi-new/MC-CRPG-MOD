@@ -166,10 +166,17 @@ public final class ClientInteractionNetworking {
         return false;
     }
 
-    public static void sendLlmChatCancel(UUID conversationId, String reason) {
+    public static boolean sendLlmChatCancel(UUID conversationId, String reason) {
         if (ClientPlayNetworking.canSend(LlmChatCancelPayload.TYPE)) {
             ClientPlayNetworking.send(new LlmChatCancelPayload(conversationId, reason));
+            return true;
         }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            minecraft.player.sendOverlayMessage(Component.translatable("message.ebb.llm_chat_network_unavailable"));
+        }
+        EbbMod.LOGGER.warn("Cannot send LLM chat cancel payload; server does not advertise {}", LlmChatCancelPayload.TYPE.id());
+        return false;
     }
 
     private static void showDenied(Minecraft minecraft, InteractionDeniedPayload payload) {

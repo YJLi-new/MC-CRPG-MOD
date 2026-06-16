@@ -5,6 +5,7 @@ import com.crpg.ebb.dialogue.DialogueChoice;
 import com.crpg.ebb.dialogue.DialogueDefinition;
 import com.crpg.ebb.dialogue.DialogueNode;
 import com.crpg.ebb.dialogue.DialogueSession;
+import com.crpg.ebb.dialogue.DialogueService;
 import com.crpg.ebb.interaction.InteractionService;
 import com.crpg.ebb.interaction.InteractionValidationResult;
 import com.crpg.ebb.network.llm.LlmChatCancelPayload;
@@ -199,9 +200,20 @@ public final class LlmChatService {
         future.whenComplete((response, error) -> server.execute(() -> completeResponse(player, awaiting, payload.nonce(), response, error)));
     }
 
-    public static void closeFromClient(ServerPlayer player, LlmChatCancelPayload payload) {
+    public static void closeFromClient(ServerPlayer player, LlmChatCancelPayload payload, PacketSender responseSender) {
         LlmChatSession session = SESSIONS.get(payload.conversationId());
         if (session != null && session.playerUuid().equals(player.getUUID())) {
+            if ("return_to_script".equals(payload.reason())) {
+                boolean reopened = DialogueService.reopenFromLlmChat(player, session, responseSender, "returned_from_llm_chat");
+                if (reopened) {
+                    remove(session);
+                    EbbMod.LOGGER.debug("Returned LLM chat session {} for {} to scripted dialogue node {}",
+                            payload.conversationId(), player.getName().getString(), session.returnNodeId());
+                } else {
+                    responseSender.sendPacket(new LlmChatErrorPayload(payload.conversationId(), "script_return_unavailable"));
+                }
+                return;
+            }
             remove(session);
             EbbMod.LOGGER.debug("Closed LLM chat session {} for {}: {}", payload.conversationId(), player.getName().getString(), payload.reason());
         } else {
@@ -317,18 +329,50 @@ public final class LlmChatService {
             SESSIONS.put(current.conversationId(), current.replied(player.level().getGameTime(), nonce));
             return;
         }
-        ServerPlayNetworking.send(player, new LlmChatChunkPayload(
-                awaiting.conversationId(),
-                "npc",
-                response.reply(),
-                true,
-                Optional.of(response.status()),
-                response.citationIds()
-        ));
+        sendStreamingNpcResponse(player, awaiting, response);
         if (!response.suggestedOptions().isEmpty()) {
             ServerPlayNetworking.send(player, new LlmChatOptionsPayload(awaiting.conversationId(), response.suggestedOptions()));
         }
         SESSIONS.put(current.conversationId(), current.replied(player.level().getGameTime(), nonce));
+    }
+
+    private static void sendStreamingNpcResponse(ServerPlayer player, LlmChatSession session, LlmChatResponse response) {
+        List<String> chunks = LlmConfig.current().llmChatStreaming()
+                ? streamingChunks(response.reply(), 96)
+                : List.of(response.reply());
+        for (int i = 0; i < chunks.size(); i++) {
+            boolean done = i == chunks.size() - 1;
+            ServerPlayNetworking.send(player, new LlmChatChunkPayload(
+                    session.conversationId(),
+                    "npc",
+                    chunks.get(i),
+                    done,
+                    Optional.of(done ? response.status() : "streaming"),
+                    done ? response.citationIds() : List.of()
+            ));
+        }
+    }
+
+    public static List<String> streamingChunks(String reply, int targetChunkChars) {
+        String text = reply == null ? "" : reply;
+        if (text.isEmpty()) {
+            return List.of("");
+        }
+        int chunkSize = Math.max(24, targetChunkChars);
+        List<String> chunks = new java.util.ArrayList<>();
+        int start = 0;
+        while (start < text.length()) {
+            int end = Math.min(text.length(), start + chunkSize);
+            if (end < text.length()) {
+                int split = Math.max(text.lastIndexOf(' ', end), text.lastIndexOf('\n', end));
+                if (split > start + 16) {
+                    end = split + 1;
+                }
+            }
+            chunks.add(text.substring(start, end));
+            start = end;
+        }
+        return List.copyOf(chunks);
     }
 
     private static void onServerTick(MinecraftServer server) {

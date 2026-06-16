@@ -529,3 +529,20 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 ## Phase 42 intake findings — 2026-06-17
 - PLAN.md P42 requires: streaming text, suggested-option selection, return-to-script button, memory correction button, dev citations overlay, GUI E2E scenario, error/timeout/cancel non-stuck behavior, and K-menu LLM auth status visibility.
 - Existing `NpcChatScreen` already has basic input, send, suggested option buttons, error handling, cancel/close, and live background behavior, but it appends every NPC chunk as a new line, has no explicit return-to-script button, no memory-correction action, no citation overlay toggle, and no K-menu LLM auth status surface yet verified.
+
+## Phase 42 implementation audit — 2026-06-17
+- Existing `NpcChatScreen` opens over a live world background (`isPauseScreen=false`) and has basic input, send, suggested options, cancel, and error handling, but each NPC chunk is appended as a separate line and `waitingForReply` is cleared for every chunk regardless of `done`.
+- Server `LlmChatService.completeResponse` currently emits the whole NPC response in one `LlmChatChunkPayload`; `LlmConfig.llmChatStreaming()` exists and should drive chunked sends without adding client secrets or bypassing gateway authority.
+- Dialogue sessions are removed when `llm_chat` opens, while `LlmChatSession` stores dialogue id/source/return node/target metadata. P42's “返回脚本对话” should resume a server-authoritative `DialogueSession` at `returnNodeId` using that stored metadata instead of only closing the UI locally.
+- K menu exists on `K` and renders only a centered panel, but it has no visible LLM auth status line/button yet; `/ebb llm status/auth/logout` commands already provide server-owned safe auth state and should be exposed through the menu without syncing tokens to the client.
+- Existing GUI automation runner covers K menu, scripted role/block interactions, and live-background checks. P42 needs a new LLM chat scenario/dry-run manifest proving NPC chat open/send/reply/suggested-option path plus timeout/error/cancel non-stuck guardrails.
+
+## Phase 42 validation findings — 2026-06-17
+- P42 code/static/JUnit/GameTest/smoke validation is now green, including a generated `llm_chat` GUI automation scenario and manifest.
+- Actual Windows GUI execution remains the only P42 evidence gap: `windows_gui.py find --title '26\\.1\\.2-Fabric-Ebb-Test|Minecraft'` returned an empty window list, so there was no active test client window to drive.
+
+## Phase 42 actual GUI findings — 2026-06-17
+- Direct Windows GUI validation succeeded against the separate `26.1.2-Fabric-Ebb-Test` profile after launching Minecraft directly with the profile-local jar and using the existing `新的世界 (1)` save.
+- The first automation pass showed click-coordinate drift at Minecraft GUI scale. The runner now derives LLM-chat button click points from the cyan panel bounds in the screenshot instead of fixed normalized screen positions.
+- Actual `llm_chat` report `build/gui-e2e/llm-chat-report.json` had no failed steps and proved K-menu LLM status, fake-provider free chat, live-background chat panel, citations overlay, suggested-option reply, and return to scripted dialogue.
+- `scenario_llm_chat` now writes the fake server config only for actual `--gui` client testing, preventing dry-run smoke checks from modifying files outside `CRPG_MOD`.

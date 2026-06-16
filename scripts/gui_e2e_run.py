@@ -136,12 +136,35 @@ def write_expected_manifest(env: EbbGuiEnv) -> Path:
         "commands": ["/ebb journal", "/ebb quest", "/ebb dialogue vars", "/ebb vars"],
         "role_dialogues": ROLE_DIALOGUES,
         "block_dialogues": BLOCK_DIALOGUES,
-        "expected_runtime_counts": {"dialogues": 19, "block_groups": 12, "entity_bindings": 14, "npc_routines": 7},
+        "expected_runtime_counts": {"dialogues": 20, "block_groups": 12, "entity_bindings": 15, "npc_routines": 7},
     }
     path = env.work_dir / "expected-gui-retest-manifest.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     env.log_step("write_expected_manifest", True, path=str(path), manifest=manifest)
+    return path
+
+
+def write_llm_chat_manifest(env: EbbGuiEnv) -> Path:
+    manifest = {
+        "scenario": "llm_chat",
+        "entry_dialogue": "ebb:demo/innkeeper_intro",
+        "entry_choice": "free_chat",
+        "expected_ui": [
+            "streaming_text_merges_chunks",
+            "suggested_options_clickable",
+            "return_to_script_button",
+            "memory_correction_button",
+            "dev_citations_overlay",
+            "client_timeout_unstuck",
+            "k_menu_llm_auth_status",
+        ],
+        "commands": ["/ebb llm status", "/ebb llm auth", "/ebb llm logout"],
+    }
+    path = env.work_dir / "expected-llm-chat-manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    env.log_step("write_llm_chat_manifest", True, path=str(path), manifest=manifest)
     return path
 
 
@@ -196,6 +219,41 @@ def _top_band_luminance(path: Path) -> float:
 def _assert_live_world_background(path: Path) -> tuple[bool, float]:
     luminance = _top_band_luminance(path) if path.exists() else 0.0
     return luminance > 35.0, luminance
+
+
+def _llm_chat_click_points(path: Path) -> dict[str, tuple[int, int]]:
+    from PIL import Image
+    img = Image.open(path).convert("RGB")
+    cyan = []
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b = img.getpixel((x, y))
+            if r < 90 and g > 120 and b > 140 and abs(g - b) < 90:
+                cyan.append((x, y))
+    if cyan:
+        left = min(x for x, _ in cyan)
+        right = max(x for x, _ in cyan)
+        top = min(y for _, y in cyan)
+        bottom = max(y for _, y in cyan)
+    else:
+        left, right = 32, img.width - 32
+        top, bottom = 74, img.height - 45
+    # Minecraft GUI scale means GUI coordinates are not screenshot pixels.
+    # Derive clickable centers from the actual cyan panel bounds in pixels.
+    margin = max(28, int((right - left) * 0.028))
+    usable = max(1, (right - left) - margin * 2)
+    column_width = (usable - 12) / 3
+    first_x = int(left + margin + column_width / 2)
+    second_x = int(left + margin + column_width + 6 + column_width / 2)
+    third_x = int(left + margin + (column_width + 6) * 2 + column_width / 2)
+    option_y = int(bottom - (bottom - top) * 0.278)
+    action_y = int(bottom - (bottom - top) * 0.202)
+    return {
+        "first_option": (first_x, option_y),
+        "return_to_script": (first_x, action_y),
+        "memory_correction": (second_x, action_y),
+        "citations": (third_x, action_y),
+    }
 
 
 def close_interaction_screen_if_open(env: EbbGuiEnv, args: argparse.Namespace, screenshot: Path) -> None:
@@ -347,9 +405,99 @@ def scenario_gui_retest(env: EbbGuiEnv, args: argparse.Namespace) -> int:
     return 0 if runtime_ok or args.allow_stale_runtime else 2
 
 
+def scenario_llm_chat(env: EbbGuiEnv, args: argparse.Namespace) -> int:
+    env.report["scenario"] = "llm_chat"
+    env.work_dir.mkdir(parents=True, exist_ok=True)
+    write_llm_chat_manifest(env)
+    runtime_ok = env.check_runtime_loaded()
+    if not args.gui:
+        env.log_step(
+            "write_fake_llm_config_skipped",
+            True,
+            reason="--gui not set; avoid touching the external test profile during dry-run manifest generation",
+        )
+        env.log_step("gui_control_skipped", True, reason="--gui not set; generated P42 LLM chat manifest/report only")
+        path = env.write_report("llm-chat-report.json")
+        print(f"report={path}")
+        return 0 if runtime_ok or args.allow_stale_runtime else 2
+
+    import time as _time
+    llm_config = env.profile_dir / "config" / "ebb-llm-server.json"
+    llm_config.parent.mkdir(parents=True, exist_ok=True)
+    llm_config.write_text(json.dumps({
+        "enabled": True,
+        "mode": "fake",
+        "require_player_auth": False,
+        "llm_chat_streaming": True,
+        "structured_output": True,
+        "openai_store": False,
+        "max_input_chars": 512,
+        "session_timeout_ticks": 1200,
+        "fake_reply": "FAKE_NPC_REPLY: GUI llm_chat scenario"
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    env.log_step("write_fake_llm_config", True, path=str(llm_config))
+    env.windows_gui("focus", "--title", args.window_title)
+    env.windows_gui("press", "--title", args.window_title, "--key", "k")
+    _time.sleep(args.gui_wait)
+    menu = env.work_dir / "llm_k_menu_status.png"
+    env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(menu))
+    env.log_step("llm_k_menu_auth_status", menu.exists(), screenshot=str(menu), signals=summarize_signals(menu) if menu.exists() else None)
+    env.windows_gui("press", "--title", args.window_title, "--key", "k")
+    _time.sleep(max(0.2, args.gui_wait / 2))
+
+    if not args.skip_demo_setup:
+        for idx, command in enumerate(DEMO_SETUP_COMMANDS, start=1):
+            out = env.gui_chat_command(command, args.window_title, f"llm_setup_{idx:02d}.png", wait_seconds=max(0.35, args.gui_wait / 2))
+            env.log_step("llm_demo_setup_command", out.exists(), command=command, screenshot=str(out))
+    reload_config = env.gui_chat_command("/ebb llm reload_config", args.window_title, "llm_reload_config.png", wait_seconds=args.gui_wait)
+    env.log_step("llm_reload_config", reload_config.exists(), screenshot=str(reload_config), signals=summarize_signals(reload_config) if reload_config.exists() else None)
+    env.gui_chat_command(ROLE_TP_COMMANDS["innkeeper"], args.window_title, "llm_innkeeper_tp.png", wait_seconds=args.gui_wait)
+    env.windows_gui("press", "--title", args.window_title, "--key", "x")
+    _time.sleep(args.gui_wait)
+    dialogue = env.work_dir / "llm_script_dialogue_open.png"
+    env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(dialogue))
+    env.log_step("llm_script_dialogue_open", dialogue.exists(), screenshot=str(dialogue), signals=summarize_signals(dialogue) if dialogue.exists() else None)
+    env.windows_gui("press", "--title", args.window_title, "--key", "3")
+    _time.sleep(args.gui_wait + 0.8)
+    opened = env.work_dir / "llm_chat_open.png"
+    env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(opened))
+    live_bg, top_luma = _assert_live_world_background(opened)
+    env.log_step("llm_chat_open", opened.exists() and live_bg, screenshot=str(opened), top_band_luminance=top_luma, signals=summarize_signals(opened) if opened.exists() else None)
+    env.windows_gui("send-text", "--title", args.window_title, "--text", "What do you remember about the locked door?")
+    _time.sleep(args.gui_wait + 1.2)
+    reply = env.work_dir / "llm_chat_reply.png"
+    env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(reply))
+    reply_live_bg, reply_top_luma = _assert_live_world_background(reply)
+    env.log_step("llm_chat_reply", reply.exists() and reply_live_bg, screenshot=str(reply), top_band_luminance=reply_top_luma, signals=summarize_signals(reply) if reply.exists() else None)
+    if reply.exists():
+        points = _llm_chat_click_points(reply)
+        x, y = points["citations"]
+        env.windows_gui("click", "--title", args.window_title, "--x", str(x), "--y", str(y))
+        _time.sleep(args.gui_wait)
+        citations = env.work_dir / "llm_citations_overlay.png"
+        env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(citations))
+        env.log_step("llm_citations_overlay", citations.exists(), screenshot=str(citations), signals=summarize_signals(citations) if citations.exists() else None)
+        x, y = points["first_option"]
+        env.windows_gui("click", "--title", args.window_title, "--x", str(x), "--y", str(y))
+        _time.sleep(args.gui_wait + 1.2)
+        option_reply = env.work_dir / "llm_suggested_option_reply.png"
+        env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(option_reply))
+        env.log_step("llm_suggested_option_clicked", option_reply.exists(), screenshot=str(option_reply), signals=summarize_signals(option_reply) if option_reply.exists() else None)
+        x, y = points["return_to_script"]
+        env.windows_gui("click", "--title", args.window_title, "--x", str(x), "--y", str(y))
+        _time.sleep(args.gui_wait)
+        returned = env.work_dir / "llm_returned_to_script.png"
+        env.windows_gui("screenshot", "--title", args.window_title, "--out", EbbGuiEnv.wsl_to_windows(returned))
+        env.log_step("llm_return_to_script", returned.exists(), screenshot=str(returned), signals=summarize_signals(returned) if returned.exists() else None)
+        close_interaction_screen_if_open(env, args, returned)
+    path = env.write_report("llm-chat-report.json")
+    print(f"report={path}")
+    return 0 if runtime_ok or args.allow_stale_runtime else 2
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Esoteric Ebb GUI E2E automation scenarios.")
-    parser.add_argument("--scenario", choices=["dry_run", "runtime_check", "bot_probe", "gui_retest"], default="dry_run")
+    parser.add_argument("--scenario", choices=["dry_run", "runtime_check", "bot_probe", "gui_retest", "llm_chat"], default="dry_run")
     parser.add_argument("--profile", default="26.1.2-Fabric-Ebb-Test")
     parser.add_argument("--mc-dir", type=Path, default=Path("/mnt/e/MC/PCL/.minecraft"))
     parser.add_argument("--save-name", default="新的世界 (1)")
@@ -377,6 +525,8 @@ def main() -> int:
         return scenario_runtime_check(env, args)
     if args.scenario == "bot_probe":
         return scenario_bot_probe(env, args)
+    if args.scenario == "llm_chat":
+        return scenario_llm_chat(env, args)
     return scenario_gui_retest(env, args)
 
 

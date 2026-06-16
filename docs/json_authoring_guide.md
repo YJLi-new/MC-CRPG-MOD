@@ -1023,3 +1023,35 @@ Developer commands:
 ```
 
 Promotion is rate limited per world hour (`MAX_PROMOTIONS_PER_WORLD_HOUR`) to avoid turning every tagged background entity into a major NPC at once. Existing promoted profiles are reused, so leaving and re-entering the world keeps the same generated profile.
+
+## P42 LLM Chat UI
+
+The `llm_chat` / `free_chat` choice opens `NpcChatScreen` instead of rolling a check. The UI now treats LLM chat as a temporary branch away from scripted dialogue, not a replacement for the authored scene.
+
+Authoring knobs remain on the choice:
+
+```json
+{
+  "id": "free_chat",
+  "type": "llm_chat",
+  "text": "我们随便聊聊。",
+  "llm": {
+    "npc": "ebb:demo/innkeeper",
+    "topic_hint": "tavern rumors, the locked door, and recent guests",
+    "return_node": "start",
+    "allow_memory_write": true
+  }
+}
+```
+
+Player-facing UI behavior:
+
+- Streaming text: server replies are sent as `LlmChatChunkPayload` chunks when `llm_chat_streaming` is enabled. The client merges chunks into one NPC line until `done=true`.
+- Suggested options: gateway/fake replies may include `suggested_options`; selecting one sends it as the next player message.
+- `return_to_script`: the Return to Script button sends a server-bound cancel reason. The server reopens a normal scripted `DialogueSession` at the choice's `return_node` using authoritative dialogue data.
+- Memory correction: the Correct Memory button prefixes the player's next message as `memory_correction: ...`, so gateway memory extraction can treat it as a player-authored correction rather than hidden game state.
+- Citations overlay: citations are hidden by default and visible only through the dev citations overlay. They are not appended inline to ordinary NPC text.
+- Timeout/error/cancel behavior: local timeout, provider errors, network-unavailable sends, and explicit cancel all release input/buttons instead of leaving the screen stuck in a waiting state.
+- K menu: the mod menu opened with `K` includes LLM auth status/login/logout actions; `/ebb llm status` remains the authoritative, token-redacted server status output.
+
+GUI automation includes a `llm_chat` scenario that opens the innkeeper free-chat choice, sends text, waits for a fake/gateway reply, toggles citations, clicks a suggested option, and returns to scripted dialogue.

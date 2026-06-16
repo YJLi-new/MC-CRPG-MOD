@@ -787,3 +787,58 @@ scripts/run_smoke_checks.sh                                -> passed including P
 scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
 git diff --check                                           -> passed
 ```
+
+## Phase 42 LLM Chat UI snapshot
+
+Implemented the PLAN.md P42 LLM Chat UI completion slice:
+
+- Server replies now use `sendStreamingNpcResponse` and `streamingChunks` so `LlmChatChunkPayload` can stream multi-packet NPC text when `llm_chat_streaming=true`.
+- `NpcChatScreen` merges streaming NPC chunks into one visible line until `done=true`, and only then releases `waitingForReply`.
+- Suggested options remain clickable and are now included in the P42 GUI E2E route.
+- Added Return to Script. The button sends `return_to_script`; the server calls `DialogueService.reopenFromLlmChat` to reopen a normal scripted `DialogueSession` at the stored `returnNodeId`.
+- Added a Memory Correction button. The next player message is sent as `memory_correction: ...` for gateway-side memory validation/correction handling.
+- Added a Dev Citations overlay. Citation ids are hidden by default and rendered in an explicit overlay instead of inline in normal NPC text.
+- Added client-side timeout handling (`CLIENT_REPLY_TIMEOUT_MS`) and network-unavailable feedback for LLM cancel sends so timeout/cancel/server-error cases do not leave the UI stuck.
+- Expanded the `K` menu with visible LLM auth status guidance plus `/ebb llm status`, `/ebb llm auth`, and `/ebb llm logout` buttons. Tokens remain server-side and status output is redacted.
+- Added `scripts/gui_e2e_run.py --scenario llm_chat` plus smoke-manifest coverage for opening NPC chat, sending text, receiving a reply, toggling citations, clicking a suggested option, and returning to scripted dialogue.
+
+Phase 42 validation is complete, including automated validation and an actual Windows GUI `llm_chat` pass against the separate `26.1.2-Fabric-Ebb-Test` profile.
+
+Phase 42 artifact hashes after the final P42 Java/resource build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         fddca1051023d9a5d21a57b5da0b1002fc5715c7f8970c45deb925ed398c892a
+build/libs/ebb-0.1.0-dev-sources.jar 0d21e3b2ebeb9e93cd8c4edad27fb01a6e8ffde48ed16dcf48cae93214eb8efc
+```
+
+P42 docs note: memory correction is player-authored and server/gateway validated; citations overlay remains dev-only; K menu shows LLM status commands.
+
+Phase 42 automated validation checkpoint:
+
+```text
+python3 -m py_compile scripts/gui_e2e_run.py scripts/goal_static_audit.py -> pass
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon build                  -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                       -> passed including P42 guardrails
+scripts/run_gui_automation_smoke.sh                        -> passed, including llm_chat scenario manifest/report generation
+scripts/run_smoke_checks.sh                                -> passed
+scripts/gradle-local.sh --no-daemon runGametestServer --args nogui -> BUILD SUCCESSFUL, 13 required GameTests passed
+scripts/gradle-local.sh --no-daemon validateEbbData        -> BUILD SUCCESSFUL
+git diff --check                                           -> passed
+```
+
+P42 actual Windows GUI visual run status: complete.
+
+```text
+scripts/gui_e2e_run.py --scenario llm_chat --gui --skip-demo-setup --window-title 'Minecraft\*? 26\.1\.2' --gui-wait 1.1 --allow-stale-runtime -> report build/gui-e2e/llm-chat-report.json, failed=[]
+```
+
+Actual GUI screenshot evidence:
+
+- `build/gui-e2e/llm_k_menu_status.png` — K-menu LLM status/actions visible with live background.
+- `build/gui-e2e/llm_chat_reply.png` — fake-provider LLM chat reply, suggested options, Return to Script / Memory Correction / Citations buttons, and live player view outside the panel.
+- `build/gui-e2e/llm_citations_overlay.png` — citations shown only in the explicit dev overlay.
+- `build/gui-e2e/llm_suggested_option_reply.png` — suggested option click generated a second fake reply.
+- `build/gui-e2e/llm_returned_to_script.png` — Return to Script reopened the scripted dialogue at `ebb:demo/innkeeper_intro / start` with `returned_from_llm_chat` status.
+
+Automation hygiene note: `scenario_llm_chat` now writes its fake LLM server config only when `--gui` is used, so dry-run smoke/report generation does not modify the external PCL test profile.

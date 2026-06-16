@@ -1675,3 +1675,62 @@
 - Verification:
   - `git diff --check` → pass.
   - `scripts/run_smoke_checks.sh` → pass; includes Gradle build, gateway smoke checks, authoring validation, static audits, deep-research smoke, goal static audit through P41, and GUI retest issue audit.
+
+### Phase 42 / PLAN.md LLM Chat UI implementation checkpoint
+- **Status:** implementation complete; validation in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented P42 code/UI surfaces:
+  - Server emits LLM replies through `sendStreamingNpcResponse` / `streamingChunks` when streaming is enabled.
+  - `NpcChatScreen` now merges streaming NPC chunks, keeps input disabled only while waiting, has local timeout recovery, and shows suggested options without losing the live world background.
+  - Added Return to Script button and server-authoritative `DialogueService.reopenFromLlmChat` resume path using `returnNodeId`.
+  - Added Memory Correction button/prefix path and Dev Citations overlay with citations hidden by default.
+  - Added K-menu LLM auth status/login/logout actions using existing safe `/ebb llm` command surfaces; no client token sync was introduced.
+  - Added `scripts/gui_e2e_run.py --scenario llm_chat` and GUI automation smoke manifest coverage.
+  - Added P42 JUnit/GameTest/static-audit markers and docs.
+- Checkpoint validation so far:
+  - `scripts/gradle-local.sh --no-daemon compileJava` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon compileClientJava` -> BUILD SUCCESSFUL after adding missing K-menu `STATUS_COLOR` constant.
+- Next: run JUnit, data validation, static audit, GUI automation smoke, GameTest, full smoke/build/diff, update artifact hashes, then mark Phase 42 complete if evidence holds.
+
+### Phase 42 / PLAN.md LLM Chat UI automated validation checkpoint
+- **Status:** code and automated non-GUI validation complete; Windows GUI scenario run pending.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Validation completed:
+  - `python3 -m py_compile scripts/gui_e2e_run.py scripts/goal_static_audit.py` -> pass.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` -> passed including P42 guardrails.
+  - `scripts/run_gui_automation_smoke.sh` -> passed, including `llm_chat` manifest/report generation with `--allow-stale-runtime`.
+  - `scripts/run_smoke_checks.sh` -> passed.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> BUILD SUCCESSFUL; all 13 required GameTests passed.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `git diff --check` -> passed.
+- Artifact hashes after final P42 build:
+  - build jar: `fddca1051023d9a5d21a57b5da0b1002fc5715c7f8970c45deb925ed398c892a`.
+  - sources jar: `0d21e3b2ebeb9e93cd8c4edad27fb01a6e8ffde48ed16dcf48cae93214eb8efc`.
+- GUI runtime note: Windows GUI window discovery returned no matching `26.1.2-Fabric-Ebb-Test|Minecraft` window in this turn, so the actual P42 visual `llm_chat` scenario is ready but not executed yet.
+
+### Phase 42 / PLAN.md LLM Chat UI actual Windows GUI completion
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Actual GUI evidence collected after launching the separate `26.1.2-Fabric-Ebb-Test` client directly with the refreshed jar:
+  - `scripts/gui_e2e_run.py --scenario llm_chat --gui --skip-demo-setup --window-title 'Minecraft\*? 26\.1\.2' --gui-wait 1.1 --allow-stale-runtime` -> report `build/gui-e2e/llm-chat-report.json`, `failed=[]`, 35 steps.
+  - Key GUI steps passed: `llm_k_menu_auth_status`, `llm_reload_config`, `llm_script_dialogue_open`, `llm_chat_open`, `llm_chat_reply`, `llm_citations_overlay`, `llm_suggested_option_clicked`, and `llm_return_to_script`.
+  - Screenshot evidence: `llm_chat_reply.png` shows free-chat reply/suggested options with live world background; `llm_citations_overlay.png` shows dev citations overlay; `llm_suggested_option_reply.png` proves suggested option click; `llm_returned_to_script.png` proves server-authoritative return to scripted dialogue with `returned_from_llm_chat` status.
+- Cleanup/fix before push:
+  - Moved fake LLM config writing in `scenario_llm_chat` behind `--gui` so non-GUI smoke/manifest generation no longer touches the external PCL test profile.
+- Phase result: PLAN.md P42 is complete; next phase is PLAN.md P43 testing/evaluation/documentation.
+
+### Push Snapshot: P42 LLM Chat UI completion
+- **Status:** prepared for GitHub + Google Drive push.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Actions taken:
+  - Re-read planning files, marked PLAN.md P42 complete after actual Windows GUI evidence, and opened Phase 43 as the next pending PLAN.md phase.
+  - Closed the running Windows Minecraft test client after collecting GUI screenshots to avoid stale-profile/jar issues.
+  - Verified `scenario_llm_chat` dry-run no longer writes fake LLM config outside `CRPG_MOD`; actual `--gui` testing still writes the profile-local fake config as part of explicit client testing.
+- Verification before push:
+  - `python3 -m py_compile scripts/gui_e2e_run.py scripts/goal_static_audit.py` -> pass.
+  - `scripts/run_gui_automation_smoke.sh` -> pass.
+  - `python3 scripts/goal_static_audit.py` -> pass.
+  - `git diff --check` -> pass.
+  - `scripts/run_smoke_checks.sh` -> pass.

@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 41 is complete: PLAN.md P41 minor NPC instant generation has been implemented and validated; next work should proceed to PLAN.md P42 LLM Chat UI completion.
+Phase 42 is complete with code, automated validation, and actual Windows GUI `llm_chat` evidence; next work should proceed to PLAN.md P43 testing, evaluation, schemas, audits, and documentation.
 
 ## Phases
 
@@ -454,3 +454,28 @@ Phase 41 is complete: PLAN.md P41 minor NPC instant generation has been implemen
 - [x] Add acceptance tests for tagged minor chat/profile persistence/review/regenerate surfaces.
 - [x] Run final static/smoke/build validation and artifact hash update.
 - **Status:** complete
+
+
+### Phase 42: PLAN.md P42 — LLM Chat UI Completion
+- [x] Add streaming text packet emission and client-side chunk merging.
+- [x] Keep suggested options clickable and cover them in GUI E2E.
+- [x] Add server-authoritative Return to Script from LLM chat back to a scripted dialogue node.
+- [x] Add Memory Correction button/path for player-authored memory corrections.
+- [x] Add dev citations overlay instead of inline citations.
+- [x] Add client timeout/cancel/error non-stuck behavior.
+- [x] Expose LLM auth status/login/logout actions through the K menu without syncing tokens.
+- [x] Add P42 GUI E2E scenario manifest/route and automated audit coverage.
+- [x] Run final JUnit/GameTest/static/smoke/build validation and artifact hash update.
+- [x] Execute actual Windows GUI `llm_chat` scenario against `26.1.2-Fabric-Ebb-Test`; report `build/gui-e2e/llm-chat-report.json` has no failed steps and screenshots prove live-background LLM chat, citations overlay, suggested-option click, and return-to-script.
+- **Status:** complete
+
+
+
+### Phase 43: PLAN.md P43 — Testing, Evaluation, and Documentation
+- [ ] Expand JSON authoring guide for NPC profiles, NPC knowledge/Kb, LLM config, and memory effects.
+- [ ] Add/verify schemas `ebb.npc_profile.schema.json` and `ebb.npc_knowledge.schema.json`.
+- [ ] Add static audits for API-key literals, fake LLM provider in tests, hidden knowledge not in client sync payloads, and high-risk effects not accepted directly from LLM output.
+- [ ] Add JUnit coverage for memory conflict, promotion persistence, and prompt pack assembly.
+- [ ] Add GameTest coverage for fake provider chat, minor promotion, and relationship delta.
+- [ ] Add GUI E2E coverage for auth disabled, fake chat, and real gateway dry-run.
+- **Status:** pending

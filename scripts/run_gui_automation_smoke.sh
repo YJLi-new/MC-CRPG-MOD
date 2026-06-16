@@ -10,5 +10,6 @@ python3 -m py_compile \
   tools/gui_automation/python/*.py
 npm --prefix tools/gui_automation/node run self-test
 scripts/gui_e2e_run.py --scenario dry_run >/tmp/ebb_gui_automation_dry_run.json
+scripts/gui_e2e_run.py --scenario llm_chat --allow-stale-runtime >/tmp/ebb_gui_automation_llm_chat.json
 scripts/gui_e2e_run.py --scenario runtime_check >/tmp/ebb_gui_automation_runtime_check.txt || true
 printf 'GUI automation smoke passed. Dry-run report: /tmp/ebb_gui_automation_dry_run.json\n'

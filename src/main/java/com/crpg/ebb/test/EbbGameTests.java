@@ -283,6 +283,20 @@ public final class EbbGameTests {
         helper.succeed();
     }
 
+    @GameTest(maxTicks = 20)
+    public void llmChatStreamingChunksAndUiContractsArePresent(GameTestHelper helper) {
+        var chunks = LlmChatService.streamingChunks(
+                "P42 streaming fake reply should be split into more than one packet for the client-side merge path.",
+                32
+        );
+        helper.assertTrue(chunks.size() > 1, "P42 streaming helper should split long LLM replies");
+        helper.assertTrue(String.join("", chunks).contains("client-side merge path"),
+                "P42 chunks should preserve reply text exactly when merged");
+        helper.assertTrue(LlmConfig.fakeForTesting().llmChatStreaming(),
+                "P42 fake/default config keeps streaming enabled for GUI E2E");
+        helper.succeed();
+    }
+
     private static void assertLegacyRoleBinding(GameTestHelper helper, String role, Identifier expectedDialogue, BlockPos pos) {
         EbbNpcEntity npc = helper.spawn(ModEntityTypes.NPC, pos);
         npc.addTag("ebb.npc");

@@ -73,7 +73,7 @@ public final class ModPackets {
                 context.server().executeIfPossible(() -> LlmChatService.handleMessage(context.player(), payload, context.responseSender()))
         );
         ServerPlayNetworking.registerGlobalReceiver(LlmChatCancelPayload.TYPE, (payload, context) ->
-                context.server().executeIfPossible(() -> LlmChatService.closeFromClient(context.player(), payload))
+                context.server().executeIfPossible(() -> LlmChatService.closeFromClient(context.player(), payload, context.responseSender()))
         );
     }
 

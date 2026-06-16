@@ -29,7 +29,7 @@
   "message.ebb.dialogue_choice_timeout": "Dialogue response timed out; choices were re-enabled. If this repeats, close/relaunch the client and check latest.log.",
   "key.ebb.menu": "Ebb Menu",
   "screen.ebb.menu.title": "Esoteric Ebb",
-  "screen.ebb.menu.subtitle": "Journal, quests, attributes, and reading settings",
+  "screen.ebb.menu.subtitle": "Journal, quests, attributes, LLM auth, and reading settings",
   "screen.ebb.menu.journal": "Open Journal",
   "screen.ebb.menu.quest": "Open Quest Tree",
   "screen.ebb.menu.attributes": "Show Attributes",
@@ -48,5 +48,18 @@
   "screen.ebb.llm_chat.error": "LLM chat error: %s",
   "message.ebb.llm_chat_network_unavailable": "LLM chat channel is not available on this server.",
   "message.ebb.llm_chat_error": "LLM chat error: %s",
-  "message.ebb.llm_chat_closed": "LLM chat closed: %s"
+  "message.ebb.llm_chat_closed": "LLM chat closed: %s",
+  "screen.ebb.menu.llm_auth_status_hint": "LLM auth status is server-side; status output redacts tokens.",
+  "screen.ebb.menu.llm_status": "LLM Auth Status",
+  "screen.ebb.menu.llm_auth": "LLM Login",
+  "screen.ebb.menu.llm_logout": "LLM Logout",
+  "screen.ebb.llm_chat.memory_hint": "Type the correction to player/NPC memory...",
+  "screen.ebb.llm_chat.return_to_script": "Return to Script",
+  "screen.ebb.llm_chat.memory_correction": "Correct Memory",
+  "screen.ebb.llm_chat.memory_on": "Memory: ON",
+  "screen.ebb.llm_chat.citations": "Citations",
+  "screen.ebb.llm_chat.citations_on": "Citations: ON",
+  "screen.ebb.llm_chat.citations_heading": "Dev citations",
+  "screen.ebb.llm_chat.no_citations": "No citations yet.",
+  "screen.ebb.llm_chat.timeout": "LLM chat timed out locally; controls are enabled again."
 }

@@ -8,6 +8,7 @@ import com.crpg.ebb.interaction.EntityTarget;
 import com.crpg.ebb.interaction.InteractionService;
 import com.crpg.ebb.interaction.InteractionTarget;
 import com.crpg.ebb.interaction.InteractionValidationResult;
+import com.crpg.ebb.llm.LlmChatSession;
 import com.crpg.ebb.llm.LlmChatService;
 import com.crpg.ebb.network.InteractionDeniedPayload;
 import com.crpg.ebb.network.OpenDialoguePayload;
@@ -255,6 +256,55 @@ public final class DialogueService {
     public static Optional<DialogueSession> currentSessionForPlayer(UUID playerUuid) {
         UUID conversationId = PLAYER_TO_SESSION.get(playerUuid);
         return conversationId == null ? Optional.empty() : Optional.ofNullable(SESSIONS.get(conversationId));
+    }
+
+    public static boolean reopenFromLlmChat(
+            ServerPlayer player,
+            LlmChatSession llmSession,
+            PacketSender responseSender,
+            String statusMessage
+    ) {
+        // P42 return-to-script path normally uses status "returned_from_llm_chat".
+        if (llmSession == null || !llmSession.playerUuid().equals(player.getUUID())) {
+            recordSecurityEvent("llm_return_player_mismatch");
+            return false;
+        }
+        Optional<DialogueDefinition> definition = DialogueRegistry.byId(llmSession.dialogueId());
+        if (definition.isEmpty()) {
+            recordSecurityEvent("llm_return_dialogue_missing");
+            return false;
+        }
+        Optional<DialogueNode> node = definition.get().node(llmSession.returnNodeId())
+                .or(() -> definition.get().node(llmSession.sourceNodeId()))
+                .or(definition.get()::startNode);
+        if (node.isEmpty()) {
+            recordSecurityEvent("llm_return_node_missing");
+            return false;
+        }
+        long gameTime = player.level().getGameTime();
+        closeExistingSession(player.getUUID());
+        DialogueSession session = new DialogueSession(
+                UUID.randomUUID(),
+                player.getUUID(),
+                llmSession.dialogueId(),
+                llmSession.targetId(),
+                llmSession.targetType(),
+                llmSession.entityUuid(),
+                node.get().id(),
+                gameTime
+        );
+        SESSIONS.put(session.conversationId(), session);
+        PLAYER_TO_SESSION.put(player.getUUID(), session.conversationId());
+        NarrativeSavedData state = NarrativeSavedData.get((ServerLevel) player.level());
+        responseSender.sendPacket(toOpenPayload(
+                session,
+                definition.get(),
+                node.get(),
+                state,
+                Optional.ofNullable(statusMessage).filter(value -> !value.isBlank()),
+                currentDayTime(player)
+        ));
+        return true;
     }
 
     public static ChoicePacketValidation validateChoicePacket(UUID playerUuid, UUID conversationId, long gameTime) {

@@ -1557,6 +1557,52 @@ final class DeepResearchDataTest {
         assertTrue(commands.contains("NpcProfileRegistry.byEntityBinding"));
     }
 
+    @Test
+    void p42LlmChatUiCompletionSurfacesAreAuditable() throws Exception {
+        List<String> chunks = LlmChatService.streamingChunks(
+                "This is a deliberately long fake reply for the streaming text verifier. "
+                        + "It should split into multiple chunks so the client can merge them into one visible NPC line.",
+                48
+        );
+        assertTrue(chunks.size() > 1, "P42 streaming helper should split long replies into multiple chunks");
+        assertEquals(String.join("", chunks), "This is a deliberately long fake reply for the streaming text verifier. "
+                + "It should split into multiple chunks so the client can merge them into one visible NPC line.");
+
+        String screen = Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java"));
+        assertTrue(screen.contains("appendNpcChunk"), "client should merge streaming NPC chunks instead of appending each chunk as a new line");
+        assertTrue(screen.contains("return_to_script"), "P42 requires a return-to-script button/action");
+        assertTrue(screen.contains("memory_correction"), "P42 requires a memory correction button/action");
+        assertTrue(screen.contains("renderCitationsOverlay"), "P42 requires a dev citations overlay");
+        assertTrue(screen.contains("CLIENT_REPLY_TIMEOUT_MS"), "P42 timeout/cancel/error handling should not leave controls stuck");
+        assertFalse(screen.contains("String.join(\", \", payload.citationIds())"),
+                "citations should be hidden behind the dev overlay instead of appended inline to every NPC line");
+
+        String service = Files.readString(Path.of("src/main/java/com/crpg/ebb/llm/LlmChatService.java"));
+        assertTrue(service.contains("sendStreamingNpcResponse"), "server should emit chunk payloads for streaming text");
+        assertTrue(service.contains("DialogueService.reopenFromLlmChat"), "server-authoritative return to scripted dialogue should be wired");
+        String dialogueService = Files.readString(Path.of("src/main/java/com/crpg/ebb/dialogue/DialogueService.java"));
+        assertTrue(dialogueService.contains("reopenFromLlmChat"), "DialogueService should reopen a scripted DialogueScreen from LLM chat metadata");
+
+        String menu = Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/menu/EbbMenuScreen.java"));
+        assertTrue(menu.contains("screen.ebb.menu.llm_auth_status_hint"));
+        assertTrue(menu.contains("ebb llm status"));
+        assertTrue(menu.contains("ebb llm auth"));
+
+        String gui = Files.readString(Path.of("scripts/gui_e2e_run.py"));
+        assertTrue(gui.contains("scenario_llm_chat"), "P42 GUI E2E scenario should be present");
+        assertTrue(gui.contains("llm_suggested_option_clicked"), "GUI E2E should click a suggested option");
+        assertTrue(gui.contains("llm_return_to_script"), "GUI E2E should exercise return to scripted dialogue");
+
+        CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+        Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
+        register.setAccessible(true);
+        register.invoke(null, dispatcher);
+        CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
+        requireCommandPath(ebb, "llm", "status");
+        requireCommandPath(ebb, "llm", "auth");
+        requireCommandPath(ebb, "llm", "logout");
+    }
+
     private static DialogueEffect parseEffect(String json) {
         return DialogueEffect.parse(JsonParser.parseString(json).getAsJsonObject(), "test.effect", new java.util.ArrayList<>()).orElseThrow();
     }

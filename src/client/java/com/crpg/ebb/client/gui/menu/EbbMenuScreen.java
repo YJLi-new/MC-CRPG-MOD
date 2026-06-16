@@ -14,9 +14,10 @@ public final class EbbMenuScreen extends Screen {
     private static final int PANEL_BORDER = 0xAA64E6FF;
     private static final int TITLE_COLOR = 0xFF64E6FF;
     private static final int TEXT_COLOR = 0xFFE8E8E8;
+    private static final int STATUS_COLOR = 0xFFFFD166;
     private static final int MUTED_COLOR = 0xFFAAAAAA;
     private static final int PANEL_WIDTH = 300;
-    private static final int PANEL_HEIGHT = 214;
+    private static final int PANEL_HEIGHT = 292;
 
     private String statusKey = "screen.ebb.menu.status.ready";
 
@@ -29,7 +30,7 @@ public final class EbbMenuScreen extends Screen {
         int left = (this.width - PANEL_WIDTH) / 2;
         int top = (this.height - PANEL_HEIGHT) / 2;
         int x = left + 20;
-        int y = top + 42;
+        int y = top + 54;
         int buttonWidth = PANEL_WIDTH - 40;
 
         addRenderableWidget(Button.builder(Component.translatable("screen.ebb.menu.journal"), button -> sendCommandAndClose("ebb journal"))
@@ -43,6 +44,15 @@ public final class EbbMenuScreen extends Screen {
         y += 24;
         addRenderableWidget(Button.builder(Component.translatable("screen.ebb.menu.vars"), button -> sendCommandAndClose("ebb vars"))
                 .bounds(x, y, buttonWidth, 20).build());
+        y += 28;
+
+        addRenderableWidget(Button.builder(Component.translatable("screen.ebb.menu.llm_status"), button -> sendCommandAndClose("ebb llm status"))
+                .bounds(x, y, buttonWidth, 20).build());
+        y += 24;
+        addRenderableWidget(Button.builder(Component.translatable("screen.ebb.menu.llm_auth"), button -> sendCommandAndClose("ebb llm auth"))
+                .bounds(x, y, (buttonWidth - 6) / 2, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("screen.ebb.menu.llm_logout"), button -> sendCommandAndClose("ebb llm logout"))
+                .bounds(x + (buttonWidth + 6) / 2, y, (buttonWidth - 6) / 2, 20).build());
         y += 28;
 
         addRenderableWidget(Button.builder(ClientDialogueSettings.fontScaleLabel(), button -> {
@@ -71,6 +81,7 @@ public final class EbbMenuScreen extends Screen {
         graphics.outline(left, top, PANEL_WIDTH, PANEL_HEIGHT, PANEL_BORDER);
         graphics.centeredText(this.font, this.title, this.width / 2, top + 10, TITLE_COLOR);
         graphics.centeredText(this.font, Component.translatable("screen.ebb.menu.subtitle"), this.width / 2, top + 24, MUTED_COLOR);
+        graphics.centeredText(this.font, Component.translatable("screen.ebb.menu.llm_auth_status_hint"), this.width / 2, top + 36, STATUS_COLOR);
         graphics.centeredText(this.font, Component.translatable(statusKey), this.width / 2, bottom - 16, TEXT_COLOR);
         super.extractRenderState(graphics, mouseX, mouseY, tickDelta);
     }

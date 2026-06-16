@@ -29,7 +29,7 @@
   "message.ebb.dialogue_choice_timeout": "等待服务器响应超时；已重新启用选项。如果反复出现，请完全关闭并重启客户端，然后检查 latest.log。",
   "key.ebb.menu": "Ebb 菜单",
   "screen.ebb.menu.title": "Esoteric Ebb",
-  "screen.ebb.menu.subtitle": "日志、任务、属性与阅读设置",
+  "screen.ebb.menu.subtitle": "日志、任务、属性、LLM 授权与阅读设置",
   "screen.ebb.menu.journal": "打开日志",
   "screen.ebb.menu.quest": "打开任务树",
   "screen.ebb.menu.attributes": "显示属性",
@@ -48,5 +48,18 @@
   "screen.ebb.llm_chat.error": "自由交谈错误：%s",
   "message.ebb.llm_chat_network_unavailable": "当前服务器未开放自由交谈通道。",
   "message.ebb.llm_chat_error": "自由交谈错误：%s",
-  "message.ebb.llm_chat_closed": "自由交谈关闭：%s"
+  "message.ebb.llm_chat_closed": "自由交谈关闭：%s",
+  "screen.ebb.menu.llm_auth_status_hint": "LLM 授权状态仅在服务器侧保存；状态输出会隐藏令牌。",
+  "screen.ebb.menu.llm_status": "LLM 授权状态",
+  "screen.ebb.menu.llm_auth": "LLM 登录",
+  "screen.ebb.menu.llm_logout": "LLM 登出",
+  "screen.ebb.llm_chat.memory_hint": "输入要纠正的玩家/NPC 记忆……",
+  "screen.ebb.llm_chat.return_to_script": "返回脚本对话",
+  "screen.ebb.llm_chat.memory_correction": "纠正记忆",
+  "screen.ebb.llm_chat.memory_on": "记忆纠正：开",
+  "screen.ebb.llm_chat.citations": "引用",
+  "screen.ebb.llm_chat.citations_on": "引用：开",
+  "screen.ebb.llm_chat.citations_heading": "开发引用",
+  "screen.ebb.llm_chat.no_citations": "暂无引用。",
+  "screen.ebb.llm_chat.timeout": "自由交谈在客户端超时；已重新启用控件。"
 }
