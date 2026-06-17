@@ -48,11 +48,25 @@ public final class OpenAiResponsesChatProvider implements GatewayChatProvider {
                             .schema(ResponseFormatTextJsonSchemaConfig.Schema.builder()
                                     .putAdditionalProperty("type", JsonValue.from("object"))
                                     .putAdditionalProperty("additionalProperties", JsonValue.from(false))
-                                    .putAdditionalProperty("required", JsonValue.from(List.of("npc_reply", "mood", "suggested_options", "citations", "warnings", "memory_writes")))
+                                    .putAdditionalProperty("required", JsonValue.from(List.of("npc_reply", "mood", "suggested_options", "memory_ops", "citations", "warnings", "memory_writes")))
                                     .putAdditionalProperty("properties", JsonValue.from(Map.of(
                                             "npc_reply", Map.of("type", "string"),
                                             "mood", Map.of("type", "string"),
                                             "suggested_options", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 4),
+                                            "memory_ops", Map.of("type", "array", "items", Map.of(
+                                                    "type", "object",
+                                                    "additionalProperties", false,
+                                                    "required", List.of("op", "kind", "text"),
+                                                    "properties", Map.of(
+                                                            "op", Map.of("type", "string"),
+                                                            "kind", Map.of("type", "string"),
+                                                            "text", Map.of("type", "string"),
+                                                            "subject", Map.of("type", "string"),
+                                                            "predicate", Map.of("type", "string"),
+                                                            "object", Map.of("type", "string"),
+                                                            "confidence", Map.of("type", "number")
+                                                    )
+                                            ), "maxItems", 6),
                                             "citations", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 8),
                                             "warnings", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 4),
                                             "memory_writes", Map.of("type", "array", "items", Map.of("type", "string"), "maxItems", 8)

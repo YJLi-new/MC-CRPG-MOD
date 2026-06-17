@@ -28,7 +28,7 @@ public final class NarrativeDataRegistries {
     public static final JsonDataRegistry ENTITY_BINDINGS = new JsonDataRegistry("entity binding", "interactions/entity_bindings");
     public static final JsonDataRegistry NPC_ROUTINES = new JsonDataRegistry("npc routine", "npc_routines");
     public static final JsonDataRegistry NPC_PROFILES = new JsonDataRegistry("npc profile", "npc_profiles");
-    public static final JsonDataRegistry NPC_KNOWLEDGE_PACKS = new JsonDataRegistry("npc knowledge pack", "npc_knowledge_packs");
+    public static final JsonDataRegistry NPC_KNOWLEDGE_PACKS = new JsonDataRegistry("npc knowledge pack", "npc_knowledge_packs", "npc_knowledge");
     public static final JsonDataRegistry ATTRIBUTES = new JsonDataRegistry("attribute", "attributes");
     public static final JsonDataRegistry QUEST_BRANCHES = new JsonDataRegistry("quest branch", "quest_branches");
     public static final JsonDataRegistry FEATS = new JsonDataRegistry("feat", "feats");

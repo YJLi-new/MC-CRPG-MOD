@@ -1,6 +1,7 @@
 package com.crpg.ebb.client.gui.menu;
 
 import com.crpg.ebb.client.gui.dialogue.ClientDialogueSettings;
+import com.crpg.ebb.client.gui.llm.LlmAuthStatusWidget;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -81,7 +82,7 @@ public final class EbbMenuScreen extends Screen {
         graphics.outline(left, top, PANEL_WIDTH, PANEL_HEIGHT, PANEL_BORDER);
         graphics.centeredText(this.font, this.title, this.width / 2, top + 10, TITLE_COLOR);
         graphics.centeredText(this.font, Component.translatable("screen.ebb.menu.subtitle"), this.width / 2, top + 24, MUTED_COLOR);
-        graphics.centeredText(this.font, Component.translatable("screen.ebb.menu.llm_auth_status_hint"), this.width / 2, top + 36, STATUS_COLOR);
+        LlmAuthStatusWidget.renderHint(graphics, this.font, this.width / 2, top + 36);
         graphics.centeredText(this.font, Component.translatable(statusKey), this.width / 2, bottom - 16, TEXT_COLOR);
         super.extractRenderState(graphics, mouseX, mouseY, tickDelta);
     }

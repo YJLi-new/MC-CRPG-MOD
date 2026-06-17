@@ -1778,3 +1778,36 @@
   - `python3 scripts/goal_static_audit.py` → pass.
   - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
 - Next: produce the requirement-by-requirement PLAN completion audit document, run the full mandatory verification suite, refresh artifact hashes/status, and only then decide whether the persistent goal is complete.
+
+### Phase 44 / final-suite first failure and fix
+- **Status:** fixing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- The first full `scripts/gradle-local.sh --no-daemon build` after the UI helper split failed in `DeepResearchDataTest.p42LlmChatUiCompletionSurfacesAreAuditable` because the test still searched only `EbbMenuScreen.java` for `screen.ebb.menu.llm_auth_status_hint` after the literal moved into `LlmAuthStatusWidget`.
+- Fixed the JUnit assertion to include `LlmAuthStatusWidget.java`; next action is to rerun build/full validation.
+
+### Phase 44 / final-suite safety audit failure and fix
+- **Status:** fixing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Full-suite rerun progressed through build, validateEbbData, gateway smoke, authoring validation, and static smoke checks, then failed in `scripts/p43_llm_safety_audit.py` because a temporary Phase44 strict-schema edit asked the OpenAI provider for direct `proposed_effects`.
+- Restored the P43 safety invariant: OpenAI structured output requests `memory_ops`/legacy `memory_writes` only; `GatewayChatResponse` still owns the sanitized `proposed_effects` field for future low-risk gateway-side advisory use, and Minecraft-side clients still ignore it.
+
+### Phase 44 / final-suite GameTest rate-limit isolation fix
+- **Status:** fixing.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Full validation reached `runGametestServer`; 12/14 tests passed but two required promotion tests failed because the shared GameTest world had already consumed the per-world-hour minor-promotion rate limit before those assertions.
+- Fixed the tests, not production logic: the two promotion tests now reset only their current world-hour promotion counter before asserting first-promotion behavior, preserving the production rate limiter while making GameTest isolation deterministic.
+
+### Phase 44 / PLAN.md completion audit final validation
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Created `docs/plan_completion_audit_2026-06-17.md`, a requirement-by-requirement audit of `/mnt/e/MC/PCL/PLAN.md`.
+- Final verification passed:
+  - `scripts/gradle-local.sh --no-daemon build` -> BUILD SUCCESSFUL.
+  - `sha256sum build/libs/ebb-0.1.0-dev.jar build/libs/ebb-0.1.0-dev-sources.jar` -> jar `57590ae1bc202644c24961f2d9ccd829873ed04843d15b617cefb32ce94cded9`, sources `f6a31d48944c44c3c7bf4e14285c6cb47b4b7c3458b1809e69eaaf33dcef15e9`.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData` -> BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` -> passed including gateway smoke, authoring validation, static audits, P43 safety audit, goal static audit, and GUI retest issue audit.
+  - `scripts/gradle-local.sh --no-daemon runGametestServer --args nogui` -> BUILD SUCCESSFUL; all 14 required GameTests passed.
+  - `scripts/run_gui_automation_smoke.sh` -> passed.
+  - `python3 scripts/p43_llm_safety_audit.py` -> passed.
+  - `git diff --check` -> passed.
+- Review/fix notes from final suite: updated stale P42 JUnit widget-location assertion, preserved the P43 no-direct-LLM-`proposed_effects` invariant, and isolated promotion GameTests from shared world-hour rate-limit counters without changing production limiter behavior.

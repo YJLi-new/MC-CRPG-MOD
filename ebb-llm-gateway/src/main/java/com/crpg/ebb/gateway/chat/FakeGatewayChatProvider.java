@@ -22,6 +22,8 @@ public class FakeGatewayChatProvider implements GatewayChatProvider {
                 "npc_reply", reply,
                 "mood", "guarded",
                 "suggested_options", List.of("继续追问", "换个角度", "结束自由交谈"),
+                "memory_ops", List.of(),
+                "proposed_effects", List.of(),
                 "citations", List.of("fake:profile:" + request.npcKey()),
                 "warnings", List.of(),
                 "memory_writes", memoryWrites(request)

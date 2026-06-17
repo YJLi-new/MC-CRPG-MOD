@@ -25,16 +25,12 @@ public final class NpcChatScreen extends Screen {
     private static final int PANEL_COLOR = 0xD0101018;
     private static final int PANEL_BORDER = 0xAA64E6FF;
     private static final int TITLE_COLOR = 0xFF64E6FF;
-    private static final int TEXT_COLOR = 0xFFE8E8E8;
-    private static final int PLAYER_COLOR = 0xFFFFFFFF;
-    private static final int NPC_COLOR = 0xFF86EFAC;
     private static final int STATUS_COLOR = 0xFFFFD166;
     private static final int MUTED_COLOR = 0xFFAAAAAA;
     private static final int CITATION_PANEL_COLOR = 0xC0002030;
     private static final int PANEL_MAX_WIDTH = 680;
     private static final int PANEL_MAX_HEIGHT = 438;
     private static final int PANEL_MARGIN = 16;
-    private static final int LINE_HEIGHT = 10;
     private static final long CLIENT_REPLY_TIMEOUT_MS = 35_000L;
     private static final AtomicLong NONCE = new AtomicLong(1L);
 
@@ -43,7 +39,7 @@ public final class NpcChatScreen extends Screen {
     private final String npcDisplayName;
     private final Optional<String> topicHint;
     private final int maxInputChars;
-    private final List<ChatLine> lines = new ArrayList<>();
+    private final List<NpcChatHistoryWidget.Entry> lines = new ArrayList<>();
     private List<String> suggestedOptions = List.of();
     private String status;
     private EditBox input;
@@ -62,7 +58,7 @@ public final class NpcChatScreen extends Screen {
         this.topicHint = payload.topicHint();
         this.status = payload.statusMessage();
         this.maxInputChars = payload.maxInputChars();
-        topicHint.ifPresent(topic -> lines.add(ChatLine.system(Component.translatable("screen.ebb.llm_chat.topic", topic))));
+        topicHint.ifPresent(topic -> lines.add(NpcChatHistoryWidget.Entry.system(Component.translatable("screen.ebb.llm_chat.topic", topic))));
     }
 
     public UUID conversationId() {
@@ -78,12 +74,8 @@ public final class NpcChatScreen extends Screen {
         int actionY = inputY - 24;
         int optionY = actionY - 24;
         int inputWidth = panelWidth() - PANEL_MARGIN * 2 - 82;
-        input = new EditBox(this.font, left + PANEL_MARGIN, inputY, inputWidth, 20, Component.translatable("screen.ebb.llm_chat.input"));
-        input.setMaxLength(Math.max(1, maxInputChars));
-        input.setSuggestion(Component.translatable(memoryCorrectionMode
-                ? "screen.ebb.llm_chat.memory_hint"
-                : "screen.ebb.llm_chat.input_hint").getString());
-        input.setEditable(!waitingForReply);
+        input = NpcChatInputWidget.create(this.font, left + PANEL_MARGIN, inputY, inputWidth, 20,
+                maxInputChars, memoryCorrectionMode, waitingForReply);
         addRenderableWidget(input);
         setInitialFocus(input);
 
@@ -133,7 +125,7 @@ public final class NpcChatScreen extends Screen {
             waitingSinceMillis = 0L;
             streamingNpcLineIndex = -1;
             status = "client_timeout";
-            lines.add(ChatLine.system(Component.translatable("screen.ebb.llm_chat.timeout")));
+            lines.add(NpcChatHistoryWidget.Entry.system(Component.translatable("screen.ebb.llm_chat.timeout")));
             ClientInteractionNetworking.sendLlmChatCancel(conversationId, "client_timeout");
             rebuildWidgets();
         }
@@ -154,7 +146,8 @@ public final class NpcChatScreen extends Screen {
         if (!status.isBlank()) {
             graphics.text(this.font, Component.literal(statusLabel(status)), left + PANEL_MARGIN, top + 38, STATUS_COLOR);
         }
-        renderHistory(graphics, left + PANEL_MARGIN, top + 54, panelWidth - PANEL_MARGIN * 2, Math.max(40, panelHeight - 172));
+        NpcChatHistoryWidget.render(graphics, this.font, lines,
+                left + PANEL_MARGIN, top + 54, panelWidth - PANEL_MARGIN * 2, Math.max(40, panelHeight - 172));
         if (showCitations) {
             renderCitationsOverlay(graphics, left + panelWidth - 230, top + 54, 214, Math.max(48, panelHeight - 172));
         }
@@ -188,7 +181,7 @@ public final class NpcChatScreen extends Screen {
 
     public void appendChunk(LlmChatChunkPayload payload) {
         if ("player".equals(payload.role())) {
-            lines.add(ChatLine.player(Component.literal(payload.content())));
+            lines.add(NpcChatHistoryWidget.Entry.player(Component.literal(payload.content())));
             streamingNpcLineIndex = -1;
         } else {
             appendNpcChunk(payload);
@@ -215,7 +208,7 @@ public final class NpcChatScreen extends Screen {
         waitingSinceMillis = 0L;
         streamingNpcLineIndex = -1;
         status = reason;
-        lines.add(ChatLine.system(Component.translatable("screen.ebb.llm_chat.error", reason)));
+        lines.add(NpcChatHistoryWidget.Entry.system(Component.translatable("screen.ebb.llm_chat.error", reason)));
         rebuildWidgets();
     }
 
@@ -231,12 +224,12 @@ public final class NpcChatScreen extends Screen {
         int index = streamingNpcLineIndex;
         if (index < 0 || index >= lines.size() || !"npc".equals(lines.get(index).role())) {
             index = lines.size();
-            lines.add(ChatLine.npc(Component.empty(), List.of(), true));
+            lines.add(NpcChatHistoryWidget.Entry.npc(Component.empty(), List.of(), true));
         }
-        ChatLine previous = lines.get(index);
+        NpcChatHistoryWidget.Entry previous = lines.get(index);
         Component text = previous.text().copy().append(Component.literal(payload.content()));
         List<String> citations = mergeCitations(previous.citationIds(), payload.citationIds());
-        lines.set(index, ChatLine.npc(text, citations, !payload.done()));
+        lines.set(index, NpcChatHistoryWidget.Entry.npc(text, citations, !payload.done()));
         streamingNpcLineIndex = payload.done() ? -1 : index;
     }
 
@@ -306,30 +299,6 @@ public final class NpcChatScreen extends Screen {
         status = newStatus;
     }
 
-    private void renderHistory(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
-        graphics.enableScissor(x, y, x + width, y + height);
-        int lineY = y;
-        List<ChatLine> visible = tail(lines, Math.max(1, height / (LINE_HEIGHT + 2)));
-        for (ChatLine line : visible) {
-            int color = switch (line.role()) {
-                case "player" -> PLAYER_COLOR;
-                case "npc" -> NPC_COLOR;
-                default -> MUTED_COLOR;
-            };
-            Component prefix = Component.literal(roleLabel(line.role()) + (line.streaming() ? " … " : ": ")).withStyle(ChatFormatting.BOLD);
-            Component text = Component.empty().append(prefix).append(line.text());
-            for (net.minecraft.util.FormattedCharSequence split : this.font.split(text, width)) {
-                if (lineY + LINE_HEIGHT > y + height) {
-                    break;
-                }
-                graphics.text(this.font, split, x, lineY, color);
-                lineY += LINE_HEIGHT + 2;
-            }
-            lineY += 2;
-        }
-        graphics.disableScissor();
-    }
-
     private void renderCitationsOverlay(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
         List<String> citations = recentCitations();
         graphics.fill(x, y, x + width, y + height, CITATION_PANEL_COLOR);
@@ -342,11 +311,11 @@ public final class NpcChatScreen extends Screen {
         }
         for (String citation : citations.subList(0, Math.min(8, citations.size()))) {
             for (net.minecraft.util.FormattedCharSequence split : this.font.split(Component.literal("• " + citation), width - 12)) {
-                if (lineY + LINE_HEIGHT > y + height - 6) {
+                if (lineY + NpcChatHistoryWidget.LINE_HEIGHT > y + height - 6) {
                     return;
                 }
                 graphics.text(this.font, split, x + 6, lineY, STATUS_COLOR);
-                lineY += LINE_HEIGHT + 2;
+                lineY += NpcChatHistoryWidget.LINE_HEIGHT + 2;
             }
         }
     }
@@ -371,21 +340,6 @@ public final class NpcChatScreen extends Screen {
             merged.addAll(next);
         }
         return List.copyOf(merged);
-    }
-
-    private static List<ChatLine> tail(List<ChatLine> values, int maxLines) {
-        if (values.size() <= maxLines) {
-            return values;
-        }
-        return values.subList(values.size() - maxLines, values.size());
-    }
-
-    private static String roleLabel(String role) {
-        return switch (role) {
-            case "player" -> "you";
-            case "npc" -> "npc";
-            default -> "system";
-        };
     }
 
     private static String statusLabel(String status) {
@@ -420,23 +374,5 @@ public final class NpcChatScreen extends Screen {
 
     private int panelTop() {
         return this.height - panelHeight() - 18;
-    }
-
-    private record ChatLine(String role, Component text, List<String> citationIds, boolean streaming) {
-        private ChatLine {
-            citationIds = citationIds == null ? List.of() : List.copyOf(citationIds);
-        }
-
-        static ChatLine player(Component text) {
-            return new ChatLine("player", text, List.of(), false);
-        }
-
-        static ChatLine npc(Component text, List<String> citationIds, boolean streaming) {
-            return new ChatLine("npc", text, citationIds, streaming);
-        }
-
-        static ChatLine system(Component text) {
-            return new ChatLine("system", text, List.of(), false);
-        }
     }
 }

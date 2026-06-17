@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 43 is complete with docs/schemas/static audits/JUnit/GameTest/GUI-E2E route validation; next work should perform a final requirement-by-requirement PLAN.md completion audit before claiming the whole goal complete.
+Phase 44 PLAN.md final completion audit and strict-surface cleanup is complete with full mandatory validation passing. The persistent goal can now be marked complete after confirming the current working tree evidence is committed/pushed as desired.
 
 ## Phases
 

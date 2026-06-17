@@ -1076,6 +1076,8 @@ Promoted minor NPC profiles are saved in world data (`promoted_npc_profiles`) an
 ### NPC knowledge packs / KB
 
 NPC knowledge packs live in `data/<namespace>/npc_knowledge_packs/<path>.json` and are validated against `docs/schemas/ebb.npc_knowledge.schema.json`.
+For compatibility with the PLAN.md naming, the reload listener also accepts the alias directory
+`data/<namespace>/npc_knowledge/<path>.json`; duplicate ids across the primary and alias directories are reported as validation messages.
 
 ```json
 {

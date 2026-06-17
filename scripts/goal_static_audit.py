@@ -1227,7 +1227,7 @@ def audit_p37_openai_responses_gateway_chat() -> None:
     require("P37 chat endpoint", gateway, "/v1/chat/message", "GatewayChatRequest.fromJson", "SimpleCircuitBreaker", "authService.tokenValid", "llm_circuit_open", "llm_gateway_error")
 
     openai = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/OpenAiResponsesChatProvider.java")
-    require("P37 OpenAI Responses provider", openai, "OpenAIClient", "OpenAIOkHttpClient.fromEnv", "ResponseCreateParams", "ResponseFormatTextJsonSchemaConfig", "createStreaming", "ResponseAccumulator", "store(request.store() && allowStore)", "maxOutputTokens")
+    require("P37 OpenAI Responses provider", openai, "OpenAIClient", "OpenAIOkHttpClient.fromEnv", "ResponseCreateParams", "ResponseFormatTextJsonSchemaConfig", "memory_ops", "createStreaming", "ResponseAccumulator", "store(request.store() && allowStore)", "maxOutputTokens")
     if "OPENAI_API_KEY" in openai or "sk-" in openai:
         raise AssertionError("P37 provider must not hard-code OpenAI secrets")
 
@@ -1339,7 +1339,7 @@ def audit_p39_memory_extraction_consolidation() -> None:
     gateway = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java")
     require("P39 gateway dev endpoints", gateway, "/v1/memory/episodes", "/v1/memory/lessons", "handleMemoryEpisodes", "handleMemoryLessons")
     prompt = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/GatewayChatRequest.java")
-    require("P39 chat prompt memory writes", prompt, "memory_writes", "fact:player.questioned_ledger=true", "lesson:")
+    require("P39 chat prompt memory writes", prompt, "memory_ops", "memory_writes", "fact:player.questioned_ledger=true", "lesson:")
     openai = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/OpenAiResponsesChatProvider.java")
     require("P39 structured memory writes", openai, "memory_writes", "HttpJson.stringArrayValue", "GatewayChatResponse")
     client = read("src/main/java/com/crpg/ebb/memory/MemoryGatewayClient.java")
@@ -1377,7 +1377,7 @@ def audit_p40_npc_knowledge_base_story_effects() -> None:
     ]:
         exists(f"src/main/resources/data/ebb/npc_knowledge_packs/demo/{pack}.json")
     registries = read("src/main/java/com/crpg/ebb/data/NarrativeDataRegistries.java")
-    require("P40 registry reload", registries, "NPC_KNOWLEDGE_PACKS", "npc_knowledge_packs", "NpcKnowledgeRegistry.rebuild", "NpcKnowledgeRegistry.summaryLine")
+    require("P40 registry reload", registries, "NPC_KNOWLEDGE_PACKS", "npc_knowledge_packs", "npc_knowledge", "NpcKnowledgeRegistry.rebuild", "NpcKnowledgeRegistry.summaryLine")
     definition = read("src/main/java/com/crpg/ebb/npc/knowledge/NpcKnowledgePackDefinition.java")
     require("P40 KB parser", definition, "reveal_conditions", "DialogueCondition.parse", "secret", "chunks", "visible")
     index = read("src/main/java/com/crpg/ebb/npc/knowledge/NpcKnowledgeIndex.java")
@@ -1432,11 +1432,13 @@ def audit_p42_llm_chat_ui_completion() -> None:
     require("P42 LLM chat UI streaming merge", screen, "appendNpcChunk", "streamingNpcLineIndex", "payload.done()", "CLIENT_REPLY_TIMEOUT_MS")
     require("P42 LLM chat UI controls", screen, "return_to_script", "memory_correction", "toggleMemoryCorrection", "renderCitationsOverlay", "citations_visible")
     require("P42 LLM chat citations overlay", screen, "recentCitations", "screen.ebb.llm_chat.citations_heading")
+    widgets = read("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatHistoryWidget.java") + read("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatInputWidget.java") + read("src/client/java/com/crpg/ebb/client/gui/llm/LlmAuthStatusWidget.java")
+    require("P42 LLM chat widget split", widgets, "NpcChatHistoryWidget", "NpcChatInputWidget", "LlmAuthStatusWidget", "renderHint", "memory_hint")
     service = read("src/main/java/com/crpg/ebb/llm/LlmChatService.java")
     require("P42 server streaming and return", service, "sendStreamingNpcResponse", "streamingChunks", "DialogueService.reopenFromLlmChat", "script_return_unavailable")
     dialogue_service = read("src/main/java/com/crpg/ebb/dialogue/DialogueService.java")
     require("P42 dialogue resume", dialogue_service, "reopenFromLlmChat", "returnNodeId", "toOpenPayload", "returned_from_llm_chat")
-    menu = read("src/client/java/com/crpg/ebb/client/gui/menu/EbbMenuScreen.java")
+    menu = read("src/client/java/com/crpg/ebb/client/gui/menu/EbbMenuScreen.java") + read("src/client/java/com/crpg/ebb/client/gui/llm/LlmAuthStatusWidget.java")
     require("P42 K menu LLM auth status", menu, "screen.ebb.menu.llm_auth_status_hint", "ebb llm status", "ebb llm auth", "ebb llm logout")
     networking = read("src/client/java/com/crpg/ebb/client/network/ClientInteractionNetworking.java")
     require("P42 cancel/send non-stuck feedback", networking, "sendLlmChatCancel", "message.ebb.llm_chat_network_unavailable", "Cannot send LLM chat cancel")

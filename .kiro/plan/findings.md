@@ -571,3 +571,8 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 - **Time:** 2026-06-17 Asia/Shanghai.
 - Implemented additional PLAN.md API/command contract surfaces found during audit: gateway profile/quota/chat-session/memory-correct/delete/knowledge endpoints, append-only memory correction audit, player-memory delete endpoint, `/ebb llm quota`, `/ebb llm consent view|revoke`, `/ebb llm auth_debug <player>`, `/ebb memory correct`, `/ebb memory export`, and `/ebb memory delete_player`.
 - Validation checkpoint passed: `scripts/gradle-local.sh --no-daemon compileJava` and `scripts/p36_gateway_smoke.sh`.
+
+### Phase 44 / final audit strict-surface cleanup — 2026-06-17
+- PLAN.md explicitly listed separate LLM chat UI helper classes (`NpcChatHistoryWidget`, `NpcChatInputWidget`, `LlmAuthStatusWidget`); the previous implementation kept this logic inside `NpcChatScreen`/K-menu. Split the rendering/input/status helper surfaces into named classes and updated the P42 static guardrail.
+- PLAN.md used `data/*/npc_knowledge/<path>.json` while the implemented registry used `npc_knowledge_packs`. Added a backward-compatible alias directory to `JsonDataRegistry`/`NarrativeDataRegistries` so both names are accepted and duplicate ids are reported instead of silently overridden.
+- Validation after cleanup: `scripts/gradle-local.sh --no-daemon compileJava compileClientJava` and `python3 scripts/goal_static_audit.py` passed.

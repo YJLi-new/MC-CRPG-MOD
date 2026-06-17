@@ -1642,7 +1642,8 @@ final class DeepResearchDataTest {
         String dialogueService = Files.readString(Path.of("src/main/java/com/crpg/ebb/dialogue/DialogueService.java"));
         assertTrue(dialogueService.contains("reopenFromLlmChat"), "DialogueService should reopen a scripted DialogueScreen from LLM chat metadata");
 
-        String menu = Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/menu/EbbMenuScreen.java"));
+        String menu = Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/menu/EbbMenuScreen.java"))
+                + Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/llm/LlmAuthStatusWidget.java"));
         assertTrue(menu.contains("screen.ebb.menu.llm_auth_status_hint"));
         assertTrue(menu.contains("ebb llm status"));
         assertTrue(menu.contains("ebb llm auth"));

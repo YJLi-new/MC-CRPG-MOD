@@ -17,14 +17,14 @@ This is the authoritative status snapshot for the active `minecraft_disco_crpg_m
 
 ## Latest built artifacts
 
-After the 2026-06-03 Phase 33 codebase-review remediation build, the current build artifact hashes are:
+After the 2026-06-17 Phase 44 PLAN.md final-audit cleanup build, the current build artifact hashes are:
 
 ```text
-7da6e7148c5cabba5b357ee183fddbfc293a227dd4b7c8520491ad85d15df576  build/libs/ebb-0.1.0-dev.jar
-7848b75ada4f5ff3a53922328a86ad8345bbb51e2bdadc0a6da1117a9bce761b  build/libs/ebb-0.1.0-dev-sources.jar
+57590ae1bc202644c24961f2d9ccd829873ed04843d15b617cefb32ce94cded9  build/libs/ebb-0.1.0-dev.jar
+f6a31d48944c44c3c7bf4e14285c6cb47b4b7c3458b1809e69eaaf33dcef15e9  build/libs/ebb-0.1.0-dev-sources.jar
 ```
 
-The separate `26.1.2-Fabric-Ebb-Test` profile was last GUI-refreshed for the earlier P32 jar until the next explicit client-test/profile-refresh step. If Java sources or resources change after this status file, rebuild, refresh the separate test profile, and update these hashes.
+The separate `26.1.2-Fabric-Ebb-Test` profile has earlier GUI evidence for P42; refresh it again only during explicitly requested client testing. If Java sources or resources change after this status file, rebuild and update these hashes.
 
 ## 2026-06-03 Phase 33 codebase review remediation snapshot
 
@@ -717,6 +717,7 @@ Implemented and validated the PLAN.md P40 NPC Knowledge Base and story-effects s
 - Added seven bundled demo `npc_knowledge_packs` matching the scripted NPC profile `initial_packs`.
 - `NpcKnowledgePackDefinition` parses chunk ids, text/content, tags, `secret`, and `reveal_conditions` through existing `DialogueCondition` semantics.
 - `NpcKnowledgeRegistry` reloads `data/*/npc_knowledge_packs`, contributes to `/ebb data` summary, and reports validation messages.
+- The same reload listener also accepts PLAN-compatible alias data under `data/*/npc_knowledge`; duplicate ids across both directories are validation errors instead of silent overrides.
 - `NpcKnowledgeIndex` provides deterministic local embedding-style scoring for query-ranked chunk retrieval.
 - `NpcKnowledgeService` assembles prompt context from visible chunks only, tracks hidden chunks for dev inspection, includes dynamic player-added NPC facts, and stores stance shifts in player/NPC state.
 - Dialogue story effects are now available: `npc_kb_add_fact`, `npc_kb_add_pack`, and `npc_stance_shift`.
@@ -900,3 +901,19 @@ Validation checkpoint after this remediation: `scripts/gradle-local.sh --no-daem
 Phase 44 payload follow-up: the explicit PLAN.md network-payload list is now represented by registered payload classes for auth start/status URL/status, NPC profile display sync, and OP memory debug snapshots in addition to the existing LLM chat payloads. Auth payloads are wired server-to-client with redacted status and no opaque token exposure.
 
 Phase 44 developer-tool follow-up: `/ebb kb add_pack <npc> <pack>` and `/ebb npc demote <npc_key>` were added to match PLAN.md's explicit dev tool command list. `demote` uses the same promoted-profile reset path as reject/regenerate so minor NPCs can be generated again on a later eligible chat.
+
+## Phase 44 PLAN.md final completion-audit cleanup
+
+Phase 44 strict-surface cleanup implemented during the final PLAN.md completion audit:
+
+- Split the LLM chat UI helper surfaces named by PLAN.md into `NpcChatHistoryWidget`, `NpcChatInputWidget`, and `LlmAuthStatusWidget`; `NpcChatScreen` and `EbbMenuScreen` now delegate to them.
+- Added a PLAN-compatible NPC knowledge alias directory: the reload listener accepts both `data/*/npc_knowledge_packs` and `data/*/npc_knowledge`, reporting duplicate ids as validation messages.
+- Updated the gateway structured prompt/schema to include validator-owned `memory_ops` while preserving the P43 safety invariant that the OpenAI provider does not request direct `proposed_effects` from the model.
+- Added `docs/plan_completion_audit_2026-06-17.md` as the requirement-by-requirement audit for `E:\MC\PCL\PLAN.md`.
+
+Phase 44 current artifact hashes after the build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         57590ae1bc202644c24961f2d9ccd829873ed04843d15b617cefb32ce94cded9
+build/libs/ebb-0.1.0-dev-sources.jar f6a31d48944c44c3c7bf4e14285c6cb47b4b7c3458b1809e69eaaf33dcef15e9
+```
