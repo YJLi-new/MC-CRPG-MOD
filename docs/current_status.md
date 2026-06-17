@@ -885,3 +885,18 @@ git diff --check                                           -> passed
 ```
 
 P43 status: complete. Next repository task is a final requirement-by-requirement audit of `E:\MC\PCL\PLAN.md` before declaring the overall persistent goal complete.
+
+## Phase 44 PLAN.md final-audit remediation checkpoint
+
+During the final requirement-by-requirement audit of `E:\MC\PCL\PLAN.md`, several explicit command/API contract surfaces were present in the plan text but not yet guarded by code/tests. The following were implemented before final completion can be claimed:
+
+- Gateway routes now include safe quota, NPC profile ensure/get/regenerate, chat start/session/cancel, memory ingest/correct/delete-player, and knowledge update/inspect surfaces in addition to the earlier health/auth/chat/message/memory search endpoints.
+- Minecraft commands now include `/ebb llm quota`, `/ebb llm consent view|revoke`, OP `/ebb llm auth_debug <player>`, `/ebb memory correct`, `/ebb memory export`, and `/ebb memory delete_player <player>`.
+- Memory correction is append-only: it creates an auditable correction/safety lesson rather than rewriting raw memories. Player memory deletion hard-deletes that player's gateway memory rows and dependents for the privacy requirement.
+- `GatewaySmoke`, `DeepResearchDataTest`, and `scripts/goal_static_audit.py` now guard these Phase 44 surfaces.
+
+Validation checkpoint after this remediation: `scripts/gradle-local.sh --no-daemon compileJava` and `scripts/p36_gateway_smoke.sh` passed. Full build/smoke/GameTest/hash refresh still must run before final goal completion can be considered.
+
+Phase 44 payload follow-up: the explicit PLAN.md network-payload list is now represented by registered payload classes for auth start/status URL/status, NPC profile display sync, and OP memory debug snapshots in addition to the existing LLM chat payloads. Auth payloads are wired server-to-client with redacted status and no opaque token exposure.
+
+Phase 44 developer-tool follow-up: `/ebb kb add_pack <npc> <pack>` and `/ebb npc demote <npc_key>` were added to match PLAN.md's explicit dev tool command list. `demote` uses the same promoted-profile reset path as reject/regenerate so minor NPCs can be generated again on a later eligible chat.

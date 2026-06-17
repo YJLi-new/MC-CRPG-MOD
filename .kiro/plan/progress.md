@@ -1762,3 +1762,19 @@
   - build jar: `1d2cfee8a3b323151c7eeda5c0c4c2201f0d97a67f1f8b7c4199d77aedafc1d8`.
   - sources jar: `6d867b388a9e16ce2cbc1c228de2c39576936b90ad044918544a714727590ee4`.
 - Next: perform a final requirement-by-requirement audit of all PLAN.md sections and acceptance table before considering the persistent goal complete.
+
+### Phase 44 / PLAN contract remediation validation checkpoint
+- **Status:** in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Remediated PLAN.md explicit surfaces discovered in final-audit scan:
+  - Added gateway endpoints for quota, NPC profile ensure/get/regenerate, chat start/session/cancel, memory ingest/correct/delete-player, and knowledge update/inspect.
+  - Added append-only memory correction audit and player-memory hard-delete helper in gateway `MemoryStore`.
+  - Added Minecraft commands `/ebb llm quota`, `/ebb llm consent view|revoke`, `/ebb llm auth_debug <player>`, `/ebb memory correct`, `/ebb memory export`, and `/ebb memory delete_player <player>`.
+  - Extended `GatewaySmoke`, `DeepResearchDataTest`, docs, and `scripts/goal_static_audit.py` to guard the new contract surfaces.
+- Validation completed after these edits:
+  - `scripts/gradle-local.sh --no-daemon compileJava` → BUILD SUCCESSFUL.
+  - `scripts/p36_gateway_smoke.sh` → BUILD SUCCESSFUL.
+  - `python3 -m py_compile scripts/goal_static_audit.py scripts/p43_llm_safety_audit.py scripts/gui_e2e_run.py` → pass.
+  - `python3 scripts/goal_static_audit.py` → pass.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` → BUILD SUCCESSFUL.
+- Next: produce the requirement-by-requirement PLAN completion audit document, run the full mandatory verification suite, refresh artifact hashes/status, and only then decide whether the persistent goal is complete.

@@ -1150,11 +1150,17 @@ def audit_p36_gateway_auth_minimal_service() -> None:
         "src/main/java/com/crpg/ebb/llm/auth/HttpLlmGatewayAuthClient.java",
         "src/main/java/com/crpg/ebb/llm/auth/DevLocalLlmAuthClient.java",
         "src/main/java/com/crpg/ebb/llm/auth/LlmAuthToken.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmAuthStartPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmAuthStatusRequestPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmAuthUrlPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/LlmAuthStatusPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/NpcProfileSyncPayload.java",
+        "src/main/java/com/crpg/ebb/network/llm/MemoryDebugSnapshotPayload.java",
     ]:
         exists(path)
 
     gateway = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java")
-    require("P36 gateway endpoints", gateway, "/v1/health", "/v1/auth/device/start", "/v1/auth/device/status", "/v1/auth/logout", "DeviceAuthService")
+    require("P36 gateway endpoints", gateway, "/v1/health", "/v1/auth/device/start", "/v1/auth/device/status", "/v1/auth/logout", "/v1/player/quota", "/v1/npc/profile/ensure", "/v1/chat/start", "/v1/chat/cancel", "/v1/chat/session", "/v1/knowledge/update", "DeviceAuthService")
     dev_provider = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DevLocalAuthProvider.java")
     require("P36 dev local auth provider", dev_provider, "dev_local", "llm:chat", "memory:read_self", "memory:write_self")
     oidc_provider = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java")
@@ -1162,7 +1168,7 @@ def audit_p36_gateway_auth_minimal_service() -> None:
     config = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayConfig.java")
     require("P36 gateway config", config, "EBB_GATEWAY_AUTH_PROVIDER", "keycloak", "auth0", "stytch", "createAuthProvider")
     smoke = read("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java")
-    require("P36 gateway smoke", smoke, "P36 gateway smoke passed", "/v1/health", "opaque_player_token", "/v1/auth/logout")
+    require("P36 gateway smoke", smoke, "P36 gateway smoke passed", "/v1/health", "/v1/player/quota", "/v1/npc/profile/ensure", "/v1/chat/start", "/v1/chat/cancel", "opaque_player_token", "/v1/auth/logout")
 
     llm_config = read("src/main/java/com/crpg/ebb/llm/LlmConfig.java")
     require("P36 LLM config auth fields", llm_config, "gateway_base_url", "gateway_timeout_ms", "require_player_auth", "DEFAULT_REQUIRE_PLAYER_AUTH", "toSafeJson")
@@ -1176,7 +1182,9 @@ def audit_p36_gateway_auth_minimal_service() -> None:
     llm_service = read("src/main/java/com/crpg/ebb/llm/LlmChatService.java")
     require("P36 chat auth gate", llm_service, "LlmAuthService.requiresAuth", "auth_required", "llm_auth_required", "llm_auth_required_message")
     commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
-    require("P36 llm auth commands", commands, "Commands.literal(\"auth\")", "Commands.literal(\"logout\")", "startLlmAuth", "logoutLlmAuth", "sendLlmAuthStartResult", "redactedSummary")
+    require("P36 llm auth commands", commands, "Commands.literal(\"auth\")", "Commands.literal(\"logout\")", "Commands.literal(\"quota\")", "Commands.literal(\"consent\")", "Commands.literal(\"auth_debug\")", "startLlmAuth", "logoutLlmAuth", "sendLlmQuota", "viewLlmConsent", "revokeLlmConsent", "sendLlmAuthStartResult", "redactedSummary")
+    packets = read("src/main/java/com/crpg/ebb/network/ModPackets.java")
+    require("P36 auth/profile/memory payload registration", packets, "LlmAuthStartPayload", "LlmAuthStatusRequestPayload", "LlmAuthUrlPayload", "LlmAuthStatusPayload", "NpcProfileSyncPayload", "MemoryDebugSnapshotPayload", "handleLlmAuthStart", "handleLlmAuthStatus")
 
     client_screen = read("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java")
     if "opaque_player_token" in client_screen or "redactedSummary" in client_screen:
@@ -1283,17 +1291,17 @@ def audit_p38_memory_store_mvp() -> None:
     require("P38 embedding write path", embedding, "DIMENSIONS", "embed", "serialize", "cosine", "fnv1a")
 
     gateway = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java")
-    require("P38 memory endpoints", gateway, "/v1/memory/search", "/v1/memory/inspect", "/v1/memory/conflicts", "memoryStore.appendTurn", "citation_ids")
+    require("P38 memory endpoints", gateway, "/v1/memory/search", "/v1/memory/inspect", "/v1/memory/conflicts", "/v1/memory/ingest", "/v1/memory/correct", "/v1/memory/player", "memoryStore.appendTurn", "memoryStore.correctFact", "memoryStore.deletePlayer", "citation_ids")
     config = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayConfig.java")
     require("P38 memory DB config", config, "EBB_MEMORY_DB_URL", "createMemoryStore", "MemoryStore")
 
     smoke = read("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java")
-    require("P38 gateway smoke", smoke, "P38 memory smoke passed", "/v1/memory/search", "/v1/memory/inspect", "/v1/memory/conflicts", "favorite=blue", "favorite=red", "citation_ids")
+    require("P38 gateway smoke", smoke, "P38 memory smoke passed", "/v1/memory/search", "/v1/memory/inspect", "/v1/memory/conflicts", "/v1/memory/correct", "/v1/memory/player", "favorite=blue", "favorite=red", "citation_ids", "append_only")
 
     client = read("src/main/java/com/crpg/ebb/memory/MemoryGatewayClient.java")
-    require("P38 Minecraft memory gateway client", client, "/v1/memory/search", "/v1/memory/inspect", "/v1/memory/conflicts", "citationIds", "memory_gateway_error")
+    require("P38 Minecraft memory gateway client", client, "/v1/memory/search", "/v1/memory/inspect", "/v1/memory/conflicts", "/v1/memory/correct", "/v1/memory/player", "/v1/player/quota", "citationIds", "memory_gateway_error")
     commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
-    require("P38 memory commands", commands, "Commands.literal(\"memory\")", "Commands.literal(\"search\")", "Commands.literal(\"inspect\")", "Commands.literal(\"conflicts\")", "MemoryGatewayClient")
+    require("P38 memory commands", commands, "Commands.literal(\"memory\")", "Commands.literal(\"search\")", "Commands.literal(\"inspect\")", "Commands.literal(\"conflicts\")", "Commands.literal(\"correct\")", "Commands.literal(\"export\")", "Commands.literal(\"delete_player\")", "MemoryGatewayClient")
 
     docs = read("docs/json_authoring_guide.md")
     require("P38 authoring docs", docs, "P38 MemoryStore MVP", "/v1/memory/search", "/ebb memory search", "fact:player.favorite=blue", "citation ids")
@@ -1379,7 +1387,7 @@ def audit_p40_npc_knowledge_base_story_effects() -> None:
     effect = read("src/main/java/com/crpg/ebb/dialogue/DialogueEffect.java")
     require("P40 story effects", effect, "NPC_KB_ADD_FACT", "NPC_KB_ADD_PACK", "NPC_STANCE_SHIFT", "NpcKnowledgeService.addFact", "NpcKnowledgeService.addPack", "NpcKnowledgeService.shiftStance")
     commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
-    require("P40 KB inspect command", commands, "Commands.literal(\"kb\")", "Commands.literal(\"inspect\")", "inspectNpcKnowledge", "NpcKnowledgeService.inspectLines", "/ebb kb inspect <npc>")
+    require("P40 KB inspect/add command", commands, "Commands.literal(\"kb\")", "Commands.literal(\"inspect\")", "Commands.literal(\"add_pack\")", "inspectNpcKnowledge", "addNpcKnowledgePack", "NpcKnowledgeService.inspectLines", "NpcKnowledgeService.addPack", "/ebb kb inspect <npc>")
     innkeeper_pack = read("src/main/resources/data/ebb/npc_knowledge_packs/demo/innkeeper_private_ledger.json")
     require("P40 hidden/revealed demo secret", innkeeper_pack, "secret_ledger_tenant_cash", "tenant paid cash", "reveal_conditions", "ebb:demo/guestbook_gap")
     fake = read("src/main/java/com/crpg/ebb/llm/FakeLlmGatewayClient.java")
@@ -1410,7 +1418,7 @@ def audit_p41_minor_npc_instant_generation() -> None:
     dialogue = read("src/main/resources/data/ebb/dialogues/llm/minor_intro.json")
     require("P41 minor chat dialogue", dialogue, "llm_chat", "first conversation with a minor tavern NPC", "allow_memory_write")
     commands = read("src/main/java/com/crpg/ebb/registry/ModCommands.java")
-    require("P41 OP review/reject/regenerate commands", commands, "Commands.literal(\"minorize\")", "Commands.literal(\"promote\")", "Commands.literal(\"review\")", "Commands.literal(\"reject_profile\")", "Commands.literal(\"regenerate_profile\")", "devReviewLines")
+    require("P41 OP review/reject/regenerate/demote commands", commands, "Commands.literal(\"minorize\")", "Commands.literal(\"promote\")", "Commands.literal(\"review\")", "Commands.literal(\"reject_profile\")", "Commands.literal(\"regenerate_profile\")", "Commands.literal(\"demote\")", "devReviewLines")
     docs = read("docs/json_authoring_guide.md") + read("docs/current_status.md")
     require("P41 docs", docs, "P41 Minor NPC instant generation", "NpcProfileGenerator", "knowledge_seed", "suggested_options", "rate limit", "/ebb npc reject_profile")
     test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")

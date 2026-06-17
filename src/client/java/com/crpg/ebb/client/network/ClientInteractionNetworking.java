@@ -18,6 +18,8 @@ import com.crpg.ebb.network.dialogue.DialogueUpdatePayload;
 import com.crpg.ebb.network.sync.BlockGroupSyncPayload;
 import com.crpg.ebb.network.sync.EntityBindingSyncPayload;
 import com.crpg.ebb.network.sync.EntityTargetSyncPayload;
+import com.crpg.ebb.network.llm.LlmAuthStatusPayload;
+import com.crpg.ebb.network.llm.LlmAuthUrlPayload;
 import com.crpg.ebb.network.llm.LlmChatCancelPayload;
 import com.crpg.ebb.network.llm.LlmChatChunkPayload;
 import com.crpg.ebb.network.llm.LlmChatClosePayload;
@@ -73,6 +75,12 @@ public final class ClientInteractionNetworking {
         );
         ClientPlayNetworking.registerGlobalReceiver(EntityTargetSyncPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> ClientEntityTargetIndex.rebuild(payload.targets()))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(LlmAuthUrlPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> showLlmAuthUrl(context.client(), payload))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(LlmAuthStatusPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> showLlmAuthStatus(context.client(), payload))
         );
         ClientPlayNetworking.registerGlobalReceiver(LlmChatOpenedPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> context.client().setScreen(new NpcChatScreen(payload)))
@@ -252,5 +260,23 @@ public final class ClientInteractionNetworking {
                 && screen.conversationId().equals(payload.conversationId())) {
             screen.closeFromServer(payload.reason());
         }
+    }
+
+    private static void showLlmAuthUrl(Minecraft minecraft, LlmAuthUrlPayload payload) {
+        if (minecraft.player == null) {
+            return;
+        }
+        minecraft.player.sendSystemMessage(Component.literal("Ebb LLM auth provider=" + payload.provider()
+                + " code=" + payload.userCode()
+                + " url=" + payload.verificationUrl()));
+    }
+
+    private static void showLlmAuthStatus(Minecraft minecraft, LlmAuthStatusPayload payload) {
+        if (minecraft.player == null) {
+            return;
+        }
+        String detail = payload.redactedSummary().isBlank() ? payload.error() : payload.redactedSummary();
+        minecraft.player.sendSystemMessage(Component.literal("Ebb LLM auth status=" + payload.status()
+                + (detail.isBlank() ? "" : " " + detail)));
     }
 }

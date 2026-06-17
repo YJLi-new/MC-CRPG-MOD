@@ -112,6 +112,19 @@ public final class ModCommands {
                                 .executes(context -> startLlmAuth(context.getSource())))
                         .then(Commands.literal("logout")
                                 .executes(context -> logoutLlmAuth(context.getSource())))
+                        .then(Commands.literal("quota")
+                                .executes(context -> sendLlmQuota(context.getSource())))
+                        .then(Commands.literal("consent")
+                                .then(Commands.literal("view")
+                                        .executes(context -> viewLlmConsent(context.getSource())))
+                                .then(Commands.literal("revoke")
+                                        .executes(context -> revokeLlmConsent(context.getSource()))))
+                        .then(Commands.literal("auth_debug")
+                                .requires(EbbCommandPermissionGuards.dev())
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(context -> sendLlmAuthDebug(
+                                                context.getSource(),
+                                                EntityArgument.getPlayer(context, "player")))))
                         .then(Commands.literal("reload_config")
                                 .requires(EbbCommandPermissionGuards.dev())
                                 .executes(context -> reloadLlmConfig(context.getSource()))))
@@ -134,7 +147,21 @@ public final class ModCommands {
                         .then(Commands.literal("episodes")
                                 .executes(context -> showMemoryEpisodes(context.getSource(), 25)))
                         .then(Commands.literal("lessons")
-                                .executes(context -> showMemoryLessons(context.getSource(), 25))))
+                                .executes(context -> showMemoryLessons(context.getSource(), 25)))
+                        .then(Commands.literal("correct")
+                                .then(Commands.argument("fact_id", StringArgumentType.word())
+                                        .then(Commands.argument("new_value", StringArgumentType.greedyString())
+                                                .executes(context -> correctMemoryFact(
+                                                        context.getSource(),
+                                                        StringArgumentType.getString(context, "fact_id"),
+                                                        StringArgumentType.getString(context, "new_value"))))))
+                        .then(Commands.literal("export")
+                                .executes(context -> exportMemorySummary(context.getSource())))
+                        .then(Commands.literal("delete_player")
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(context -> deletePlayerMemory(
+                                                context.getSource(),
+                                                EntityArgument.getPlayer(context, "player"))))))
                 .then(Commands.literal("kb")
                         .requires(EbbCommandPermissionGuards.dev())
                         .then(Commands.literal("inspect")
@@ -145,9 +172,16 @@ public final class ModCommands {
                                                 ""))
                                         .then(Commands.argument("query", StringArgumentType.greedyString())
                                                 .executes(context -> inspectNpcKnowledge(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "npc"),
+                                                StringArgumentType.getString(context, "query"))))))
+                        .then(Commands.literal("add_pack")
+                                .then(Commands.argument("npc", StringArgumentType.string())
+                                        .then(Commands.argument("pack", StringArgumentType.string())
+                                                .executes(context -> addNpcKnowledgePack(
                                                         context.getSource(),
                                                         StringArgumentType.getString(context, "npc"),
-                                                        StringArgumentType.getString(context, "query")))))))
+                                                        StringArgumentType.getString(context, "pack")))))))
                 .then(createAttributesCommand("attributes"))
                 .then(createAttributesCommand("attr"))
                 .then(Commands.literal("dev")
@@ -228,6 +262,11 @@ public final class ModCommands {
                                                 context.getSource(),
                                                 EntityArgument.getEntity(context, "entity")))))
                         .then(Commands.literal("regenerate_profile")
+                                .then(Commands.argument("npc_key", StringArgumentType.string())
+                                        .executes(context -> resetPromotedProfile(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "npc_key")))))
+                        .then(Commands.literal("demote")
                                 .then(Commands.argument("npc_key", StringArgumentType.string())
                                         .executes(context -> resetPromotedProfile(
                                                 context.getSource(),
@@ -389,6 +428,58 @@ public final class ModCommands {
         return 1;
     }
 
+    private static int correctMemoryFact(CommandSourceStack source, String factId, String newValue) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory correct requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        new MemoryGatewayClient(config).correct(factId, newValue).thenAccept(result -> source.getServer().execute(() -> {
+            if (result.contains("\"error\"")) {
+                source.sendFailure(Component.literal("Ebb memory correction failed: " + result));
+            } else {
+                source.sendSuccess(() -> Component.literal("Ebb memory correction accepted: " + result), true);
+            }
+        }));
+        source.sendSuccess(() -> Component.literal("Ebb memory correction requested for " + factId + "."), false);
+        return 1;
+    }
+
+    private static int exportMemorySummary(CommandSourceStack source) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory export requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        MemoryGatewayClient client = new MemoryGatewayClient(config);
+        client.episodes(50).thenAccept(episodes -> source.getServer().execute(() ->
+                source.sendSuccess(() -> Component.literal("Ebb memory export episodes: " + episodes), false)));
+        client.conflicts(50).thenAccept(conflicts -> source.getServer().execute(() ->
+                source.sendSuccess(() -> Component.literal("Ebb memory export conflicts: " + conflicts), false)));
+        client.lessons(50).thenAccept(lessons -> source.getServer().execute(() ->
+                source.sendSuccess(() -> Component.literal("Ebb memory export safety lessons: " + lessons), false)));
+        source.sendSuccess(() -> Component.literal("Ebb memory export requested from gateway (episodes/conflicts/lessons)."), false);
+        return 1;
+    }
+
+    private static int deletePlayerMemory(CommandSourceStack source, ServerPlayer target) {
+        LlmConfig config = LlmConfig.current();
+        if (!config.networkAccessAllowed()) {
+            source.sendFailure(Component.literal("Ebb memory delete_player requires LLM gateway mode and gateway_base_url."));
+            return 0;
+        }
+        new MemoryGatewayClient(config).deletePlayer(target.getUUID()).thenAccept(result -> source.getServer().execute(() -> {
+            if (result.contains("\"error\"")) {
+                source.sendFailure(Component.literal("Ebb memory delete_player failed: " + result));
+            } else {
+                source.sendSuccess(() -> Component.literal("Ebb memory delete_player complete for "
+                        + target.getName().getString() + ": " + result), true);
+            }
+        }));
+        source.sendSuccess(() -> Component.literal("Ebb memory delete_player requested for " + target.getName().getString() + "."), true);
+        return 1;
+    }
+
     private static int inspectNpcKnowledge(CommandSourceStack source, String npcKey, String query) {
         ServerPlayer player = source.getPlayer();
         if (player == null) {
@@ -404,6 +495,18 @@ public final class ModCommands {
         return lines.size();
     }
 
+    private static int addNpcKnowledgePack(CommandSourceStack source, String npcKey, String packId) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("/ebb kb add_pack <npc> <pack> can only be used by a player because KB visibility is player-scoped."));
+            return 0;
+        }
+        NarrativeSavedData state = NarrativeSavedData.get((ServerLevel) player.level());
+        String result = NpcKnowledgeService.addPack(state, player.getUUID(), npcKey, packId);
+        source.sendSuccess(() -> Component.literal("Ebb KB add_pack: " + result), true);
+        return 1;
+    }
+
     private static int sendLlmStatus(CommandSourceStack source) {
         source.sendSuccess(() -> Component.literal(LlmChatService.statusLine()), false);
         source.sendSuccess(() -> Component.literal("Config path: " + LlmConfig.SERVER_CONFIG_PATH
@@ -414,6 +517,62 @@ public final class ModCommands {
             LlmAuthService.pollDeviceAuth(player).thenAccept(status -> source.getServer().execute(() -> sendLlmAuthStatusResult(source, status, false)));
         }
         return LlmChatService.activeSessionCount();
+    }
+
+    private static int sendLlmQuota(CommandSourceStack source) {
+        LlmConfig config = LlmConfig.current();
+        ServerPlayer player = source.getPlayer();
+        source.sendSuccess(() -> Component.literal("Ebb LLM quota/local limits: max_input_chars=" + config.maxInputChars()
+                + " max_output_chars=" + config.maxOutputChars()
+                + " rate_limit_per_minute=" + config.rateLimitPerMinute()
+                + " session_timeout_ticks=" + config.sessionTimeoutTicks()
+                + " mode=" + config.mode().serializedName()
+                + " network=" + config.networkAccessAllowed()), false);
+        if (config.networkAccessAllowed()) {
+            UUID playerUuid = player == null ? null : player.getUUID();
+            new MemoryGatewayClient(config).quota(playerUuid).thenAccept(result -> source.getServer().execute(() -> {
+                if (result.contains("\"error\"")) {
+                    source.sendFailure(Component.literal("Ebb LLM gateway quota failed: " + result));
+                } else {
+                    source.sendSuccess(() -> Component.literal("Ebb LLM gateway quota: " + result), false);
+                }
+            }));
+            source.sendSuccess(() -> Component.literal("Ebb LLM gateway quota requested."), false);
+        }
+        return config.rateLimitPerMinute();
+    }
+
+    private static int viewLlmConsent(CommandSourceStack source) {
+        source.sendSuccess(() -> Component.literal("Ebb LLM consent notice:"), false);
+        source.sendSuccess(() -> Component.literal("自由交谈会把你的输入、NPC 标识、场景摘要和可见记忆片段发送到 Ebb LLM gateway 处理。"), false);
+        source.sendSuccess(() -> Component.literal("原始对话可能保存为本服务器 NPC 记忆；可用 /ebb llm logout 或 /ebb llm consent revoke 退出，OP 可用 /ebb memory delete_player 删除关联记忆。"), false);
+        source.sendSuccess(() -> Component.literal("Secrets/API keys never go to the Minecraft client; tokens are server-side and redacted."), false);
+        ServerPlayer player = source.getPlayer();
+        if (player != null) {
+            source.sendSuccess(() -> Component.literal("Current auth consent state: "
+                    + LlmAuthService.safeStatusLine(player.getUUID())), false);
+        }
+        return 1;
+    }
+
+    private static int revokeLlmConsent(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null) {
+            source.sendFailure(Component.literal("/ebb llm consent revoke can only be used by a player."));
+            return 0;
+        }
+        LlmAuthService.logout(player).thenAccept(revoked -> source.getServer().execute(() ->
+                source.sendSuccess(() -> Component.literal("Ebb LLM consent revoked for this server session; gateway_revoked=" + revoked
+                        + ". Ask an OP to run /ebb memory delete_player <player> if you also want stored gateway memories removed."), false)));
+        return 1;
+    }
+
+    private static int sendLlmAuthDebug(CommandSourceStack source, ServerPlayer target) {
+        Map<String, String> snapshot = LlmAuthService.debugSnapshot(target.getUUID());
+        source.sendSuccess(() -> Component.literal("Ebb LLM auth_debug for " + target.getName().getString()), false);
+        snapshot.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry ->
+                source.sendSuccess(() -> Component.literal("- " + entry.getKey() + "=" + entry.getValue()), false));
+        return snapshot.size();
     }
 
     private static int startLlmAuth(CommandSourceStack source) {

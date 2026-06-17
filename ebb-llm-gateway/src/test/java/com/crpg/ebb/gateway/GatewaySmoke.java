@@ -44,6 +44,10 @@ public final class GatewaySmoke {
             require(health.contains("\"status\":\"ok\""), "health should be ok: " + health);
             require(health.contains("dev_local"), "health should report dev_local provider: " + health);
 
+            String quota = send(client, HttpRequest.newBuilder(base.resolve("/v1/player/quota")).GET().build());
+            require(quota.contains("\"status\":\"ok\"") && quota.contains("llm:chat"),
+                    "quota endpoint should expose safe limits/scopes: " + quota);
+
             String start = send(client, HttpRequest.newBuilder(base.resolve("/v1/auth/device/start"))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString("{\"minecraft_uuid\":\"00000000-0000-0000-0000-000000000123\",\"server_id\":\"smoke\"}"))
@@ -56,6 +60,36 @@ public final class GatewaySmoke {
             require(status.contains("\"status\":\"authenticated\""), "dev local should authenticate on poll: " + status);
             String token = HttpJson.stringValue(status, "opaque_player_token").orElseThrow();
             require(token.startsWith("ebb_player_"), "gateway should return only an opaque Ebb token: " + status);
+
+            String profile = send(client, HttpRequest.newBuilder(base.resolve("/v1/npc/profile/ensure"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of(
+                            "world_id", "smoke-world",
+                            "npc_key", "ebb:demo/innkeeper",
+                            "entity_type", "minecraft:villager",
+                            "display_name", "Smoke Innkeeper"
+                    ))))
+                    .build());
+            require(profile.contains("\"status\":\"ok\"") && profile.contains("Smoke Innkeeper"),
+                    "profile ensure endpoint should return deterministic profile data: " + profile);
+            String fetchedProfile = send(client, HttpRequest.newBuilder(base.resolve("/v1/npc/profile/smoke-world/ebb:demo/innkeeper")).GET().build());
+            require(fetchedProfile.contains("Smoke Innkeeper"), "profile get endpoint should return ensured profile: " + fetchedProfile);
+
+            String chatStart = send(client, HttpRequest.newBuilder(base.resolve("/v1/chat/start"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of(
+                            "server_id", "smoke",
+                            "world_id", "smoke-world",
+                            "minecraft_player_uuid", "00000000-0000-0000-0000-000000000123",
+                            "npc_key", "ebb:demo/innkeeper",
+                            "conversation_id", "gateway-start-smoke"
+                    ))))
+                    .build());
+            require(chatStart.contains("gateway-start-smoke") && chatStart.contains("\"open\""),
+                    "chat start/session should be recorded: " + chatStart);
+            String chatSession = send(client, HttpRequest.newBuilder(base.resolve("/v1/chat/session/gateway-start-smoke")).GET().build());
+            require(chatSession.contains("\"status\":\"ok\"") && chatSession.contains("gateway-start-smoke"),
+                    "chat session endpoint should expose the started session: " + chatSession);
 
             Map<String, Object> chatBody = new LinkedHashMap<>();
             chatBody.put("server_id", "smoke");
@@ -120,6 +154,19 @@ public final class GatewaySmoke {
             String conflicts = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/conflicts?server_id=smoke&world_id=smoke-world&limit=5")).GET().build());
             require(conflicts.contains("favorite") && conflicts.contains("blue") && conflicts.contains("red"),
                     "changed fact should create a supersede/conflict record: " + conflicts);
+            String factId = HttpJson.stringValue(conflicts, "new_fact_id").orElse("");
+            if (!factId.isBlank()) {
+                String correction = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/correct"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of(
+                                "fact_id", factId,
+                                "new_value", "green",
+                                "reason", "smoke correction"
+                        ))))
+                        .build());
+                require(correction.contains("\"accepted\":true") && correction.contains("append_only"),
+                        "memory correction should append an audit lesson rather than mutating raw memory: " + correction);
+            }
 
             chatBody.put("conversation_id", "smoke-conversation-4");
             chatBody.put("message", "我是旅馆老板");
@@ -160,6 +207,35 @@ public final class GatewaySmoke {
             require(episodes.contains("raw_episode") && episodes.contains("summary"),
                     "episodes endpoint should expose raw episodes and summaries: " + episodes);
 
+            String ingest = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/ingest"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of(
+                            "server_id", "smoke",
+                            "world_id", "smoke-world",
+                            "event", "manual-audit"
+                    ))))
+                    .build());
+            require(ingest.contains("\"accepted\":true"), "memory ingest route should be present and auditable: " + ingest);
+            String kbUpdate = send(client, HttpRequest.newBuilder(base.resolve("/v1/knowledge/update"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of(
+                            "npc_key", "ebb:demo/innkeeper",
+                            "fact", "smoke_fact",
+                            "reason", "smoke"
+                    ))))
+                    .build());
+            require(kbUpdate.contains("\"accepted\":true"), "knowledge update route should accept audited updates: " + kbUpdate);
+            String kbInspect = send(client, HttpRequest.newBuilder(base.resolve("/v1/knowledge/npc/ebb:demo/innkeeper")).GET().build());
+            require(kbInspect.contains("smoke_fact"), "knowledge npc route should return audited updates: " + kbInspect);
+            String cancel = send(client, HttpRequest.newBuilder(base.resolve("/v1/chat/cancel"))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of(
+                            "conversation_id", "gateway-start-smoke",
+                            "reason", "smoke_done"
+                    ))))
+                    .build());
+            require(cancel.contains("\"cancelled\":true"), "chat cancel route should cancel tracked sessions: " + cancel);
+
             String logout = send(client, HttpRequest.newBuilder(base.resolve("/v1/auth/logout"))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(HttpJson.object(Map.of("opaque_player_token", token))))
@@ -176,6 +252,10 @@ public final class GatewaySmoke {
                     ))))
                     .build(), HttpResponse.BodyHandlers.ofString());
             require(denied.statusCode() == 401, "revoked token should be rejected by chat endpoint: " + denied.statusCode() + " " + denied.body());
+
+            String deleted = send(client, HttpRequest.newBuilder(base.resolve("/v1/memory/player/00000000-0000-0000-0000-000000000123")).DELETE().build());
+            require(deleted.contains("\"deleted\":true") && deleted.contains("\"records\""),
+                    "memory delete_player should delete/exportable player memory rows: " + deleted);
         }
         GatewayConfig mockConfig = GatewayConfig.fromEnv(Map.of("EBB_GATEWAY_CHAT_PROVIDER", "mock_openai_responses", "EBB_MEMORY_DB_URL", "jdbc:h2:mem:mock_gateway;DB_CLOSE_DELAY=-1"));
         require("mock_openai_responses".equals(mockConfig.createChatProvider().providerName()),

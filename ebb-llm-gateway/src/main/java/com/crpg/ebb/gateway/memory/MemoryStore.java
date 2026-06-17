@@ -252,6 +252,106 @@ public final class MemoryStore {
         return List.copyOf(values);
     }
 
+    public Map<String, Object> correctFact(String factId, String newValue, String reason) {
+        if (factId == null || factId.isBlank() || newValue == null || newValue.isBlank()) {
+            return Map.of("status", "error", "accepted", false, "error", "fact_id_and_new_value_required");
+        }
+        try (Connection connection = connect()) {
+            Optional<MemoryFact> fact = factById(connection, factId);
+            if (fact.isEmpty()) {
+                return Map.of("status", "error", "accepted", false, "error", "fact_not_found", "fact_id", factId);
+            }
+            long now = Instant.now().toEpochMilli();
+            MemorySafetyLesson correction = new MemorySafetyLesson(
+                    id("memcorr"),
+                    now,
+                    fact.get().serverId(),
+                    fact.get().worldId(),
+                    fact.get().subject(),
+                    "manual memory correction requested for " + factId + ": "
+                            + fact.get().value() + " -> " + newValue
+                            + " (" + blank(reason, "manual_correction") + ")",
+                    fact.get().recordId(),
+                    "",
+                    fact.get().citationId(),
+                    "active"
+            );
+            insertSafetyLesson(connection, correction);
+            return Map.of(
+                    "status", "ok",
+                    "accepted", true,
+                    "append_only", true,
+                    "fact_id", factId,
+                    "correction_lesson_id", correction.id()
+            );
+        } catch (SQLException ex) {
+            return Map.of("status", "error", "accepted", false, "error", "memory_correction_failed");
+        }
+    }
+
+    public Map<String, Object> deletePlayer(String playerUuid) {
+        if (playerUuid == null || playerUuid.isBlank()) {
+            return Map.of("status", "error", "deleted", false, "error", "player_uuid_required");
+        }
+        try (Connection connection = connect()) {
+            connection.setAutoCommit(false);
+            List<String> recordIds = new ArrayList<>();
+            List<String> factIds = new ArrayList<>();
+            try (PreparedStatement records = connection.prepareStatement("SELECT id FROM memory_records WHERE minecraft_player_uuid = ?")) {
+                records.setString(1, playerUuid);
+                try (ResultSet rs = records.executeQuery()) {
+                    while (rs.next()) {
+                        recordIds.add(rs.getString(1));
+                    }
+                }
+            }
+            if (!recordIds.isEmpty()) {
+                try (PreparedStatement facts = connection.prepareStatement("SELECT id FROM memory_facts WHERE record_id = ?")) {
+                    for (String recordId : recordIds) {
+                        facts.setString(1, recordId);
+                        try (ResultSet rs = facts.executeQuery()) {
+                            while (rs.next()) {
+                                factIds.add(rs.getString(1));
+                            }
+                        }
+                    }
+                }
+            }
+            int deletedConflicts = 0;
+            for (String factId : factIds) {
+                deletedConflicts += deleteWhere(connection, "DELETE FROM memory_conflicts WHERE old_fact_id = ? OR new_fact_id = ?", factId, factId);
+            }
+            int deletedFacts = 0;
+            int deletedOperations = 0;
+            int deletedSummaries = 0;
+            int deletedLinks = 0;
+            int deletedLessons = 0;
+            for (String recordId : recordIds) {
+                deletedFacts += deleteWhere(connection, "DELETE FROM memory_facts WHERE record_id = ?", recordId);
+                deletedOperations += deleteWhere(connection, "DELETE FROM memory_operations WHERE record_id = ?", recordId);
+                deletedSummaries += deleteWhere(connection, "DELETE FROM memory_summaries WHERE record_id = ?", recordId);
+                deletedLinks += deleteWhere(connection, "DELETE FROM memory_links WHERE source_record_id = ? OR target_record_id = ?", recordId, recordId);
+                deletedLessons += deleteWhere(connection, "DELETE FROM memory_safety_lessons WHERE source_record_id = ?", recordId);
+            }
+            int deletedRecords = deleteWhere(connection, "DELETE FROM memory_records WHERE minecraft_player_uuid = ?", playerUuid);
+            connection.commit();
+            return Map.of(
+                    "status", "ok",
+                    "deleted", true,
+                    "player_uuid", playerUuid,
+                    "records", deletedRecords,
+                    "facts", deletedFacts,
+                    "conflicts", deletedConflicts,
+                    "operations", deletedOperations,
+                    "summaries", deletedSummaries,
+                    "links", deletedLinks,
+                    "safety_lessons", deletedLessons
+            );
+        } catch (SQLException ex) {
+            return Map.of("status", "error", "deleted", false, "error", "memory_delete_player_failed");
+        }
+    }
+
     public Map<String, Object> summary() {
         try (Connection connection = connect()) {
             return Map.of(
@@ -268,6 +368,21 @@ public final class MemoryStore {
             );
         } catch (SQLException ex) {
             return Map.of("status", "error", "error", "memory_summary_failed");
+        }
+    }
+
+    private int deleteWhere(Connection connection, String sql, String first) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, first);
+            return ps.executeUpdate();
+        }
+    }
+
+    private int deleteWhere(Connection connection, String sql, String first, String second) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, first);
+            ps.setString(2, second);
+            return ps.executeUpdate();
         }
     }
 

@@ -1140,6 +1140,27 @@ final class DeepResearchDataTest {
             exchange.getResponseBody().write(bytes);
             exchange.close();
         });
+        server.createContext("/v1/memory/correct", exchange -> {
+            String response = "{\"status\":\"ok\",\"accepted\":true,\"append_only\":true,\"correction_lesson_id\":\"memcorr_test\"}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.createContext("/v1/memory/player", exchange -> {
+            String response = "{\"status\":\"ok\",\"deleted\":true,\"records\":1}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.createContext("/v1/player/quota", exchange -> {
+            String response = "{\"status\":\"ok\",\"scopes\":[\"llm:chat\",\"memory:delete_self\"],\"max_output_tokens\":700}";
+            byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
         server.start();
         try {
             LlmConfig config = new LlmConfig(true, LlmMode.GATEWAY, "http://127.0.0.1:" + server.getAddress().getPort(), 1500, false,
@@ -1153,6 +1174,9 @@ final class DeepResearchDataTest {
             assertTrue(client.conflicts(5).get(3, TimeUnit.SECONDS).contains("memconf_test"));
             assertTrue(client.episodes(5).get(3, TimeUnit.SECONDS).contains("raw_episode"));
             assertTrue(client.lessons(5).get(3, TimeUnit.SECONDS).contains("canonical owner remains innkeeper"));
+            assertTrue(client.correct("memfact_test", "green").get(3, TimeUnit.SECONDS).contains("\"append_only\":true"));
+            assertTrue(client.deletePlayer(UUID.randomUUID()).get(3, TimeUnit.SECONDS).contains("\"deleted\":true"));
+            assertTrue(client.quota(UUID.randomUUID()).get(3, TimeUnit.SECONDS).contains("llm:chat"));
         } finally {
             server.stop(0);
         }
@@ -1177,11 +1201,18 @@ final class DeepResearchDataTest {
         assertTrue(gateway.contains("/v1/memory/conflicts"));
         assertTrue(gateway.contains("/v1/memory/episodes"));
         assertTrue(gateway.contains("/v1/memory/lessons"));
+        assertTrue(gateway.contains("/v1/memory/ingest"));
+        assertTrue(gateway.contains("/v1/memory/correct"));
+        assertTrue(gateway.contains("/v1/memory/player"));
+        assertTrue(gateway.contains("deletePlayer"));
+        assertTrue(gateway.contains("correctFact"));
         String smoke = Files.readString(Path.of("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java"));
         assertTrue(smoke.contains("P38 memory smoke passed"));
         assertTrue(smoke.contains("P39 memory consolidation smoke passed"));
         assertTrue(smoke.contains("canonical owner remains innkeeper"));
         assertTrue(smoke.contains("questioned_ledger"));
+        assertTrue(smoke.contains("/v1/memory/correct"));
+        assertTrue(smoke.contains("/v1/memory/player"));
 
         CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
         Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
@@ -1193,6 +1224,9 @@ final class DeepResearchDataTest {
         requireCommandPath(ebb, "memory", "conflicts");
         requireCommandPath(ebb, "memory", "episodes");
         requireCommandPath(ebb, "memory", "lessons");
+        requireCommandPath(ebb, "memory", "correct", "fact_id", "new_value");
+        requireCommandPath(ebb, "memory", "export");
+        requireCommandPath(ebb, "memory", "delete_player", "player");
     }
 
     @Test
@@ -1274,6 +1308,7 @@ final class DeepResearchDataTest {
         CommandNode<CommandSourceStack> ebb = requireChild(dispatcher.getRoot(), "ebb");
         requireCommandPath(ebb, "kb", "inspect", "npc");
         requireCommandPath(ebb, "kb", "inspect", "npc", "query");
+        requireCommandPath(ebb, "kb", "add_pack", "npc", "pack");
     }
 
     @Test
@@ -1314,6 +1349,7 @@ final class DeepResearchDataTest {
         requireCommandPath(ebb, "npc", "review", "npc_key");
         requireCommandPath(ebb, "npc", "reject_profile", "npc_key");
         requireCommandPath(ebb, "npc", "regenerate_profile", "npc_key");
+        requireCommandPath(ebb, "npc", "demote", "npc_key");
 
         String service = Files.readString(Path.of("src/main/java/com/crpg/ebb/npc/profile/NpcPromotionService.java"));
         assertTrue(service.contains("MAX_PROMOTIONS_PER_WORLD_HOUR"));
@@ -1456,6 +1492,12 @@ final class DeepResearchDataTest {
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java",
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DevLocalAuthProvider.java",
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java",
+                "src/main/java/com/crpg/ebb/network/llm/LlmAuthStartPayload.java",
+                "src/main/java/com/crpg/ebb/network/llm/LlmAuthStatusRequestPayload.java",
+                "src/main/java/com/crpg/ebb/network/llm/LlmAuthUrlPayload.java",
+                "src/main/java/com/crpg/ebb/network/llm/LlmAuthStatusPayload.java",
+                "src/main/java/com/crpg/ebb/network/llm/NpcProfileSyncPayload.java",
+                "src/main/java/com/crpg/ebb/network/llm/MemoryDebugSnapshotPayload.java",
                 "scripts/p36_gateway_smoke.sh")) {
             assertTrue(Files.isRegularFile(Path.of(rel)), "P36 file should exist: " + rel);
         }
@@ -1463,9 +1505,22 @@ final class DeepResearchDataTest {
         assertTrue(gateway.contains("/v1/health"));
         assertTrue(gateway.contains("/v1/auth/device/start"));
         assertTrue(gateway.contains("/v1/auth/device/status"));
+        assertTrue(gateway.contains("/v1/player/quota"));
+        assertTrue(gateway.contains("/v1/npc/profile/ensure"));
+        assertTrue(gateway.contains("/v1/chat/start"));
+        assertTrue(gateway.contains("/v1/chat/cancel"));
+        assertTrue(gateway.contains("/v1/chat/session"));
+        assertTrue(gateway.contains("/v1/knowledge/update"));
 
         String clientScreen = Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java"));
         assertFalse(clientScreen.contains("opaque_player_token"), "client UI must not know or log opaque player tokens");
+        String packets = Files.readString(Path.of("src/main/java/com/crpg/ebb/network/ModPackets.java"));
+        assertTrue(packets.contains("LlmAuthStartPayload"));
+        assertTrue(packets.contains("LlmAuthStatusRequestPayload"));
+        assertTrue(packets.contains("LlmAuthUrlPayload"));
+        assertTrue(packets.contains("LlmAuthStatusPayload"));
+        assertTrue(packets.contains("NpcProfileSyncPayload"));
+        assertTrue(packets.contains("MemoryDebugSnapshotPayload"));
 
         CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
         Method register = ModCommands.class.getDeclaredMethod("registerEbbCommand", CommandDispatcher.class);
@@ -1475,6 +1530,10 @@ final class DeepResearchDataTest {
         requireCommandPath(ebb, "llm", "auth");
         requireCommandPath(ebb, "llm", "status");
         requireCommandPath(ebb, "llm", "logout");
+        requireCommandPath(ebb, "llm", "quota");
+        requireCommandPath(ebb, "llm", "consent", "view");
+        requireCommandPath(ebb, "llm", "consent", "revoke");
+        requireCommandPath(ebb, "llm", "auth_debug", "player");
     }
 
     @Test

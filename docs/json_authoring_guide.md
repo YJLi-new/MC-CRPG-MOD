@@ -1152,3 +1152,40 @@ LLM/gateway `memory_writes` are proposals.  They pass through deterministic vali
 - JUnit: `p43TestingEvaluationAndSafetyGatesAreAuditable` covers memory conflict evidence, promotion persistence, prompt/KB pack assembly, docs/schemas, and GUI route markers.
 - GameTest: `p43FakeChatMinorPromotionAndRelationshipDeltaAreDeterministic` covers fake-provider chat, minor promotion persistence, and relationship delta state in a headless Minecraft server.
 - GUI E2E: `scripts/gui_e2e_run.py --scenario llm_validation` documents auth-disabled/status, fake chat, and gateway dry-run routes; use `--gui` for a live client run.
+
+## Phase 44 final PLAN contract additions
+
+The final PLAN.md audit tightened several command/API surfaces that were described in the plan but were not part of the earlier P34-P43 minimum checks.
+
+Player/OP command additions:
+
+- `/ebb llm quota` prints local rate/session limits and, in gateway mode, requests `/v1/player/quota`.
+- `/ebb llm consent view` prints the LLM/memory consent notice and the redacted server-side auth state.
+- `/ebb llm consent revoke` logs the player out and explains the separate memory-delete command.
+- `/ebb llm auth_debug <player>` is OP/dev-only and redacts token values.
+- `/ebb memory correct <fact_id> <new_value>` sends an append-only correction request to the gateway.
+- `/ebb memory export` requests episodes, conflicts, and safety lessons from the gateway for OP/dev inspection.
+- `/ebb memory delete_player <player>` calls the gateway privacy-delete endpoint for that player's memory rows.
+
+Gateway route additions:
+
+```text
+GET    /v1/player/quota
+POST   /v1/npc/profile/ensure
+GET    /v1/npc/profile/{world_id}/{npc_key}
+POST   /v1/npc/profile/regenerate
+POST   /v1/chat/start
+GET    /v1/chat/session/{session_id}
+POST   /v1/chat/cancel
+POST   /v1/memory/ingest
+POST   /v1/memory/correct
+DELETE /v1/memory/player/{player_uuid}
+POST   /v1/knowledge/update
+GET    /v1/knowledge/npc/{npc_key}
+```
+
+The correction route is intentionally append-only: it records an auditable correction/safety lesson instead of mutating the raw episode. The player-delete route is the privacy escape hatch and removes the player's gateway memory records plus dependent facts, conflicts, operations, summaries, links, and safety lessons.
+
+Network-payload note: PLAN.md's auth/profile/debug payload contract is represented by `LlmAuthStartPayload`, `LlmAuthStatusRequestPayload`, `LlmAuthUrlPayload`, `LlmAuthStatusPayload`, `NpcProfileSyncPayload`, and `MemoryDebugSnapshotPayload`.  Auth status payloads contain only redacted summaries; raw gateway tokens remain server-side.
+
+Developer command note: OP/devs can now run `/ebb kb add_pack <npc> <pack>` to add a player-visible NPC knowledge pack tag, and `/ebb npc demote <npc_key>` to remove a promoted profile so it can be regenerated later.

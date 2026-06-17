@@ -551,3 +551,23 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 - P43's “high-risk effects not allowed from LLM direct output” is best enforced in two layers: gateway `GatewayChatResponse.sanitizeProposedEffects` rejects high-authority proposal strings, and Minecraft `HttpLlmGatewayClient` still ignores `proposed_effects` entirely so no direct LLM output mutates server state.
 - `scripts/p43_llm_safety_audit.py` intentionally scans tracked and currently untracked non-ignored files so it remains useful before commit, not only after `git add`.
 - GUI E2E P43 uses `llm_validation` as a dry-run-capable route. In non-GUI mode it writes only manifests/reports inside `CRPG_MOD`; profile-local config writes happen only with explicit `--gui` client testing.
+
+### Phase 44 / PLAN.md final audit extraction started
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Re-read planning context and current git state; repository is clean at `e350d5d` before Phase 44 edits.
+- Began deriving explicit requirements from `/mnt/e/MC/PCL/PLAN.md` headings and sections 0-2.3. Key requirement families: server-authoritative/free LLM chat, major/minor NPC tiering and deterministic promotion, no client/API secret exposure, OAuth/OIDC gateway auth, chat UI streaming/cancel/citations/corrections, six-layer append-only memory, fact conflict/supersede rules, and NPC profile/knowledge authoring.
+
+### Phase 44 / PLAN.md requirement families extracted
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Finished reading `/mnt/e/MC/PCL/PLAN.md` sections 2.4-16.
+- Additional requirement families: NPC profile/knowledge JSON and story effects, standalone gateway with auth/device and OpenAI Responses path, mod-side LLM packages/payloads/configs, prompt structured-output and post-validation, memory-store DB/migration with append-only records/facts/conflicts and hybrid retrieval, no hidden KB/API keys in client sync, dialogue/relationship/quest integration, OP dev memory/profile/KB tooling, privacy/consent/cost controls, phase P34-P43 acceptance gates, authoring examples, prompt templates, and final mandatory build/validate/smoke/GameTest checks.
+
+### Phase 44 / evidence scan initial result
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Current code contains the major PLAN.md implementation families: `llm`, `network/llm`, `npc/profile`, `npc/knowledge`, gateway auth/chat/memory packages, six demo NPC profiles, seven KB packs, minor villager binding, LLM dialogue choice, and P43 schemas/audits.
+- Initial gap candidates from comparing PLAN.md wording with runtime surfaces: `/ebb llm quota` and consent commands are not visible in `ModCommands`; gateway routes currently show health/auth/logout/chat/message/memory search/inspect/conflicts/episodes/lessons but not the full optional route list (`/v1/player/quota`, npc profile endpoints, chat start/cancel/session, memory correct/delete, knowledge update). Need decide which are required for final PLAN completion and implement or document verified deferral only if PLAN treats them as non-MVP.
+
+### Phase 44 / first gap remediation checkpoint
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented additional PLAN.md API/command contract surfaces found during audit: gateway profile/quota/chat-session/memory-correct/delete/knowledge endpoints, append-only memory correction audit, player-memory delete endpoint, `/ebb llm quota`, `/ebb llm consent view|revoke`, `/ebb llm auth_debug <player>`, `/ebb memory correct`, `/ebb memory export`, and `/ebb memory delete_player`.
+- Validation checkpoint passed: `scripts/gradle-local.sh --no-daemon compileJava` and `scripts/p36_gateway_smoke.sh`.

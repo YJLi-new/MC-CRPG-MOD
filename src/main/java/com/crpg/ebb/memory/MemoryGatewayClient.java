@@ -110,6 +110,54 @@ public final class MemoryGatewayClient {
                 .exceptionally(error -> "memory_gateway_error");
     }
 
+    public CompletableFuture<String> quota(UUID playerUuid) {
+        if (baseUrl.isBlank()) {
+            return CompletableFuture.completedFuture("gateway_url_missing");
+        }
+        String suffix = playerUuid == null ? "" : "?minecraft_uuid=" + URLEncoder.encode(playerUuid.toString(), StandardCharsets.UTF_8);
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/player/quota" + suffix))
+                .timeout(timeout)
+                .GET()
+                .build();
+        return CompletableFuture.supplyAsync(() -> send(request))
+                .orTimeout(timeout.toMillis() + 1000L, TimeUnit.MILLISECONDS)
+                .exceptionally(error -> "memory_gateway_error");
+    }
+
+    public CompletableFuture<String> correct(String factId, String newValue) {
+        if (baseUrl.isBlank()) {
+            return CompletableFuture.completedFuture("gateway_url_missing");
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("fact_id", factId == null ? "" : factId);
+        body.addProperty("new_value", newValue == null ? "" : newValue);
+        body.addProperty("reason", "minecraft_dev_command");
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/correct"))
+                .timeout(timeout)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+                .build();
+        return CompletableFuture.supplyAsync(() -> send(request))
+                .orTimeout(timeout.toMillis() + 1000L, TimeUnit.MILLISECONDS)
+                .exceptionally(error -> "memory_gateway_error");
+    }
+
+    public CompletableFuture<String> deletePlayer(UUID playerUuid) {
+        if (baseUrl.isBlank()) {
+            return CompletableFuture.completedFuture("gateway_url_missing");
+        }
+        if (playerUuid == null) {
+            return CompletableFuture.completedFuture("{\"error\":\"player_uuid_required\"}");
+        }
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/player/" + URLEncoder.encode(playerUuid.toString(), StandardCharsets.UTF_8)))
+                .timeout(timeout)
+                .DELETE()
+                .build();
+        return CompletableFuture.supplyAsync(() -> send(request))
+                .orTimeout(timeout.toMillis() + 1000L, TimeUnit.MILLISECONDS)
+                .exceptionally(error -> "memory_gateway_error");
+    }
+
     private String send(HttpRequest request) {
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
