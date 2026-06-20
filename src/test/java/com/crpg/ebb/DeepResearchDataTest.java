@@ -1241,9 +1241,12 @@ final class DeepResearchDataTest {
         assertTrue(extractor.contains("questioned_ledger"));
         assertTrue(extractor.contains("我是旅馆老板"));
         String validator = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/DeterministicMemoryValidator.java"));
-        assertTrue(validator.contains("CANONICAL_FACTS"));
-        assertTrue(validator.contains("tavern"));
-        assertTrue(validator.contains("owner"));
+        String authorityPolicy = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryAuthorityPolicy.java"));
+        assertTrue(validator.contains("canonicalFact"));
+        assertTrue(authorityPolicy.contains("SYSTEM_CANON"));
+        assertTrue(authorityPolicy.contains("PLAYER_CLAIM"));
+        assertTrue(authorityPolicy.contains("tavern"));
+        assertTrue(authorityPolicy.contains("owner"));
         String store = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryStore.java"));
         assertTrue(store.contains("llmExtractor.propose"));
         assertTrue(store.contains("validator.validate"));
@@ -1492,6 +1495,7 @@ final class DeepResearchDataTest {
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java",
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DevLocalAuthProvider.java",
                 "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java",
+                "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/CodexCliAuthProvider.java",
                 "src/main/java/com/crpg/ebb/network/llm/LlmAuthStartPayload.java",
                 "src/main/java/com/crpg/ebb/network/llm/LlmAuthStatusRequestPayload.java",
                 "src/main/java/com/crpg/ebb/network/llm/LlmAuthUrlPayload.java",
@@ -1511,6 +1515,11 @@ final class DeepResearchDataTest {
         assertTrue(gateway.contains("/v1/chat/cancel"));
         assertTrue(gateway.contains("/v1/chat/session"));
         assertTrue(gateway.contains("/v1/knowledge/update"));
+        String codexProvider = Files.readString(Path.of("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/CodexCliAuthProvider.java"));
+        assertTrue(codexProvider.contains("openai_codex"));
+        assertTrue(codexProvider.contains("login --device-auth"));
+        assertTrue(codexProvider.contains("CODEX_HOME"));
+        assertTrue(codexProvider.contains("extractDeviceCodeInfo"));
 
         String clientScreen = Files.readString(Path.of("src/client/java/com/crpg/ebb/client/gui/llm/NpcChatScreen.java"));
         assertFalse(clientScreen.contains("opaque_player_token"), "client UI must not know or log opaque player tokens");

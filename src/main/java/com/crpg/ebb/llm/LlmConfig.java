@@ -27,6 +27,9 @@ public record LlmConfig(
         int maxOutputChars,
         int sessionTimeoutTicks,
         int rateLimitPerMinute,
+        String serverId,
+        String worldIdStrategy,
+        String worldIdOverride,
         String fakeReply
 ) {
     public static final Path SERVER_CONFIG_PATH = Path.of("config", "ebb-llm-server.json");
@@ -40,6 +43,7 @@ public record LlmConfig(
     public static final int DEFAULT_MAX_OUTPUT_CHARS = 700;
     public static final int DEFAULT_SESSION_TIMEOUT_TICKS = 20 * 60;
     public static final int DEFAULT_RATE_LIMIT_PER_MINUTE = 20;
+    public static final String DEFAULT_WORLD_ID_STRATEGY = "level_directory_hash";
     public static final String DEFAULT_FAKE_REPLY = "FAKE_NPC_REPLY: I can hear you, but this is the deterministic fake LLM provider.";
     private static final Gson GSON = new Gson();
     private static volatile LlmConfig overrideForTesting;
@@ -54,6 +58,9 @@ public record LlmConfig(
         maxOutputChars = clamp(maxOutputChars, 64, 4096);
         sessionTimeoutTicks = clamp(sessionTimeoutTicks, 20, 20 * 60 * 30);
         rateLimitPerMinute = clamp(rateLimitPerMinute, 1, 120);
+        serverId = serverId == null ? "" : serverId.strip();
+        worldIdStrategy = worldIdStrategy == null || worldIdStrategy.isBlank() ? DEFAULT_WORLD_ID_STRATEGY : worldIdStrategy.strip();
+        worldIdOverride = worldIdOverride == null ? "" : worldIdOverride.strip();
         fakeReply = fakeReply == null || fakeReply.isBlank() ? DEFAULT_FAKE_REPLY : fakeReply.strip();
         if (!enabled) {
             mode = LlmMode.DISABLED;
@@ -64,16 +71,27 @@ public record LlmConfig(
         }
     }
 
+    public LlmConfig(boolean enabled, LlmMode mode, String gatewayUrl, int gatewayTimeoutMs, boolean requirePlayerAuth,
+                     String defaultChatModel, boolean llmChatStreaming, boolean structuredOutput, boolean openAiStore,
+                     int maxInputChars, int maxOutputChars, int sessionTimeoutTicks, int rateLimitPerMinute,
+                     String fakeReply) {
+        this(enabled, mode, gatewayUrl, gatewayTimeoutMs, requirePlayerAuth, defaultChatModel, llmChatStreaming,
+                structuredOutput, openAiStore, maxInputChars, maxOutputChars, sessionTimeoutTicks, rateLimitPerMinute,
+                "", DEFAULT_WORLD_ID_STRATEGY, "", fakeReply);
+    }
+
     public static LlmConfig disabled() {
         return new LlmConfig(false, LlmMode.DISABLED, "", DEFAULT_GATEWAY_TIMEOUT_MS, DEFAULT_REQUIRE_PLAYER_AUTH,
                 DEFAULT_CHAT_MODEL, DEFAULT_LLM_CHAT_STREAMING, DEFAULT_STRUCTURED_OUTPUT, DEFAULT_OPENAI_STORE,
-                DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
+                DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE,
+                "", DEFAULT_WORLD_ID_STRATEGY, "", DEFAULT_FAKE_REPLY);
     }
 
     public static LlmConfig fakeForTesting() {
         return new LlmConfig(true, LlmMode.FAKE, "", DEFAULT_GATEWAY_TIMEOUT_MS, false,
                 DEFAULT_CHAT_MODEL, DEFAULT_LLM_CHAT_STREAMING, DEFAULT_STRUCTURED_OUTPUT, DEFAULT_OPENAI_STORE,
-                DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE, DEFAULT_FAKE_REPLY);
+                DEFAULT_MAX_INPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, DEFAULT_SESSION_TIMEOUT_TICKS, DEFAULT_RATE_LIMIT_PER_MINUTE,
+                "", DEFAULT_WORLD_ID_STRATEGY, "", DEFAULT_FAKE_REPLY);
     }
 
     public static LlmConfig current() {
@@ -140,8 +158,12 @@ public record LlmConfig(
         int maxOutput = GsonHelper.getAsInt(json, "max_output_chars", DEFAULT_MAX_OUTPUT_CHARS);
         int timeout = GsonHelper.getAsInt(json, "session_timeout_ticks", DEFAULT_SESSION_TIMEOUT_TICKS);
         int rate = GsonHelper.getAsInt(json, "rate_limit_per_minute", DEFAULT_RATE_LIMIT_PER_MINUTE);
+        String serverId = GsonHelper.getAsString(json, "server_id", GsonHelper.getAsString(json, "serverId", ""));
+        String worldIdStrategy = GsonHelper.getAsString(json, "world_id_strategy", DEFAULT_WORLD_ID_STRATEGY);
+        String worldIdOverride = GsonHelper.getAsString(json, "world_id_override", GsonHelper.getAsString(json, "worldId", ""));
         String fakeReply = GsonHelper.getAsString(json, "fake_reply", DEFAULT_FAKE_REPLY);
-        return new LlmConfig(enabled, mode, gatewayUrl, gatewayTimeout, requireAuth, model, streaming, structured, openAiStore, maxInput, maxOutput, timeout, rate, fakeReply);
+        return new LlmConfig(enabled, mode, gatewayUrl, gatewayTimeout, requireAuth, model, streaming, structured, openAiStore,
+                maxInput, maxOutput, timeout, rate, serverId, worldIdStrategy, worldIdOverride, fakeReply);
     }
 
     public boolean active() {
@@ -158,7 +180,7 @@ public record LlmConfig(
 
     public String summary() {
         return String.format(Locale.ROOT,
-                "enabled=%s mode=%s provider=%s network=%s auth_required=%s gateway_timeout_ms=%d model=%s streaming=%s structured=%s openai_store=%s max_input=%d timeout_ticks=%d active_fake=%s",
+                "enabled=%s mode=%s provider=%s network=%s auth_required=%s gateway_timeout_ms=%d model=%s streaming=%s structured=%s openai_store=%s max_input=%d timeout_ticks=%d rate_limit_per_minute=%d server_id_configured=%s world_id_strategy=%s active_fake=%s",
                 enabled,
                 mode.serializedName(),
                 mode == LlmMode.FAKE ? "fake" : mode == LlmMode.GATEWAY ? "gateway" : "disabled",
@@ -171,6 +193,9 @@ public record LlmConfig(
                 openAiStore,
                 maxInputChars,
                 sessionTimeoutTicks,
+                rateLimitPerMinute,
+                !serverId.isBlank(),
+                worldIdStrategy,
                 fakeMode());
     }
 
@@ -190,6 +215,9 @@ public record LlmConfig(
         json.addProperty("max_output_chars", maxOutputChars);
         json.addProperty("session_timeout_ticks", sessionTimeoutTicks);
         json.addProperty("rate_limit_per_minute", rateLimitPerMinute);
+        json.addProperty("server_id_configured", !serverId.isBlank());
+        json.addProperty("world_id_strategy", worldIdStrategy);
+        json.addProperty("world_id_override_configured", !worldIdOverride.isBlank());
         json.addProperty("network_access_allowed", networkAccessAllowed());
         return json;
     }

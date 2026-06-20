@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public record GatewayChatResponse(
         String conversationId,
@@ -82,6 +83,32 @@ public record GatewayChatResponse(
         values.put("chunked_response", chunkedResponse);
         values.put("status", status);
         return HttpJson.object(values);
+    }
+
+    public GatewayChatResponse withValidatedMemoryCitations(List<String> allowedMemoryCitations) {
+        if (citations.isEmpty()) {
+            return this;
+        }
+        Set<String> allowed = Set.copyOf(allowedMemoryCitations == null ? List.of() : allowedMemoryCitations);
+        List<String> kept = new ArrayList<>();
+        List<String> safeWarnings = new ArrayList<>(warnings);
+        boolean rejected = false;
+        for (String citation : citations) {
+            String value = citation == null ? "" : citation.strip();
+            if (value.isBlank()) {
+                continue;
+            }
+            if (value.startsWith("memory:") && !allowed.contains(value)) {
+                rejected = true;
+                continue;
+            }
+            kept.add(value);
+        }
+        if (rejected) {
+            safeWarnings.add("invalid_memory_citation_rejected");
+        }
+        return new GatewayChatResponse(conversationId, npcReply, mood, suggestedOptions, memoryWrites, kept,
+                proposedEffects, safeWarnings, chunks, structuredJson, provider, model, store, chunkedResponse, status, error);
     }
 
     /**

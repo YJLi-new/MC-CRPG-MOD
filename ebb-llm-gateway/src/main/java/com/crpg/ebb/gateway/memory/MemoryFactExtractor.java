@@ -27,7 +27,7 @@ public final class MemoryFactExtractor {
             String predicate = key;
             int dot = key.indexOf('.');
             if (dot > 0 && dot < key.length() - 1) {
-                subject = key.substring(0, dot).strip();
+                subject = subjectAlias(request, defaultSubject, key.substring(0, dot).strip());
                 predicate = key.substring(dot + 1).strip();
             }
             facts.add(new ExtractedFact(subject, predicate.toLowerCase(Locale.ROOT), value));
@@ -40,6 +40,21 @@ public final class MemoryFactExtractor {
             }
         }
         return List.copyOf(facts);
+    }
+
+    private static String subjectAlias(GatewayChatRequest request, String defaultSubject, String rawSubject) {
+        String subject = rawSubject == null ? "" : rawSubject.strip();
+        String lower = subject.toLowerCase(Locale.ROOT);
+        if (lower.equals("player") || lower.equals("self") || lower.equals("me")) {
+            return defaultSubject;
+        }
+        if (lower.equals("npc") && request != null && !request.npcKey().isBlank()) {
+            return request.npcKey();
+        }
+        if (lower.equals("entity") && request != null && !request.entityUuid().isBlank()) {
+            return request.entityUuid();
+        }
+        return subject.isBlank() ? defaultSubject : subject;
     }
 
     public record ExtractedFact(String subject, String predicate, String value) {

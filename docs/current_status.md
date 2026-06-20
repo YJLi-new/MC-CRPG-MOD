@@ -17,14 +17,14 @@ This is the authoritative status snapshot for the active `minecraft_disco_crpg_m
 
 ## Latest built artifacts
 
-After the 2026-06-17 Phase 44 PLAN.md final-audit cleanup build, the current build artifact hashes are:
+After the 2026-06-20 OpenAI Codex device-code auth build, the current build artifact hashes are:
 
 ```text
-57590ae1bc202644c24961f2d9ccd829873ed04843d15b617cefb32ce94cded9  build/libs/ebb-0.1.0-dev.jar
-f6a31d48944c44c3c7bf4e14285c6cb47b4b7c3458b1809e69eaaf33dcef15e9  build/libs/ebb-0.1.0-dev-sources.jar
+fa078b18baf82075b0401c9b75ac44c285e0303ccc5e9bdb6d3368acad13d473  build/libs/ebb-0.1.0-dev.jar
+b98fa79759c454b86bffc21c2854a595c6480619e1d1c2ff73f6a119c60753c3  build/libs/ebb-0.1.0-dev-sources.jar
 ```
 
-The separate `26.1.2-Fabric-Ebb-Test` profile has earlier GUI evidence for P42; refresh it again only during explicitly requested client testing. If Java sources or resources change after this status file, rebuild and update these hashes.
+The separate `26.1.2-Fabric-Ebb-Test` profile has prior Windows GUI evidence recorded in `docs/windows_gui_test_result_2026-06-18.md`. It was not refreshed for the 2026-06-20 Codex auth-only change because this turn did not perform actual client testing; refresh it only while Minecraft is closed and actual GUI testing is requested.
 
 ## 2026-06-03 Phase 33 codebase review remediation snapshot
 
@@ -532,6 +532,7 @@ Implemented the PLAN.md P36 gateway-auth slice:
 
 - Added independent `ebb-llm-gateway/` Java 25 service with dependency-free HTTP handlers for `/v1/health`, `/v1/auth/device/start`, `/v1/auth/device/status`, and `/v1/auth/logout`.
 - Added gateway auth providers: `dev_local` for local testing and a generic OIDC device-flow adapter configurable for production providers such as Keycloak/Auth0/Stytch.
+- Added optional OpenAI Codex OAuth device-code gateway auth via `EBB_GATEWAY_AUTH_PROVIDER=openai_codex`: the gateway runs `codex login --device-auth` under gateway-private `EBB_CODEX_HOME`, shows only the verification URL/user code in-game, verifies completion with `codex login status`, and still returns only a server-side opaque Ebb player token to the Minecraft server.
 - Extended `LlmConfig` with `gateway_base_url`, `gateway_timeout_ms`, and `require_player_auth`; safe config JSON still does not expose secrets or player tokens.
 - Added Minecraft server-side auth classes under `com.crpg.ebb.llm.auth`, including server-only token storage, redacted status summaries, dev-local auth client, and HTTP gateway auth client.
 - Added `/ebb llm auth`, `/ebb llm status`, and `/ebb llm logout`; raw opaque player tokens are never sent to the client UI.
@@ -551,7 +552,7 @@ scripts/gradle-local.sh --no-daemon build                     -> BUILD SUCCESSFU
 git diff --check                                               -> passed
 ```
 
-Current proofs: gateway smoke passes, unauthenticated chat gate returns `auth_required`, dev-local login enables fake chat, logout restores `auth_required`, and client LLM UI/networking contains no `opaque_player_token` surface.
+Current proofs: gateway smoke passes, unauthenticated chat gate returns `auth_required`, dev-local login enables fake chat, logout restores `auth_required`, Codex device-code output parsing is covered by the gateway smoke test, and client LLM UI/networking contains no `opaque_player_token` surface.
 
 Phase 36 artifact hashes after the first successful P36 build checkpoint:
 
@@ -914,6 +915,66 @@ Phase 44 strict-surface cleanup implemented during the final PLAN.md completion 
 Phase 44 current artifact hashes after the build checkpoint:
 
 ```text
-build/libs/ebb-0.1.0-dev.jar         57590ae1bc202644c24961f2d9ccd829873ed04843d15b617cefb32ce94cded9
-build/libs/ebb-0.1.0-dev-sources.jar f6a31d48944c44c3c7bf4e14285c6cb47b4b7c3458b1809e69eaaf33dcef15e9
+build/libs/ebb-0.1.0-dev.jar         548d39bc66f548e041d8a190f8c959514e03fd4482534ff015311814bb5c2758
+build/libs/ebb-0.1.0-dev-sources.jar a026d35abdbbeb6e2d5e03a2acd0de5fa70600841bad72f4a3d16b05e7e8f97a
+```
+
+## 2026-06-17 P45 review hardening snapshot
+
+Implemented `current_project_review_2026-06-17.md` hardening items: gateway player/server auth gates, player-token subject checks, server-token admin endpoints, memory retrieval into prompts with citation validation, stable server/world identity fields, gateway and mod-side LLM rate limiting, memory fact authority metadata/policy, `/v1/npc/profile/generate`, and `memory_proof` GUI dry-run manifest. Verification added: `scripts/p45_review_hardening_audit.py` and hardened `GatewaySmoke` checks.
+
+## 2026-06-20 OpenAI Codex OAuth device-code auth snapshot
+
+Implemented in-game `/ebb llm auth` compatibility with OpenAI Codex OAuth device-code login through the gateway auth provider `openai_codex`. The gateway delegates browser login to the official Codex CLI (`codex login --device-auth`) under a gateway-private `EBB_CODEX_HOME`, parses only the public verification URL and one-time code for display in Minecraft, verifies completion with `codex login status`, and mints only the normal server-side opaque Ebb player token. No Codex/ChatGPT credential is sent to the client UI, datapacks, resource packs, or the mod jar.
+
+Validation checkpoint:
+
+```text
+python3 -m py_compile scripts/goal_static_audit.py                 -> pass
+scripts/gradle-local.sh --no-daemon compileJava compileClientJava  -> BUILD SUCCESSFUL
+(cd ebb-llm-gateway && ../.tools/gradle-9.5.1/bin/gradle --no-daemon compileJava compileTestJava) -> BUILD SUCCESSFUL
+(cd ebb-llm-gateway && ../.tools/gradle-9.5.1/bin/gradle --no-daemon gatewaySmoke) -> BUILD SUCCESSFUL, P36 Codex OAuth device-code smoke passed
+scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+python3 scripts/goal_static_audit.py                               -> passed including Codex auth guardrails
+scripts/run_smoke_checks.sh                                        -> passed, including P36 Codex OAuth device-code smoke and GUI retest issue audit with profile skipped
+```
+
+Current artifact hashes after the Codex device-code build checkpoint:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         fa078b18baf82075b0401c9b75ac44c285e0303ccc5e9bdb6d3368acad13d473
+build/libs/ebb-0.1.0-dev-sources.jar b98fa79759c454b86bffc21c2854a595c6480619e1d1c2ff73f6a119c60753c3
+```
+
+## 2026-06-20 P47 LLM Memory Recall Hardening snapshot
+
+Implemented the remediation for `current_project_review_llm_memory_2026-06-19.md`:
+
+- Chat-before-provider recall now injects active facts, conflicts, safety lessons, and relevant episodes into gateway prompts via `MemoryRecall` and `MemoryPromptRenderer`.
+- Structured `memory_ops` are parsed with Gson, validated deterministically, and audited alongside legacy `memory_writes`; unsupported/high-risk/low-confidence/correction ops from LLM output are rejected rather than applied.
+- `correctFact` now creates a replacement active fact, supersedes the old fact, records a correction conflict, and appends a safety lesson while preserving raw episodes.
+- `GatewayAuthGuard` centralizes player/server/bearer token authorization and maps wrong-player/scope failures to HTTP 403 and missing/invalid credentials to HTTP 401.
+- Per-player minute and daily quota is persisted in `quota_windows`; `/v1/player/quota` reports remaining/reset/daily fields.
+- Gateway NPC profiles, chat sessions, and NPC knowledge updates persist in H2 tables and survive restart in the smoke test.
+- Documentation now includes the Gateway/OIDC/OpenAI staging checklist, prompt injection behavior notes, and LLM output boundaries.
+
+Final P47 verification completed:
+
+```text
+(cd ebb-llm-gateway && ../.tools/gradle-9.5.1/bin/gradle --no-daemon compileJava compileTestJava gatewaySmoke) -> BUILD SUCCESSFUL
+scripts/gradle-local.sh --no-daemon compileJava compileClientJava test --tests com.crpg.ebb.DeepResearchDataTest -> BUILD SUCCESSFUL
+python3 -m py_compile scripts/p47_llm_memory_recall_audit.py scripts/goal_static_audit.py scripts/gui_e2e_run.py scripts/p43_llm_safety_audit.py -> pass
+python3 scripts/p47_llm_memory_recall_audit.py -> pass
+python3 scripts/goal_static_audit.py -> pass
+scripts/run_smoke_checks.sh -> pass
+scripts/gradle-local.sh --no-daemon validateEbbData runGametestServer --args nogui -> BUILD SUCCESSFUL, all 14 required GameTests passed
+scripts/run_gui_automation_smoke.sh -> pass
+git diff --check -> pass
+```
+
+Current artifact hashes after P47 remain:
+
+```text
+build/libs/ebb-0.1.0-dev.jar         fa078b18baf82075b0401c9b75ac44c285e0303ccc5e9bdb6d3368acad13d473
+build/libs/ebb-0.1.0-dev-sources.jar b98fa79759c454b86bffc21c2854a595c6480619e1d1c2ff73f6a119c60753c3
 ```

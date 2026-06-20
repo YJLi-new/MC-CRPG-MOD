@@ -15,23 +15,29 @@ public class FakeGatewayChatProvider implements GatewayChatProvider {
 
     @Override
     public GatewayChatResponse send(GatewayChatRequest request) {
-        String reply = String.format(Locale.ROOT, "FAKE_GATEWAY_REPLY NPC=%s topic=%s player=\"%s\"",
-                request.npcDisplayName(), blank(request.topicHint(), "general"), abbreviate(request.message(), 90));
+        String memorySignal = request.memoryContext().isBlank() ? "memory=none" : "memory=recall";
+        String reply = String.format(Locale.ROOT, "FAKE_GATEWAY_REPLY NPC=%s topic=%s kb=%s %s mem=\"%s\" player=\"%s\"",
+                request.npcDisplayName(), blank(request.topicHint(), "general"), kbSignal(request.sceneContext()),
+                memorySignal, abbreviate(request.memoryContext(), 360), abbreviate(request.message(), 90));
         List<String> chunks = chunk(reply, 36);
+        List<String> citations = new java.util.ArrayList<>();
+        citations.add("fake:profile:" + request.npcKey());
+        citations.add("fake:conversation:" + request.conversationId());
+        citations.addAll(request.memoryCitationIds());
         String structured = HttpJson.object(Map.of(
                 "npc_reply", reply,
                 "mood", "guarded",
                 "suggested_options", List.of("继续追问", "换个角度", "结束自由交谈"),
                 "memory_ops", List.of(),
                 "proposed_effects", List.of(),
-                "citations", List.of("fake:profile:" + request.npcKey()),
+                "citations", citations,
                 "warnings", List.of(),
                 "memory_writes", memoryWrites(request)
         ));
         return new GatewayChatResponse(request.conversationId(), reply, "guarded",
                 List.of("继续追问", "换个角度", "结束自由交谈"),
                 memoryWrites(request),
-                List.of("fake:profile:" + request.npcKey(), "fake:conversation:" + request.conversationId()),
+                citations,
                 List.of(), List.of(), chunks, structured, providerName(), request.modelOrDefault(model), false, !chunks.isEmpty(), "fake_gateway_reply", "");
     }
 

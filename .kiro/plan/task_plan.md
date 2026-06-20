@@ -4,7 +4,7 @@
 Build a Fabric-based Minecraft Java Edition 26.1.2 CRPG mod prototype under `CRPG_MOD` that supports interactable targets, highlights, dialogue/action/thought UI, server-authoritative checks, narrative state, developer tooling, and later NPC routines.
 
 ## Current Phase
-Phase 44 PLAN.md final completion audit and strict-surface cleanup is complete with full mandatory validation passing. The persistent goal can now be marked complete after confirming the current working tree evidence is committed/pushed as desired.
+Phase 47 LLM memory review remediation is complete with gateway smoke, JUnit, static audits, full smoke checks, GameTest, GUI automation smoke, docs, and artifact hash evidence. Next step is commit/push if requested.
 
 ## Phases
 
@@ -332,6 +332,42 @@ Phase 44 PLAN.md final completion audit and strict-surface cleanup is complete w
 - [x] Clarify or implement item/routine animation semantics and validation.
 - [x] Split large command registration into command-group classes without changing command surface.
 - [x] Repeatedly review code after each phase and complete full validation suite.
+- **Status:** complete
+
+
+### Phase 45: Review 2026-06-17 Hardening and Memory Recall Proof
+- [x] Extract all requirements from `current_project_review_2026-06-17.md` and map them to implementation evidence.
+- [x] Harden gateway auth: production blank-token rejection, player-token subject checks, server-token-gated admin endpoints, and regression smoke tests.
+- [x] Replace hard-coded gateway server/world identity with configured/generated server id and stable world id strategy.
+- [x] Inject MemoryStore retrieval context into gateway chat prompts with citation filtering and proof tests.
+- [x] Add LLM chat rate limiting and quota/status evidence across mod and gateway paths.
+- [x] Add memory authority/source/validity policy so player/LLM claims cannot override higher-authority canon.
+- [x] Add gateway minor NPC profile generation endpoint with deterministic fallback, schema validation, and hidden-KB leak guardrails.
+- [x] Add a memory-proof mini-route demonstrating memory retrieval proof and GUI/dry-run evidence.
+- [x] Run the full verification sequence and write a requirement-by-requirement completion audit.
+- **Status:** complete
+
+
+### Phase 46: OpenAI Codex OAuth Device-Code Gateway Auth
+- [x] Add a gateway `openai_codex` auth provider that delegates browser/device login to the official Codex CLI via `codex login --device-auth`.
+- [x] Keep Codex/ChatGPT credentials gateway-private under configurable `EBB_CODEX_HOME`; expose only verification URL, user code, and normal opaque Ebb player tokens to Minecraft.
+- [x] Add gateway config/env fields, provider aliases, safe auth-start error propagation, and Minecraft auth-client parsing for provider start errors.
+- [x] Add gateway smoke coverage for Codex device-code output parsing and provider selection.
+- [x] Update docs, current status, JUnit/static audit guardrails, and artifact hashes.
+- [x] Re-run compile, gateway smoke, JUnit, goal static audit, full smoke checks, and `git diff --check`.
+- **Status:** complete
+
+
+### Phase 47: LLM Memory Review Remediation 2026-06-19
+- [x] Read `current_project_review_llm_memory_2026-06-19.md` and map all P0/P1/P2 fixes.
+- [x] Ensure chat-before-provider memory recall injects active facts, conflicts, safety lessons, raw episodes, and allowed citations.
+- [x] Parse structured `memory_ops` in addition to legacy `memory_writes`, with deterministic validation and rejected-op audit rows.
+- [x] Fix explicit memory subject aliases so `player.*` facts resolve to the current player subject and can be recalled later.
+- [x] Upgrade memory correction to create replacement active facts, supersede old facts, record correction conflicts, and append safety lessons.
+- [x] Add unified gateway auth guard/status handling across sensitive endpoints, including 401/403 separation.
+- [x] Persist actual quota/rate-limit windows plus NPC profiles, chat sessions, and NPC knowledge updates.
+- [x] Add staging/prompt-injection/output-boundary documentation and P47 static audit coverage.
+- [x] Run the full verification sequence, refresh artifact hashes, and write final completion notes.
 - **Status:** complete
 
 ## Key Questions

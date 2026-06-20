@@ -39,6 +39,16 @@ CREATE TABLE IF NOT EXISTS memory_facts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_memory_facts_key ON memory_facts(server_id, world_id, subject, predicate, status);
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS source_type VARCHAR(64) DEFAULT 'LLM_INFERRED';
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS authority_rank INT DEFAULT 20;
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS certainty DOUBLE DEFAULT 0.5;
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS visibility VARCHAR(64) DEFAULT 'private';
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS valid_from BIGINT DEFAULT 0;
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS valid_to BIGINT DEFAULT 0;
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS world_tick BIGINT DEFAULT 0;
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS mc_day BIGINT DEFAULT 0;
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS created_by VARCHAR(128) DEFAULT 'legacy_memory_store';
+ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128) DEFAULT 'legacy_memory_store';
 
 CREATE TABLE IF NOT EXISTS memory_conflicts (
     id VARCHAR(80) PRIMARY KEY,
@@ -122,3 +132,61 @@ CREATE TABLE IF NOT EXISTS memory_safety_lessons (
 );
 
 CREATE INDEX IF NOT EXISTS idx_memory_safety_lessons_context ON memory_safety_lessons(server_id, world_id, subject, created_at);
+
+CREATE TABLE IF NOT EXISTS npc_profiles (
+    profile_key VARCHAR(520) PRIMARY KEY,
+    world_id VARCHAR(256) NOT NULL,
+    npc_key VARCHAR(256) NOT NULL,
+    profile_json CLOB NOT NULL,
+    updated_at BIGINT NOT NULL,
+    privacy_deleted_at BIGINT DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_npc_profiles_world ON npc_profiles(world_id, npc_key);
+
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    conversation_id VARCHAR(128) PRIMARY KEY,
+    server_id VARCHAR(128) NOT NULL,
+    world_id VARCHAR(256) NOT NULL,
+    minecraft_player_uuid VARCHAR(80) NOT NULL,
+    npc_key VARCHAR(256) NOT NULL,
+    session_json CLOB NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    started_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    cancel_reason CLOB DEFAULT '',
+    privacy_deleted_at BIGINT DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_context ON chat_sessions(server_id, world_id, minecraft_player_uuid, npc_key, updated_at);
+
+CREATE TABLE IF NOT EXISTS npc_knowledge_updates (
+    id VARCHAR(80) PRIMARY KEY,
+    created_at BIGINT NOT NULL,
+    npc_key VARCHAR(256) NOT NULL,
+    pack_id VARCHAR(256),
+    fact CLOB,
+    reason CLOB,
+    update_json CLOB NOT NULL,
+    privacy_deleted_at BIGINT DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_npc_knowledge_updates_npc ON npc_knowledge_updates(npc_key, created_at);
+
+CREATE TABLE IF NOT EXISTS quota_windows (
+    quota_key VARCHAR(512) PRIMARY KEY,
+    minute_window_start_ms BIGINT NOT NULL,
+    minute_used BIGINT NOT NULL,
+    day_start_ms BIGINT NOT NULL,
+    daily_used BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS gateway_token_audit (
+    id VARCHAR(80) PRIMARY KEY,
+    created_at BIGINT NOT NULL,
+    minecraft_player_uuid VARCHAR(80) NOT NULL,
+    provider VARCHAR(128) NOT NULL,
+    event VARCHAR(64) NOT NULL,
+    token_fingerprint VARCHAR(128) DEFAULT ''
+);

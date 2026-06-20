@@ -8,6 +8,7 @@ version = "0.1.0-dev"
 dependencies {
     implementation("com.openai:openai-java:4.39.1")
     implementation("com.h2database:h2:2.4.240")
+    implementation("com.google.code.gson:gson:2.13.2")
 }
 
 java {

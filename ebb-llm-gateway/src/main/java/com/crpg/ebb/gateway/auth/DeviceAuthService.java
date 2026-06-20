@@ -32,6 +32,14 @@ public final class DeviceAuthService {
         String authSessionId = "ebb_auth_" + randomHex(18);
         String userCode = userCode();
         AuthProvider.ProviderStart providerStart = provider.start(minecraftUuid, serverId, authSessionId, userCode);
+        if (providerStart.providerSessionId() == null || providerStart.providerSessionId().isBlank()
+                || providerStart.verificationUrl() == null || providerStart.verificationUrl().isBlank()
+                || providerStart.userCode() == null || providerStart.userCode().isBlank()) {
+            String error = providerStart.providerMetadata() == null
+                    ? "auth_start_failed"
+                    : providerStart.providerMetadata().getOrDefault("error", "auth_start_failed");
+            return StartResult.error(provider.providerName(), error);
+        }
         Instant expiresAt = clock.instant().plusSeconds(Math.max(30L, providerStart.expiresInSeconds()));
         AuthProvider.ProviderSession providerSession = new AuthProvider.ProviderSession(
                 providerStart.providerSessionId(),
@@ -42,7 +50,7 @@ public final class DeviceAuthService {
                 providerStart.providerMetadata() == null ? Map.of() : providerStart.providerMetadata()
         );
         sessions.put(authSessionId, new AuthSession(authSessionId, providerSession, providerStart.intervalSeconds(), false));
-        return new StartResult(authSessionId, providerStart.verificationUrl(), providerStart.userCode(),
+        return StartResult.pending(authSessionId, providerStart.verificationUrl(), providerStart.userCode(),
                 Math.max(0L, expiresAt.getEpochSecond() - clock.instant().getEpochSecond()),
                 Math.max(1L, providerStart.intervalSeconds()), provider.providerName());
     }
@@ -88,15 +96,41 @@ public final class DeviceAuthService {
     }
 
     public boolean tokenValid(String opaqueToken) {
+        return validRecord(opaqueToken).isPresent();
+    }
+
+    public boolean tokenValidForPlayer(String opaqueToken, String minecraftUuid) {
+        return validRecord(opaqueToken)
+                .map(record -> minecraftUuid == null || minecraftUuid.isBlank() || record.minecraftUuid().equals(minecraftUuid))
+                .orElse(false);
+    }
+
+    public boolean tokenHasScope(String opaqueToken, String scope) {
+        if (scope == null || scope.isBlank()) {
+            return tokenValid(opaqueToken);
+        }
+        return validRecord(opaqueToken)
+                .map(record -> record.scopes().contains(scope) || record.scopes().contains("*"))
+                .orElse(false);
+    }
+
+    public Optional<String> tokenMinecraftUuid(String opaqueToken) {
+        return validRecord(opaqueToken).map(TokenRecord::minecraftUuid);
+    }
+
+    private Optional<TokenRecord> validRecord(String opaqueToken) {
+        if (opaqueToken == null || opaqueToken.isBlank()) {
+            return Optional.empty();
+        }
         TokenRecord record = tokens.get(opaqueToken);
         if (record == null) {
-            return false;
+            return Optional.empty();
         }
         if (clock.instant().isAfter(record.expiresAt())) {
             tokens.remove(opaqueToken);
-            return false;
+            return Optional.empty();
         }
-        return true;
+        return Optional.of(record);
     }
 
     public String healthJson() {
@@ -121,23 +155,41 @@ public final class DeviceAuthService {
     }
 
     public record StartResult(
+            boolean started,
             String authSessionId,
             String verificationUrl,
             String userCode,
             long expiresInSeconds,
             long intervalSeconds,
-            String providerName
+            String providerName,
+            String error
     ) {
+        public static StartResult pending(String authSessionId, String verificationUrl, String userCode,
+                                          long expiresInSeconds, long intervalSeconds, String providerName) {
+            return new StartResult(true, authSessionId, verificationUrl, userCode,
+                    expiresInSeconds, intervalSeconds, providerName, "");
+        }
+
+        public static StartResult error(String providerName, String reason) {
+            return new StartResult(false, "", "", "", 0L, 0L,
+                    providerName == null ? "" : providerName,
+                    reason == null || reason.isBlank() ? "auth_start_failed" : reason);
+        }
+
         public String toJson() {
-            return HttpJson.object(new LinkedHashMap<>(Map.of(
-                    "status", "pending",
-                    "auth_session_id", authSessionId,
-                    "verification_url", verificationUrl,
-                    "user_code", userCode,
-                    "expires_in_seconds", expiresInSeconds,
-                    "interval_seconds", intervalSeconds,
-                    "provider", providerName
-            )));
+            Map<String, Object> values = new LinkedHashMap<>();
+            values.put("status", started ? "pending" : "error");
+            values.put("provider", providerName);
+            if (started) {
+                values.put("auth_session_id", authSessionId);
+                values.put("verification_url", verificationUrl);
+                values.put("user_code", userCode);
+                values.put("expires_in_seconds", expiresInSeconds);
+                values.put("interval_seconds", intervalSeconds);
+            } else {
+                values.put("error", error);
+            }
+            return HttpJson.object(values);
         }
     }
 

@@ -814,6 +814,19 @@ Commands:
 
 Local development may use the gateway's `dev_local` auth provider or the mod-side `DevLocalLlmAuthClient`; production gateway auth supports OIDC device-flow configuration for providers such as Keycloak/Auth0/Stytch through environment variables on the gateway process. Keep provider secrets outside datapacks, resource packs, and the mod jar.
 
+OpenAI Codex OAuth device-code mode is also available through the gateway provider `openai_codex` (aliases: `codex`, `codex_cli`, `chatgpt_codex`). This mode delegates the browser/device login to the official Codex CLI instead of embedding undocumented OAuth endpoints in the mod:
+
+```bash
+EBB_GATEWAY_AUTH_PROVIDER=openai_codex
+EBB_CODEX_CLI_COMMAND=codex
+EBB_CODEX_HOME=./ebb-llm-gateway-data/codex-auth
+EBB_CODEX_DEVICE_START_TIMEOUT_SECONDS=45
+```
+
+When a player runs `/ebb llm auth`, the gateway starts `codex login --device-auth` inside a gateway-private `CODEX_HOME`, parses only the public verification URL and one-time user code, and prints those safe values in-game. After the player completes login in the browser, `/ebb llm status` polls the gateway; the gateway confirms `codex login status` and then mints the normal opaque Ebb player token. Codex/ChatGPT refresh tokens never enter datapacks, the mod jar, client networking, chat UI, or Minecraft logs. Treat the configured `EBB_CODEX_HOME` directory like a password store on the gateway host.
+
+This is an authentication bridge. The existing `openai`/`openai_responses` chat provider still uses official OpenAI API credentials configured on the gateway process; a future chat backend would be needed if you want model inference itself to run through a Codex/ChatGPT session.
+
 Runtime gating:
 
 - If `require_player_auth=true`, choosing an `llm_chat`/`free_chat` option before login returns `auth_required`.
@@ -1191,3 +1204,63 @@ The correction route is intentionally append-only: it records an auditable corre
 Network-payload note: PLAN.md's auth/profile/debug payload contract is represented by `LlmAuthStartPayload`, `LlmAuthStatusRequestPayload`, `LlmAuthUrlPayload`, `LlmAuthStatusPayload`, `NpcProfileSyncPayload`, and `MemoryDebugSnapshotPayload`.  Auth status payloads contain only redacted summaries; raw gateway tokens remain server-side.
 
 Developer command note: OP/devs can now run `/ebb kb add_pack <npc> <pack>` to add a player-visible NPC knowledge pack tag, and `/ebb npc demote <npc_key>` to remove a promoted profile so it can be regenerated later.
+
+## P45 Gateway hardening fields
+
+Server-side `config/ebb-llm-server.json` may now include `server_id`, `world_id_strategy`, and `world_id_override` so gateway memories are isolated per server/save instead of using fixed placeholder ids. Supported `world_id_strategy` values are `level_directory_hash` (default), `configured`, and `world_seed_hash`.
+
+Gateway deployment should set `EBB_GATEWAY_REQUIRE_PLAYER_TOKEN_FOR_CHAT=true` and `EBB_GATEWAY_REQUIRE_SERVER_TOKEN_FOR_ADMIN_ENDPOINTS=true` outside local dev. Admin endpoints should receive `X-Ebb-Server-Token` / bearer token from the Minecraft server process only; never place provider API keys or server shared secrets in bundled data packs or client resources.
+
+Memory facts now carry source/authority metadata. Player and LLM claims are treated as claims/hypotheses unless a scripted/server-authoritative source promotes them. Low-authority claims cannot overwrite canon; they create conflicts and safety lessons for dev inspection.
+
+## P47 LLM Memory Recall Hardening
+
+P47 closes the review findings from `current_project_review_llm_memory_2026-06-19.md`.
+
+### Chat-before-provider memory recall
+
+Gateway chat turns retrieve memory before the provider runs. The prompt receives a quoted `MEMORY CONTEXT` with priority order:
+
+1. active/current facts with `memory:fact:*` citations;
+2. open or correction conflicts;
+3. safety/correction lessons;
+4. relevant summaries and raw episodes.
+
+The provider may cite only ids in `Allowed memory citations`; unknown `memory:*` citations are filtered from the response.
+
+### `memory_ops` authoring contract
+
+Structured LLM output may include `memory_ops` objects:
+
+```json
+{
+  "op": "add",
+  "kind": "fact",
+  "text": "player.hometown=Riverside",
+  "subject": "player:<uuid>",
+  "predicate": "hometown",
+  "object": "Riverside",
+  "confidence": 0.91
+}
+```
+
+Short aliases `player.*`, `self.*`, `npc.*`, and `entity.*` are normalized to the current player, NPC key, or target entity when available. Legacy `memory_writes` strings remain supported but are treated as proposals through the same validator. Unsupported, high-risk, low-confidence, or LLM-supplied correction ops are persisted as rejected operations rather than silently ignored.
+
+### Correction semantics
+
+Use `/ebb memory correct <fact_id> <new_value>` or `POST /v1/memory/correct` for explicit correction. A correction does not mutate raw episodes. It creates a replacement active fact, supersedes the old fact, records a correction conflict, and creates a safety lesson so future recall can prefer the corrected fact while retaining an audit trail.
+
+### Gateway/OIDC/OpenAI staging checklist
+
+For staging, enable `EBB_GATEWAY_REQUIRE_PLAYER_TOKEN_FOR_CHAT=true`, `EBB_GATEWAY_REQUIRE_SERVER_TOKEN_FOR_ADMIN_ENDPOINTS=true`, and `EBB_GATEWAY_SERVER_SHARED_SECRET`. Use OIDC or OpenAI Codex auth, verify unauthenticated chat returns 401, wrong-player token returns 403, admin routes require `X-Ebb-Server-Token`, and the Riverside memory proof shows a `memory:fact:*` citation in the dev citations overlay. Restart the gateway and confirm NPC profiles, chat sessions, NPC knowledge updates, and quota windows persist.
+
+### Prompt injection behavior
+
+Scene context, memory context, and the player utterance are quoted as context, not instructions. `memory_ops` are advisory; the deterministic validator decides what is accepted. Direct quest/item/flag/routine changes from LLM output are not applied.
+
+### LLM output boundaries
+
+- `memory_ops` / `memory_writes`: advisory proposals only.
+- `relationship_hints`: future advisory hints only, not current authoritative state changes.
+- `script_hooks`: future advisory hooks only, not current authoritative dialogue/quest/routine changes.
+- `proposed_effects`: not requested from OpenAI structured output; high-risk effects are filtered if present and ignored by the Minecraft client.

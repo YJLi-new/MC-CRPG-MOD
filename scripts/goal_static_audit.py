@@ -1144,6 +1144,7 @@ def audit_p36_gateway_auth_minimal_service() -> None:
         "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DeviceAuthService.java",
         "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/DevLocalAuthProvider.java",
         "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/CodexCliAuthProvider.java",
         "ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java",
         "scripts/p36_gateway_smoke.sh",
         "src/main/java/com/crpg/ebb/llm/auth/LlmAuthService.java",
@@ -1165,17 +1166,23 @@ def audit_p36_gateway_auth_minimal_service() -> None:
     require("P36 dev local auth provider", dev_provider, "dev_local", "llm:chat", "memory:read_self", "memory:write_self")
     oidc_provider = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/OidcAuthProvider.java")
     require("P36 production OIDC provider", oidc_provider, "DEVICE_CODE_GRANT", "EBB_OIDC_DEVICE_AUTH_URL", "authorization_pending", "keycloak", "auth0", "stytch")
+    codex_provider = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/auth/CodexCliAuthProvider.java")
+    require("P36 OpenAI Codex CLI OAuth provider", codex_provider,
+            "openai_codex", "CODEX_HOME", "login --device-auth", "codex_cli_device_auth",
+            "codex login status", "extractDeviceCodeInfo", "opaque Ebb player token")
     config = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayConfig.java")
-    require("P36 gateway config", config, "EBB_GATEWAY_AUTH_PROVIDER", "keycloak", "auth0", "stytch", "createAuthProvider")
+    require("P36 gateway config", config, "EBB_GATEWAY_AUTH_PROVIDER", "keycloak", "auth0", "stytch",
+            "openai_codex", "EBB_CODEX_CLI_COMMAND", "EBB_CODEX_HOME", "EBB_CODEX_DEVICE_START_TIMEOUT_SECONDS",
+            "createAuthProvider")
     smoke = read("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java")
-    require("P36 gateway smoke", smoke, "P36 gateway smoke passed", "/v1/health", "/v1/player/quota", "/v1/npc/profile/ensure", "/v1/chat/start", "/v1/chat/cancel", "opaque_player_token", "/v1/auth/logout")
+    require("P36 gateway smoke", smoke, "P36 gateway smoke passed", "P36 Codex OAuth device-code smoke passed", "/v1/health", "/v1/player/quota", "/v1/npc/profile/ensure", "/v1/chat/start", "/v1/chat/cancel", "opaque_player_token", "/v1/auth/logout")
 
     llm_config = read("src/main/java/com/crpg/ebb/llm/LlmConfig.java")
     require("P36 LLM config auth fields", llm_config, "gateway_base_url", "gateway_timeout_ms", "require_player_auth", "DEFAULT_REQUIRE_PLAYER_AUTH", "toSafeJson")
     auth_service = read("src/main/java/com/crpg/ebb/llm/auth/LlmAuthService.java")
     require("P36 LLM auth service", auth_service, "requiresAuth", "chatGateStatus", "server-only", "auth_required", "safeStatusLine", "token_value", "redacted")
     http_client = read("src/main/java/com/crpg/ebb/llm/auth/HttpLlmGatewayAuthClient.java")
-    require("P36 Minecraft gateway auth client", http_client, "/v1/auth/device/start", "/v1/auth/device/status", "/v1/auth/logout", "opaque_player_token")
+    require("P36 Minecraft gateway auth client", http_client, "/v1/auth/device/start", "/v1/auth/device/status", "/v1/auth/logout", "opaque_player_token", "gateway_auth_start_error")
     token = read("src/main/java/com/crpg/ebb/llm/auth/LlmAuthToken.java")
     require("P36 token redaction", token, "redactedSummary", "SHA-256", "token=redacted")
 
@@ -1194,9 +1201,9 @@ def audit_p36_gateway_auth_minimal_service() -> None:
         raise AssertionError("P36 client networking must not receive opaque auth tokens")
 
     docs = read("docs/json_authoring_guide.md")
-    require("P36 authoring docs", docs, "P36 Gateway Auth", "/ebb llm auth", "require_player_auth", "server-side only")
+    require("P36 authoring docs", docs, "P36 Gateway Auth", "/ebb llm auth", "require_player_auth", "server-side only", "OpenAI Codex OAuth device-code")
     status = read("docs/current_status.md")
-    require("P36 current status", status, "Phase 36 Gateway", "ebb-llm-gateway", "auth_required", "server-only token")
+    require("P36 current status", status, "Phase 36 Gateway", "ebb-llm-gateway", "auth_required", "server-only token", "openai_codex")
     test = read("src/test/java/com/crpg/ebb/DeepResearchDataTest.java")
     require("P36 JUnit coverage", test, "p36GatewayAuthFlowRequiresLoginAndKeepsTokensServerSide", "p36GatewayProjectConfigAndCommandSurfaceAreAuditable", "auth_required", "token=redacted")
     gametest = read("src/main/java/com/crpg/ebb/test/EbbGameTests.java")
@@ -1224,7 +1231,8 @@ def audit_p37_openai_responses_gateway_chat() -> None:
     require("P37 gateway chat config", config, "EBB_GATEWAY_CHAT_PROVIDER", "EBB_OPENAI_MODEL", "EBB_OPENAI_STORE", "EBB_GATEWAY_CIRCUIT_FAILURE_THRESHOLD", "createChatProvider")
 
     gateway = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java")
-    require("P37 chat endpoint", gateway, "/v1/chat/message", "GatewayChatRequest.fromJson", "SimpleCircuitBreaker", "authService.tokenValid", "llm_circuit_open", "llm_gateway_error")
+    require("P37/P47 chat endpoint", gateway, "/v1/chat/message", "GatewayChatRequest.fromJson", "SimpleCircuitBreaker",
+            "GatewayAuthGuard", "authorizePlayer", "llm_circuit_open", "llm_gateway_error")
 
     openai = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/chat/OpenAiResponsesChatProvider.java")
     require("P37 OpenAI Responses provider", openai, "OpenAIClient", "OpenAIOkHttpClient.fromEnv", "ResponseCreateParams", "ResponseFormatTextJsonSchemaConfig", "memory_ops", "createStreaming", "ResponseAccumulator", "store(request.store() && allowStore)", "maxOutputTokens")
@@ -1280,7 +1288,8 @@ def audit_p38_memory_store_mvp() -> None:
     build = read("ebb-llm-gateway/build.gradle.kts")
     require("P38 H2 DB dependency", build, "com.h2database:h2", "gatewaySmoke")
     migration = read("ebb-llm-gateway/src/main/resources/db/migration/V001__memory_store.sql")
-    require("P38 DB migration", migration, "schema_migrations", "memory_records", "memory_facts", "memory_conflicts", "citation_id", "embedding")
+    require("P38/P47 DB migration", migration, "schema_migrations", "memory_records", "memory_facts", "memory_conflicts", "citation_id", "embedding",
+            "npc_profiles", "chat_sessions", "npc_knowledge_updates", "quota_windows")
 
     store = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryStore.java")
     require("P38 MemoryStore", store, "MIGRATION_VERSION", "appendTurn", "search", "inspect", "conflicts", "currentFact", "supersedeFact", "newConflict", "memory:record:", "memory:fact:")
@@ -1329,9 +1338,13 @@ def audit_p39_memory_extraction_consolidation() -> None:
     migration = read("ebb-llm-gateway/src/main/resources/db/migration/V001__memory_store.sql")
     require("P39 memory migration", migration, "memory_operations", "memory_summaries", "memory_links", "memory_safety_lessons", "summary", "related_memory_ids")
     extractor = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/LlmMemoryOperationExtractor.java")
-    require("P39 LLM extractor proposals", extractor, "memory_writes", "llm_structured_json", "deterministic_ledger_question_extractor", "questioned_ledger", "我是旅馆老板", "tavern", "owner")
+    require("P39/P47 LLM extractor proposals", extractor, "memory_writes", "memory_ops", "JsonParser", "structuredMemoryOps",
+            "unsupported_memory_op", "llm_structured_json", "deterministic_ledger_question_extractor", "questioned_ledger", "我是旅馆老板", "tavern", "owner")
     validator = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/DeterministicMemoryValidator.java")
-    require("P39 deterministic validator", validator, "CANONICAL_FACTS", "canonical_conflict", "tavern", "owner", "innkeeper", "confidence_below_threshold")
+    authority_policy = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryAuthorityPolicy.java")
+    require("P39/P45 deterministic authority validator", validator + authority_policy,
+            "canonical_conflict", "canonicalFact", "SYSTEM_CANON", "PLAYER_CLAIM", "LLM_INFERRED",
+            "tavern", "owner", "innkeeper", "confidence_below_threshold")
     consolidator = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryConsolidator.java")
     require("P39 background summarizer/evolution", consolidator, "backgroundSummarize", "evolveSummary", "raw episode text is preserved", "A-MemGuard safety lesson", "questioned_ledger")
     store = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryStore.java")
@@ -1568,6 +1581,42 @@ def audit_p43_testing_evaluation_documentation() -> None:
     if "proposed_effects" in read("src/main/java/com/crpg/ebb/llm/HttpLlmGatewayClient.java"):
         raise AssertionError("P43 Minecraft-side gateway client must ignore direct LLM proposed_effects")
 
+
+def audit_p47_llm_memory_review_hardening() -> None:
+    for path in [
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayAuthGuard.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryRecall.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryPromptRenderer.java",
+        "ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/QuotaDecision.java",
+        "scripts/p47_llm_memory_recall_audit.py",
+        "docs/p47_llm_memory_review_remediation_2026-06-20.md",
+    ]:
+        exists(path)
+    gateway = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayServer.java")
+    store = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryStore.java")
+    renderer = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/MemoryPromptRenderer.java")
+    extractor = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/LlmMemoryOperationExtractor.java")
+    validator = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/DeterministicMemoryValidator.java")
+    config = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/GatewayConfig.java")
+    quota = read("ebb-llm-gateway/src/main/java/com/crpg/ebb/gateway/memory/QuotaDecision.java")
+    migration = read("ebb-llm-gateway/src/main/resources/db/migration/V001__memory_store.sql")
+    smoke = read("ebb-llm-gateway/src/test/java/com/crpg/ebb/gateway/GatewaySmoke.java")
+    docs = read("docs/json_authoring_guide.md") + read("docs/current_status.md")
+    require("P47 chat-before-provider memory recall", gateway,
+            "memoryStore.recall", "MemoryPromptRenderer.render", "withMemoryContext", "chatProvider.send(enrichedRequest)", "withValidatedMemoryCitations")
+    require("P47 recall priority", store + renderer,
+            "activeFactsFor", "openConflictsFor", "safetyLessonsFor", "Active facts", "Open/recorded memory conflicts", "Safety/correction lessons", "Relevant remembered episodes")
+    require("P47 memory_ops and rejection semantics", extractor + validator,
+            "memory_ops", "structuredMemoryOps", "JsonParser", "unsupported_memory_op", "high_risk_memory_op_rejected", "correction_requires_explicit_memory_correct_endpoint")
+    require("P47 correction replacement semantics", store,
+            "replacement_fact_id", "superseded_fact_id", "correction_conflict_id", "manual_player_correction", "replacementFact")
+    require("P47 auth/quota/persistence", gateway + config + quota + migration,
+            "GatewayAuthGuard", "authHttpStatus(auth)", "EBB_GATEWAY_PLAYER_DAILY_LIMIT", "reserveQuota", "daily_remaining",
+            "npc_profiles", "chat_sessions", "npc_knowledge_updates", "quota_windows")
+    require("P47 tests and docs", smoke + docs,
+            "fact:player.hometown=Riverside", "memory=recall", "runStructuredMemoryOpsSmoke", "runGatewayPersistenceSmoke",
+            "P47 LLM Memory Recall Hardening", "Prompt injection behavior", "LLM output boundaries")
+
 def main() -> int:
     audit_p20_p21_documentation_and_baseline()
     audit_p22_interaction_highlight_polish()
@@ -1592,6 +1641,7 @@ def main() -> int:
     audit_p41_minor_npc_instant_generation()
     audit_p42_llm_chat_ui_completion()
     audit_p43_testing_evaluation_documentation()
+    audit_p47_llm_memory_review_hardening()
 
     exists("src/main/java/com/crpg/ebb/story/StoryVarLayer.java")
     exists("src/main/java/com/crpg/ebb/story/StoryVarValue.java")
@@ -1802,7 +1852,7 @@ def main() -> int:
     require("Authoring docs P8", docs, "Playable Tavern Vertical Slice Content Map", "eight block-group investigation points", "back door / ending placeholder")
     require("P8 completion audit", read("docs/goal_p8_vertical_slice_2026-06-01.md"), "four role NPCs", "eight interactable investigation points", "Ending placeholders")
 
-    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P35 guardrails cover NPC profile/tier/promotion data; P36 guardrails cover gateway auth endpoints, dev local/OIDC auth providers, Minecraft auth commands, auth_required gating, server-only token storage, redaction, and gateway smoke; P37 guardrails cover OpenAI Responses gateway chat, structured/chunked output, circuit breaker, store:false privacy, mock provider, and Minecraft HTTP gateway client; P38 guardrails cover gateway DB migration, append-only memory records, facts/conflicts, deterministic embeddings, hybrid retrieval, citation ids, and Minecraft memory dev commands; P39 guardrails cover LLM-proposed memory ops, deterministic validation, episodic summaries, related-memory links, A-Mem-like evolution, A-MemGuard safety lessons, and raw/fact/conflict dev visibility; P40 guardrails cover NPC KB packs, reveal-conditioned visible-only prompt assembly, KB story effects, /ebb kb inspect, and hidden-secret acceptance tests; P41 guardrails cover minor NPC candidate detection, profile generator prompt/schema, generated knowledge seeds/options, persistence, dev review/reject/regenerate commands, and world-hour rate limiting; P42 guardrails cover LLM chat streaming UI, suggested-option GUI automation, return-to-script, memory correction, dev citations overlay, timeout/error/cancel non-stuck behavior, and K-menu auth status; P43 guardrails cover NPC profile/knowledge schemas, LLM config and memory-effect docs, secret-literal/fake-provider/hidden-KB/high-risk-effect static audits, JUnit/GameTest coverage, and GUI E2E auth-disabled/fake-chat/gateway-dry-run routes; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
+    print("GoalStaticAudit passed: P20/P21 documentation, baseline pins, data directories, artifact status hashes, failure-forward lint, and major Take-Root guardrails are present; P22 interaction/highlight polish guardrails cover synced highlight styles, merged block outlines, target debug reasons, binding-range prediction, and server collider LOS; P23 dialogue UI/reading-rhythm guardrails cover text_key fallback, keyboard navigation, current-history focus, hidden DC/roll display controls, font-scale/text-speed client settings, clipped/scissored status rendering, and distinct dialogue/action/thought/status styling; P24 authoring/validation guardrails cover condition/effect reference docs, JSON schemas, compiler line diagnostics, cross-registry reference validation, failure-forward lint, and a tavern-case example pack; P25 quest/feat maturation guardrails cover branch-map lines, major/minor filters, Take Root coloring, feat loadout/source/modifier visibility, journal filters, and take-root idempotency testing; P26 chime expansion guardrails cover eight attribute voices, tone guides, active thought routes, and cooldown/one-shot anti-spam; P27 NPC production guardrails cover role-specific placeholder skins, GeckoLib conversation animations, routine validation/debug, and dialogue focus pause/restore; P28 conflict expansion guardrails cover phases, leverage status, outcome effects, failure-forward/nonviolent/messy paths, dev/browser/docs/schema/JUnit/smoke coverage; P29 hardening guardrails cover save migration, session spoof/stale/contention checks, command permissions, missing-client diagnostics, dev/docs/JUnit/smoke coverage; P30 content guardrails cover 12+ block groups, 6+ NPC coverage, 4 major/8 minor branches, 12 feats, 40 chime lines, 20+ journal/clue entries, 3 conflicts, endings, docs/JUnit/smoke; P31 release packaging guardrails cover installation, dedicated server dependencies, compatible profile instructions, Modrinth/CurseForge metadata, story-pack tutorial, changelog, and license clarity; P32 guardrails cover the K-key Ebb menu, player-safe menu actions, menu/settings translations, and dialogue screens that keep the live player view visible behind the panel; P33 guardrails cover codebase-review remediation for command permissions, active feats, disadvantage/roll breakdowns, retry locks, centralized raycasts, block-group duplicates, routine hardening, and docs/JUnit coverage; P34 guardrails cover disabled/fake LLM config, deterministic fake provider, LLM chat sessions/payloads/UI skeleton, llm_chat choice wiring, /ebb llm status, no secret literals, and JUnit/GameTest coverage; P35 guardrails cover NPC profile/tier/promotion data; P36 guardrails cover gateway auth endpoints, dev local/OIDC auth providers, Minecraft auth commands, auth_required gating, server-only token storage, redaction, and gateway smoke; P37 guardrails cover OpenAI Responses gateway chat, structured/chunked output, circuit breaker, store:false privacy, mock provider, and Minecraft HTTP gateway client; P38 guardrails cover gateway DB migration, append-only memory records, facts/conflicts, deterministic embeddings, hybrid retrieval, citation ids, and Minecraft memory dev commands; P39 guardrails cover LLM-proposed memory ops, deterministic validation, episodic summaries, related-memory links, A-Mem-like evolution, A-MemGuard safety lessons, and raw/fact/conflict dev visibility; P40 guardrails cover NPC KB packs, reveal-conditioned visible-only prompt assembly, KB story effects, /ebb kb inspect, and hidden-secret acceptance tests; P41 guardrails cover minor NPC candidate detection, profile generator prompt/schema, generated knowledge seeds/options, persistence, dev review/reject/regenerate commands, and world-hour rate limiting; P42 guardrails cover LLM chat streaming UI, suggested-option GUI automation, return-to-script, memory correction, dev citations overlay, timeout/error/cancel non-stuck behavior, and K-menu auth status; P43 guardrails cover NPC profile/knowledge schemas, LLM config and memory-effect docs, secret-literal/fake-provider/hidden-KB/high-risk-effect static audits, JUnit/GameTest coverage, and GUI E2E auth-disabled/fake-chat/gateway-dry-run routes; P47 guardrails cover chat-before-provider memory recall, memory_ops parsing, correction replacement facts, unified auth status, quota persistence, gateway state persistence, prompt-injection docs, and acceptance smokes; P2 Story Variables, P3 Quest/Take-Root/Feat, P4 Chime, P5 Journal/UI rhythm, P6 Relationship/NPC routine expansion, P7 Investigation/Conflict, and P8 Playable Vertical Slice content are wired through persistence, dialogue, dev/UI, docs, demo data, smoke, and JUnit.")
     return 0
 
 

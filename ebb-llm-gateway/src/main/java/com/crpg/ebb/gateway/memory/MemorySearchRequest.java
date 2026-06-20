@@ -1,6 +1,7 @@
 package com.crpg.ebb.gateway.memory;
 
 import com.crpg.ebb.gateway.HttpJson;
+import com.crpg.ebb.gateway.chat.GatewayChatRequest;
 
 import java.util.Map;
 
@@ -33,6 +34,19 @@ public record MemorySearchRequest(
                 values.get("entity_uuid"),
                 values.getOrDefault("query", values.getOrDefault("q", "")),
                 (int) HttpJson.longValue(json, "limit", 8)
+        );
+    }
+
+    public static MemorySearchRequest forChat(GatewayChatRequest request, int limit) {
+        String query = (request.topicHint() + " " + request.message()).strip();
+        return new MemorySearchRequest(
+                request.serverId(),
+                request.worldId(),
+                request.minecraftPlayerUuid(),
+                request.npcKey(),
+                request.entityUuid(),
+                query,
+                limit
         );
     }
 

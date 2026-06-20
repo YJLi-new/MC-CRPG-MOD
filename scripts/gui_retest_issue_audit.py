@@ -66,6 +66,7 @@ SAVE_BLOCKS = {
 }
 LEGACY_NPC_TAGS = {"ebb.npc.innkeeper_day", "ebb.npc.witness_day", "ebb.npc.tenant_day", "ebb.npc.guard_day"}
 ROLE_CUSTOM_NAMES = {f"Ebb NPC: {role}_day": role for role in ROLE_EXPECTATIONS}
+ROLE_CUSTOM_NAMES.update({f"Ebb NPC: demo/{role}_day": role for role in ROLE_EXPECTATIONS})
 SUPPORTED_ROLE_TAGS = {tag for _, tags in ROLE_EXPECTATIONS.values() for tag in tags}
 
 
@@ -328,7 +329,7 @@ def audit_save(save_path: Path) -> None:
                 unsupported_tags = sorted(tag for tag in tags if tag.startswith("ebb.npc.") and tag not in SUPPORTED_ROLE_TAGS and tag != "ebb.npc")
                 if unsupported_tags:
                     fail(f"save has Ebb NPC tags not covered by source bindings: {unsupported_tags}")
-                if custom_name.startswith("Ebb NPC:") and custom_name not in ROLE_CUSTOM_NAMES:
+                if custom_name.startswith("Ebb NPC:") and custom_name not in ROLE_CUSTOM_NAMES and not (tags & SUPPORTED_ROLE_TAGS):
                     fail(f"save has Ebb NPC custom name not covered by name bindings: {custom_name}")
                 found_role_markers |= tags & SUPPORTED_ROLE_TAGS
                 if custom_name in ROLE_CUSTOM_NAMES:

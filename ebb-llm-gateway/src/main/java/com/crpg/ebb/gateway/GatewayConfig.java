@@ -1,6 +1,7 @@
 package com.crpg.ebb.gateway;
 
 import com.crpg.ebb.gateway.auth.AuthProvider;
+import com.crpg.ebb.gateway.auth.CodexCliAuthProvider;
 import com.crpg.ebb.gateway.auth.DevLocalAuthProvider;
 import com.crpg.ebb.gateway.auth.OidcAuthProvider;
 import com.crpg.ebb.gateway.chat.FakeGatewayChatProvider;
@@ -24,6 +25,9 @@ public record GatewayConfig(
         String oidcClientId,
         String oidcClientSecret,
         String oidcScope,
+        String codexCliCommand,
+        String codexHome,
+        int codexDeviceStartTimeoutSeconds,
         Duration httpTimeout,
         String chatProviderName,
         String defaultChatModel,
@@ -33,7 +37,15 @@ public record GatewayConfig(
         int maxOutputTokens,
         int circuitFailureThreshold,
         long circuitCooldownMs,
-        String memoryDbUrl
+        String memoryDbUrl,
+        boolean requirePlayerTokenForChat,
+        boolean requireServerTokenForAdminEndpoints,
+        String serverSharedSecret,
+        boolean allowBlankTokenOnlyLocalDev,
+        int playerRateLimitPerMinute,
+        int globalRateLimitPerMinute,
+        int playerDailyLimit,
+        int memoryPromptTopK
 ) {
     public static GatewayConfig fromEnv(Map<String, String> env) {
         String bindHost = value(env, "EBB_GATEWAY_BIND", "127.0.0.1");
@@ -45,6 +57,9 @@ public record GatewayConfig(
         String clientId = value(env, "EBB_OIDC_CLIENT_ID", "");
         String clientSecret = value(env, "EBB_OIDC_CLIENT_SECRET", "");
         String scope = value(env, "EBB_OIDC_SCOPE", "openid profile llm:chat memory:read_self memory:write_self");
+        String codexCommand = value(env, "EBB_CODEX_CLI_COMMAND", CodexCliAuthProvider.DEFAULT_COMMAND);
+        String codexHome = value(env, "EBB_CODEX_HOME", "./ebb-llm-gateway-data/codex-auth");
+        int codexStartTimeout = parseInt(value(env, "EBB_CODEX_DEVICE_START_TIMEOUT_SECONDS", "45"), 45);
         int timeoutMs = parseInt(value(env, "EBB_GATEWAY_HTTP_TIMEOUT_MS", "30000"), 30000);
         String chatProvider = value(env, "EBB_GATEWAY_CHAT_PROVIDER", "fake").toLowerCase(Locale.ROOT);
         String defaultModel = value(env, "EBB_OPENAI_MODEL", value(env, "EBB_DEFAULT_CHAT_MODEL", "gpt-5.2"));
@@ -55,9 +70,24 @@ public record GatewayConfig(
         int circuitThreshold = parseInt(value(env, "EBB_GATEWAY_CIRCUIT_FAILURE_THRESHOLD", "3"), 3);
         long circuitCooldown = parseInt(value(env, "EBB_GATEWAY_CIRCUIT_COOLDOWN_MS", "30000"), 30000);
         String memoryDbUrl = value(env, "EBB_MEMORY_DB_URL", "jdbc:h2:./ebb-llm-gateway-data/memory;AUTO_SERVER=TRUE");
+        boolean requirePlayerToken = parseBool(value(env, "EBB_GATEWAY_REQUIRE_PLAYER_TOKEN_FOR_CHAT", "true"), true);
+        boolean requireServerToken = parseBool(value(env, "EBB_GATEWAY_REQUIRE_SERVER_TOKEN_FOR_ADMIN_ENDPOINTS",
+                provider.equals("dev_local") && isLoopback(bindHost) ? "false" : "true"), !(provider.equals("dev_local") && isLoopback(bindHost)));
+        String serverSecret = value(env, "EBB_GATEWAY_SERVER_SHARED_SECRET",
+                value(env, "EBB_GATEWAY_SERVER_TOKEN", value(env, "EBB_SERVER_SHARED_SECRET", "")));
+        boolean allowBlankLocalDev = parseBool(value(env, "EBB_GATEWAY_ALLOW_BLANK_TOKEN_ONLY_LOCAL_DEV", "true"), true);
+        int playerRateLimit = parseInt(value(env, "EBB_GATEWAY_PLAYER_RATE_LIMIT_PER_MINUTE", "20"), 20);
+        int globalRateLimit = parseInt(value(env, "EBB_GATEWAY_GLOBAL_RATE_LIMIT_PER_MINUTE", "240"), 240);
+        int playerDailyLimit = parseInt(value(env, "EBB_GATEWAY_PLAYER_DAILY_LIMIT", "500"), 500);
+        int memoryPromptTopK = parseInt(value(env, "EBB_GATEWAY_MEMORY_PROMPT_TOP_K", "6"), 6);
         return new GatewayConfig(bindHost, port, provider, publicBase, deviceEndpoint, tokenEndpoint,
-                clientId, clientSecret, scope, Duration.ofMillis(Math.max(1000, timeoutMs)), chatProvider, defaultModel,
-                streaming, structured, store, Math.max(64, maxOutput), Math.max(1, circuitThreshold), Math.max(1000L, circuitCooldown), memoryDbUrl);
+                clientId, clientSecret, scope,
+                codexCommand, codexHome, Math.max(5, codexStartTimeout),
+                Duration.ofMillis(Math.max(1000, timeoutMs)), chatProvider, defaultModel,
+                streaming, structured, store, Math.max(64, maxOutput), Math.max(1, circuitThreshold), Math.max(1000L, circuitCooldown), memoryDbUrl,
+                requirePlayerToken, requireServerToken, serverSecret, allowBlankLocalDev,
+                Math.max(1, playerRateLimit), Math.max(1, globalRateLimit), Math.max(1, playerDailyLimit),
+                Math.max(0, Math.min(12, memoryPromptTopK)));
     }
 
     public GatewayChatProvider createChatProvider() {
@@ -85,6 +115,11 @@ public record GatewayConfig(
                 || "auth0".equals(authProviderName) || "stytch".equals(authProviderName)) {
             return new OidcAuthProvider(authProviderName, oidcDeviceAuthorizationEndpoint, oidcTokenEndpoint,
                     oidcClientId, oidcClientSecret, oidcScope, httpTimeout);
+        }
+        if ("openai_codex".equals(authProviderName) || "codex".equals(authProviderName)
+                || "codex_cli".equals(authProviderName) || "chatgpt_codex".equals(authProviderName)) {
+            return new CodexCliAuthProvider(codexCliCommand, java.nio.file.Path.of(codexHome),
+                    Duration.ofSeconds(Math.max(5, codexDeviceStartTimeoutSeconds)));
         }
         throw new IllegalArgumentException("Unsupported EBB_GATEWAY_AUTH_PROVIDER: " + authProviderName);
     }
@@ -117,5 +152,16 @@ public record GatewayConfig(
         } catch (RuntimeException ex) {
             return fallback;
         }
+    }
+
+    public boolean localDevBlankTokenAllowed() {
+        return allowBlankTokenOnlyLocalDev
+                && ("dev".equals(authProviderName) || "local".equals(authProviderName) || "dev_local".equals(authProviderName))
+                && isLoopback(bindHost);
+    }
+
+    private static boolean isLoopback(String host) {
+        String value = host == null ? "" : host.trim();
+        return value.equals("127.0.0.1") || value.equals("localhost") || value.equals("::1");
     }
 }

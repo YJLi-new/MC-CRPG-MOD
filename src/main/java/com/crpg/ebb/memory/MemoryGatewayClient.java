@@ -38,8 +38,8 @@ public final class MemoryGatewayClient {
             return CompletableFuture.completedFuture(MemorySearchResult.error("gateway_url_missing"));
         }
         JsonObject body = new JsonObject();
-        body.addProperty("server_id", "minecraft-server");
-        body.addProperty("world_id", "minecraft-world");
+        body.addProperty("server_id", configuredServerId());
+        body.addProperty("world_id", configuredWorldId());
         if (playerUuid != null) {
             body.addProperty("minecraft_player_uuid", playerUuid.toString());
         }
@@ -74,7 +74,7 @@ public final class MemoryGatewayClient {
         if (baseUrl.isBlank()) {
             return CompletableFuture.completedFuture("gateway_url_missing");
         }
-        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/conflicts?server_id=minecraft-server&world_id=minecraft-world&limit=" + Math.max(1, limit)))
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/conflicts?server_id=" + url(configuredServerId()) + "&world_id=" + url(configuredWorldId()) + "&limit=" + Math.max(1, limit)))
                 .timeout(timeout)
                 .GET()
                 .build();
@@ -88,7 +88,7 @@ public final class MemoryGatewayClient {
         if (baseUrl.isBlank()) {
             return CompletableFuture.completedFuture("gateway_url_missing");
         }
-        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/episodes?server_id=minecraft-server&world_id=minecraft-world&limit=" + Math.max(1, limit)))
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/episodes?server_id=" + url(configuredServerId()) + "&world_id=" + url(configuredWorldId()) + "&limit=" + Math.max(1, limit)))
                 .timeout(timeout)
                 .GET()
                 .build();
@@ -101,7 +101,7 @@ public final class MemoryGatewayClient {
         if (baseUrl.isBlank()) {
             return CompletableFuture.completedFuture("gateway_url_missing");
         }
-        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/lessons?server_id=minecraft-server&world_id=minecraft-world&limit=" + Math.max(1, limit)))
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/memory/lessons?server_id=" + url(configuredServerId()) + "&world_id=" + url(configuredWorldId()) + "&limit=" + Math.max(1, limit)))
                 .timeout(timeout)
                 .GET()
                 .build();
@@ -114,7 +114,7 @@ public final class MemoryGatewayClient {
         if (baseUrl.isBlank()) {
             return CompletableFuture.completedFuture("gateway_url_missing");
         }
-        String suffix = playerUuid == null ? "" : "?minecraft_uuid=" + URLEncoder.encode(playerUuid.toString(), StandardCharsets.UTF_8);
+        String suffix = playerUuid == null ? "" : "?minecraft_player_uuid=" + url(playerUuid.toString());
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/player/quota" + suffix))
                 .timeout(timeout)
                 .GET()
@@ -156,6 +156,18 @@ public final class MemoryGatewayClient {
         return CompletableFuture.supplyAsync(() -> send(request))
                 .orTimeout(timeout.toMillis() + 1000L, TimeUnit.MILLISECONDS)
                 .exceptionally(error -> "memory_gateway_error");
+    }
+
+    private String configuredServerId() {
+        return config.serverId().isBlank() ? "unresolved-server-id" : config.serverId();
+    }
+
+    private String configuredWorldId() {
+        return config.worldIdOverride().isBlank() ? "unresolved-world-id" : config.worldIdOverride();
+    }
+
+    private static String url(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 
     private String send(HttpRequest request) {

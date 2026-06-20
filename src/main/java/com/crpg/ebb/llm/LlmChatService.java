@@ -42,6 +42,7 @@ public final class LlmChatService {
     private static final Map<UUID, LlmChatSession> SESSIONS = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> PLAYER_TO_SESSION = new ConcurrentHashMap<>();
     private static final Map<String, AtomicInteger> SECURITY_EVENTS = new ConcurrentHashMap<>();
+    private static final Map<String, RateWindow> RATE_WINDOWS = new ConcurrentHashMap<>();
     private static final String PROMOTED_MAJOR_STATUS = "promoted_major";
     private static volatile LlmGatewayClient testingClient;
     private static int tickCounter;
@@ -159,6 +160,11 @@ public final class LlmChatService {
             responseSender.sendPacket(new LlmChatErrorPayload(payload.conversationId(), "llm_response_pending"));
             return;
         }
+        if (!allowRate(config, player.getUUID(), session.npcKey())) {
+            recordSecurityEvent("llm_rate_limited");
+            responseSender.sendPacket(new LlmChatErrorPayload(payload.conversationId(), "rate_limited"));
+            return;
+        }
         if (session.entityUuid().isPresent()) {
             InteractionValidationResult validation = InteractionService.validateEntity(player, session.entityUuid().get());
             if (!validation.allowed()) {
@@ -192,7 +198,9 @@ public final class LlmChatService {
                 awaiting.topicHint(),
                 message,
                 gameTime,
-                knowledgeContext
+                knowledgeContext,
+                LlmWorldIdentity.serverId(((ServerLevel) player.level()).getServer()),
+                LlmWorldIdentity.worldId((ServerLevel) player.level())
         );
         LlmGatewayClient client = clientFor(config);
         CompletableFuture<LlmChatResponse> future = client.sendMessage(request);
@@ -254,6 +262,7 @@ public final class LlmChatService {
         return "Ebb LLM: " + config.summary() + " active_sessions=" + activeSessionCount()
                 + " client=" + clientFor(config).providerName()
                 + " auth_gate=server_only"
+                + " rate_limit_windows=" + RATE_WINDOWS.size()
                 + " no_secrets_in_payloads=true";
     }
 
@@ -273,6 +282,7 @@ public final class LlmChatService {
         testingClient = null;
         clearAll("testing_reset");
         SECURITY_EVENTS.clear();
+        RATE_WINDOWS.clear();
         LlmAuthService.clearTestingOverrides();
         LlmConfig.clearTestingOverride();
     }
@@ -440,6 +450,36 @@ public final class LlmChatService {
 
     private static void recordSecurityEvent(String reason) {
         SECURITY_EVENTS.computeIfAbsent(reason, ignored -> new AtomicInteger()).incrementAndGet();
+    }
+
+    private static boolean allowRate(LlmConfig config, UUID playerUuid, String npcKey) {
+        long now = System.currentTimeMillis();
+        long window = now / 60_000L;
+        String playerKey = "player:" + playerUuid;
+        String npcKeyed = "player_npc:" + playerUuid + ":" + npcKey;
+        return incrementWindow(playerKey, window, config.rateLimitPerMinute())
+                && incrementWindow(npcKeyed, window, Math.max(1, config.rateLimitPerMinute()));
+    }
+
+    private static boolean incrementWindow(String key, long window, int limit) {
+        RateWindow state = RATE_WINDOWS.computeIfAbsent(key, ignored -> new RateWindow(window, new AtomicInteger()));
+        synchronized (state) {
+            if (state.window != window) {
+                state.window = window;
+                state.count.set(0);
+            }
+            return state.count.incrementAndGet() <= Math.max(1, limit);
+        }
+    }
+
+    private static final class RateWindow {
+        private long window;
+        private final AtomicInteger count;
+
+        private RateWindow(long window, AtomicInteger count) {
+            this.window = window;
+            this.count = count;
+        }
     }
 
     public record OpenResult(boolean opened, String status) {

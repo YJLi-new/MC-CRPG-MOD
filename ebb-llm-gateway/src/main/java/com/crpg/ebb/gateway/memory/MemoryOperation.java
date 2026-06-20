@@ -22,6 +22,7 @@ public record MemoryOperation(
     public static final String ADD_FACT = "add_fact";
     public static final String ADD_SUMMARY = "add_summary";
     public static final String ADD_SAFETY_LESSON = "add_safety_lesson";
+    public static final String CORRECT_FACT = "correct_fact";
 
     public MemoryOperation {
         id = id == null ? "" : id.strip();

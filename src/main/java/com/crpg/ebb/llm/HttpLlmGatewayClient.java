@@ -38,8 +38,8 @@ public final class HttpLlmGatewayClient implements LlmGatewayClient {
             return CompletableFuture.completedFuture(LlmChatResponse.error("gateway_url_missing"));
         }
         JsonObject body = new JsonObject();
-        body.addProperty("server_id", "minecraft-server");
-        body.addProperty("world_id", "minecraft-world");
+        body.addProperty("server_id", request.serverId().isBlank() ? "unresolved-server-id" : request.serverId());
+        body.addProperty("world_id", request.worldId().isBlank() ? "unresolved-world-id" : request.worldId());
         body.addProperty("minecraft_player_uuid", request.playerUuid().toString());
         body.addProperty("npc_key", request.npcKey());
         body.addProperty("npc_display_name", request.npcDisplayName());

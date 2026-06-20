@@ -1,7 +1,12 @@
 package com.crpg.ebb.gateway.memory;
 
+import com.crpg.ebb.gateway.HttpJson;
 import com.crpg.ebb.gateway.chat.GatewayChatRequest;
 import com.crpg.ebb.gateway.chat.GatewayChatResponse;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,6 +33,7 @@ public final class MemoryStore {
     private final MemoryEmbeddingService embeddings = new MemoryEmbeddingService();
     private final LlmMemoryOperationExtractor llmExtractor = new LlmMemoryOperationExtractor();
     private final DeterministicMemoryValidator validator = new DeterministicMemoryValidator();
+    private final MemoryAuthorityPolicy authorityPolicy = new MemoryAuthorityPolicy();
     private final MemoryConsolidator consolidator = new MemoryConsolidator();
 
     public MemoryStore(String jdbcUrl) {
@@ -136,6 +142,100 @@ public final class MemoryStore {
                 .filter(scored -> scored.score() > 0.01D || request.query().isBlank())
                 .sorted(Comparator.comparingDouble(ScoredMemory::score).reversed())
                 .limit(request.limit())
+                .toList();
+    }
+
+    public MemoryRecall recall(MemorySearchRequest request) {
+        List<ScoredMemory> episodes = search(request);
+        try (Connection connection = connect()) {
+            List<MemoryFact> facts = activeFactsFor(connection, request);
+            List<MemoryConflict> conflicts = openConflictsFor(connection, request, facts);
+            List<MemorySafetyLesson> lessons = safetyLessonsFor(connection, request, facts, conflicts);
+            return new MemoryRecall(facts, conflicts, lessons, episodes);
+        } catch (SQLException ex) {
+            throw new IllegalStateException("memory_recall_failed", ex);
+        }
+    }
+
+    private List<MemoryFact> activeFactsFor(Connection connection, MemorySearchRequest request) throws SQLException {
+        List<MemoryFact> values = new ArrayList<>();
+        String playerSubject = request.minecraftPlayerUuid().isBlank() ? "" : "player:" + request.minecraftPlayerUuid();
+        try (PreparedStatement ps = connection.prepareStatement("""
+                SELECT * FROM memory_facts
+                WHERE server_id = ? AND world_id = ? AND status IN ('current', 'active')
+                  AND (? = '' OR subject = ? OR subject = ? OR subject = ?)
+                ORDER BY authority_rank DESC, created_at DESC
+                LIMIT 32
+                """)) {
+            ps.setString(1, request.serverId());
+            ps.setString(2, request.worldId());
+            ps.setString(3, playerSubject.isBlank() && request.npcKey().isBlank() && request.entityUuid().isBlank() ? "" : "filter");
+            ps.setString(4, playerSubject);
+            ps.setString(5, request.npcKey());
+            ps.setString(6, request.entityUuid());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    values.add(fact(rs));
+                }
+            }
+        }
+        List<String> tokens = recallTokens(request.query());
+        return values.stream()
+                .sorted(Comparator.comparingDouble((MemoryFact fact) -> factRelevance(fact, tokens)).reversed()
+                        .thenComparing(MemoryFact::authorityRank, Comparator.reverseOrder())
+                        .thenComparing(MemoryFact::createdAt, Comparator.reverseOrder()))
+                .limit(Math.max(4, Math.min(12, request.limit())))
+                .toList();
+    }
+
+    private List<MemoryConflict> openConflictsFor(Connection connection, MemorySearchRequest request, List<MemoryFact> facts) throws SQLException {
+        List<MemoryConflict> values = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("""
+                SELECT * FROM memory_conflicts
+                WHERE server_id = ? AND world_id = ? AND status IN ('open', 'corrected', 'resolved_correction')
+                ORDER BY created_at DESC
+                LIMIT 32
+                """)) {
+            ps.setString(1, request.serverId());
+            ps.setString(2, request.worldId());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    values.add(conflict(rs));
+                }
+            }
+        }
+        List<String> factKeys = facts.stream().map(fact -> fact.subject() + "." + fact.predicate()).toList();
+        List<String> tokens = recallTokens(request.query());
+        return values.stream()
+                .filter(conflict -> factKeys.contains(conflict.subject() + "." + conflict.predicate())
+                        || factRelevance(conflict.subject(), conflict.predicate(), conflict.oldValue() + " " + conflict.newValue(), tokens) > 0.0D)
+                .limit(6)
+                .toList();
+    }
+
+    private List<MemorySafetyLesson> safetyLessonsFor(Connection connection, MemorySearchRequest request, List<MemoryFact> facts, List<MemoryConflict> conflicts) throws SQLException {
+        List<MemorySafetyLesson> values = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("""
+                SELECT * FROM memory_safety_lessons
+                WHERE server_id = ? AND world_id = ? AND status = 'active'
+                ORDER BY created_at DESC
+                LIMIT 32
+                """)) {
+            ps.setString(1, request.serverId());
+            ps.setString(2, request.worldId());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    values.add(safetyLesson(rs));
+                }
+            }
+        }
+        List<String> subjects = new ArrayList<>();
+        facts.forEach(fact -> subjects.add(fact.subject()));
+        conflicts.forEach(conflict -> subjects.add(conflict.subject()));
+        List<String> tokens = recallTokens(request.query());
+        return values.stream()
+                .filter(lesson -> subjects.contains(lesson.subject()) || containsAny(lesson.lesson(), tokens))
+                .limit(6)
                 .toList();
     }
 
@@ -257,31 +357,50 @@ public final class MemoryStore {
             return Map.of("status", "error", "accepted", false, "error", "fact_id_and_new_value_required");
         }
         try (Connection connection = connect()) {
+            connection.setAutoCommit(false);
             Optional<MemoryFact> fact = factById(connection, factId);
             if (fact.isEmpty()) {
                 return Map.of("status", "error", "accepted", false, "error", "fact_not_found", "fact_id", factId);
             }
             long now = Instant.now().toEpochMilli();
+            MemoryFact old = fact.get();
+            String operationId = id("memop");
+            MemoryOperation correctionOp = new MemoryOperation(operationId, now, old.serverId(), old.worldId(), old.recordId(),
+                    MemoryOperation.CORRECT_FACT, old.subject(), old.predicate(), newValue, "accepted",
+                    "manual_player_correction:" + blank(reason, "manual_correction"), "manual_player_correction", 1.0D);
+            insertOperation(connection, correctionOp);
+            MemoryFact replacement = replacementFact(old, correctionOp, now + 1);
+            insertFact(connection, replacement);
+            supersedeFact(connection, old.id(), replacement.id());
+            MemoryConflict correctionConflict = new MemoryConflict(id("memconf"), now + 2, old.serverId(), old.worldId(),
+                    old.subject(), old.predicate(), old.id(), replacement.id(), old.value(), replacement.value(),
+                    old.citationId() + "," + replacement.citationId(), "corrected");
+            insertConflict(connection, correctionConflict);
             MemorySafetyLesson correction = new MemorySafetyLesson(
                     id("memcorr"),
-                    now,
-                    fact.get().serverId(),
-                    fact.get().worldId(),
-                    fact.get().subject(),
+                    now + 3,
+                    old.serverId(),
+                    old.worldId(),
+                    old.subject(),
                     "manual memory correction requested for " + factId + ": "
-                            + fact.get().value() + " -> " + newValue
+                            + old.value() + " -> " + newValue
                             + " (" + blank(reason, "manual_correction") + ")",
-                    fact.get().recordId(),
-                    "",
-                    fact.get().citationId(),
+                    old.recordId(),
+                    correctionConflict.id(),
+                    correctionConflict.citationIds(),
                     "active"
             );
             insertSafetyLesson(connection, correction);
+            connection.commit();
             return Map.of(
                     "status", "ok",
                     "accepted", true,
                     "append_only", true,
                     "fact_id", factId,
+                    "operation_id", correctionOp.id(),
+                    "replacement_fact_id", replacement.id(),
+                    "superseded_fact_id", old.id(),
+                    "correction_conflict_id", correctionConflict.id(),
                     "correction_lesson_id", correction.id()
             );
         } catch (SQLException ex) {
@@ -334,38 +453,199 @@ public final class MemoryStore {
                 deletedLessons += deleteWhere(connection, "DELETE FROM memory_safety_lessons WHERE source_record_id = ?", recordId);
             }
             int deletedRecords = deleteWhere(connection, "DELETE FROM memory_records WHERE minecraft_player_uuid = ?", playerUuid);
+            int markedSessions;
+            try (PreparedStatement ps = connection.prepareStatement("""
+                    UPDATE chat_sessions SET status = 'privacy_deleted', privacy_deleted_at = ?, updated_at = ?
+                    WHERE minecraft_player_uuid = ?
+                    """)) {
+                long now = Instant.now().toEpochMilli();
+                ps.setLong(1, now);
+                ps.setLong(2, now);
+                ps.setString(3, playerUuid);
+                markedSessions = ps.executeUpdate();
+            }
+            int deletedQuota = deleteWhere(connection, "DELETE FROM quota_windows WHERE quota_key LIKE ?", "%:" + playerUuid);
             connection.commit();
-            return Map.of(
-                    "status", "ok",
-                    "deleted", true,
-                    "player_uuid", playerUuid,
-                    "records", deletedRecords,
-                    "facts", deletedFacts,
-                    "conflicts", deletedConflicts,
-                    "operations", deletedOperations,
-                    "summaries", deletedSummaries,
-                    "links", deletedLinks,
-                    "safety_lessons", deletedLessons
-            );
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("status", "ok");
+            result.put("deleted", true);
+            result.put("player_uuid", playerUuid);
+            result.put("records", deletedRecords);
+            result.put("facts", deletedFacts);
+            result.put("conflicts", deletedConflicts);
+            result.put("operations", deletedOperations);
+            result.put("summaries", deletedSummaries);
+            result.put("links", deletedLinks);
+            result.put("safety_lessons", deletedLessons);
+            result.put("chat_sessions_privacy_deleted", markedSessions);
+            result.put("quota_windows", deletedQuota);
+            return result;
         } catch (SQLException ex) {
             return Map.of("status", "error", "deleted", false, "error", "memory_delete_player_failed");
         }
     }
 
+    public void saveNpcProfile(Map<String, Object> profile) {
+        String worldId = String.valueOf(profile.getOrDefault("world_id", "unknown-world"));
+        String npcKey = String.valueOf(profile.getOrDefault("npc_key", profile.getOrDefault("id", "unknown_npc")));
+        try (Connection connection = connect(); PreparedStatement ps = connection.prepareStatement("""
+                MERGE INTO npc_profiles(profile_key, world_id, npc_key, profile_json, updated_at, privacy_deleted_at)
+                KEY(profile_key) VALUES (?, ?, ?, ?, ?, 0)
+                """)) {
+            ps.setString(1, profileKey(worldId, npcKey));
+            ps.setString(2, worldId);
+            ps.setString(3, npcKey);
+            ps.setString(4, HttpJson.object(profile));
+            ps.setLong(5, Instant.now().toEpochMilli());
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            throw new IllegalStateException("npc_profile_persist_failed", ex);
+        }
+    }
+
+    public Optional<Map<String, Object>> npcProfile(String worldId, String npcKey) {
+        try (Connection connection = connect(); PreparedStatement ps = connection.prepareStatement("""
+                SELECT profile_json FROM npc_profiles
+                WHERE profile_key = ? AND privacy_deleted_at = 0
+                """)) {
+            ps.setString(1, profileKey(worldId, npcKey));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(jsonMap(rs.getString("profile_json")));
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("npc_profile_read_failed", ex);
+        }
+        return Optional.empty();
+    }
+
+    public void saveChatSession(Map<String, Object> session) {
+        String conversationId = String.valueOf(session.getOrDefault("conversation_id", ""));
+        if (conversationId.isBlank()) {
+            return;
+        }
+        long now = Instant.now().toEpochMilli();
+        long started = longValue(session.get("started_at_epoch_ms"), now);
+        try (Connection connection = connect(); PreparedStatement ps = connection.prepareStatement("""
+                MERGE INTO chat_sessions(conversation_id, server_id, world_id, minecraft_player_uuid, npc_key, session_json, status, started_at, updated_at, cancel_reason, privacy_deleted_at)
+                KEY(conversation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                """)) {
+            ps.setString(1, conversationId);
+            ps.setString(2, String.valueOf(session.getOrDefault("server_id", "local-dev")));
+            ps.setString(3, String.valueOf(session.getOrDefault("world_id", "unknown-world")));
+            ps.setString(4, String.valueOf(session.getOrDefault("minecraft_player_uuid", "")));
+            ps.setString(5, String.valueOf(session.getOrDefault("npc_key", "")));
+            ps.setString(6, HttpJson.object(session));
+            ps.setString(7, String.valueOf(session.getOrDefault("status", "open")));
+            ps.setLong(8, started);
+            ps.setLong(9, now);
+            ps.setString(10, String.valueOf(session.getOrDefault("cancel_reason", "")));
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            throw new IllegalStateException("chat_session_persist_failed", ex);
+        }
+    }
+
+    public Optional<Map<String, Object>> chatSession(String conversationId) {
+        try (Connection connection = connect(); PreparedStatement ps = connection.prepareStatement("""
+                SELECT session_json, status, cancel_reason FROM chat_sessions
+                WHERE conversation_id = ? AND privacy_deleted_at = 0
+                """)) {
+            ps.setString(1, conversationId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Map<String, Object> session = jsonMap(rs.getString("session_json"));
+                    session.put("status", rs.getString("status"));
+                    session.put("cancel_reason", rs.getString("cancel_reason"));
+                    return Optional.of(session);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("chat_session_read_failed", ex);
+        }
+        return Optional.empty();
+    }
+
+    public boolean updateChatSessionStatus(String conversationId, String status, String reason) {
+        Optional<Map<String, Object>> existing = chatSession(conversationId);
+        if (existing.isEmpty()) {
+            return false;
+        }
+        Map<String, Object> session = new LinkedHashMap<>(existing.get());
+        session.put("status", status);
+        session.put("cancel_reason", reason == null ? "" : reason);
+        session.put("updated_at_epoch_ms", Instant.now().toEpochMilli());
+        saveChatSession(session);
+        return true;
+    }
+
+    public void addKnowledgeUpdate(String npcKey, Map<String, Object> update) {
+        String id = id("kbupd");
+        long now = Instant.now().toEpochMilli();
+        try (Connection connection = connect(); PreparedStatement ps = connection.prepareStatement("""
+                INSERT INTO npc_knowledge_updates(id, created_at, npc_key, pack_id, fact, reason, update_json, privacy_deleted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                """)) {
+            ps.setString(1, id);
+            ps.setLong(2, now);
+            ps.setString(3, npcKey == null ? "" : npcKey);
+            ps.setString(4, String.valueOf(update.getOrDefault("pack_id", "")));
+            ps.setString(5, String.valueOf(update.getOrDefault("fact", "")));
+            ps.setString(6, String.valueOf(update.getOrDefault("reason", "")));
+            ps.setString(7, HttpJson.object(update));
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            throw new IllegalStateException("knowledge_update_persist_failed", ex);
+        }
+    }
+
+    public List<Map<String, Object>> knowledgeUpdates(String npcKey) {
+        List<Map<String, Object>> values = new ArrayList<>();
+        try (Connection connection = connect(); PreparedStatement ps = connection.prepareStatement("""
+                SELECT update_json FROM npc_knowledge_updates
+                WHERE npc_key = ? AND privacy_deleted_at = 0
+                ORDER BY created_at DESC
+                LIMIT 100
+                """)) {
+            ps.setString(1, npcKey == null ? "" : npcKey);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    values.add(jsonMap(rs.getString("update_json")));
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("knowledge_update_read_failed", ex);
+        }
+        return List.copyOf(values);
+    }
+
+    public synchronized QuotaDecision reserveQuota(String key, int perMinuteLimit, int dailyLimit) {
+        return quotaDecision(key, perMinuteLimit, dailyLimit, true);
+    }
+
+    public synchronized QuotaDecision quota(String key, int perMinuteLimit, int dailyLimit) {
+        return quotaDecision(key, perMinuteLimit, dailyLimit, false);
+    }
+
     public Map<String, Object> summary() {
         try (Connection connection = connect()) {
-            return Map.of(
-                    "status", "ok",
-                    "db", redactJdbcUrl(jdbcUrl),
-                    "records", count(connection, "memory_records"),
-                    "facts", count(connection, "memory_facts"),
-                    "conflicts", count(connection, "memory_conflicts"),
-                    "operations", count(connection, "memory_operations"),
-                    "summaries", count(connection, "memory_summaries"),
-                    "links", count(connection, "memory_links"),
-                    "safety_lessons", count(connection, "memory_safety_lessons"),
-                    "canonical_facts", validator.canonicalFactsSummary()
-            );
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("status", "ok");
+            result.put("db", redactJdbcUrl(jdbcUrl));
+            result.put("records", count(connection, "memory_records"));
+            result.put("facts", count(connection, "memory_facts"));
+            result.put("conflicts", count(connection, "memory_conflicts"));
+            result.put("operations", count(connection, "memory_operations"));
+            result.put("summaries", count(connection, "memory_summaries"));
+            result.put("links", count(connection, "memory_links"));
+            result.put("safety_lessons", count(connection, "memory_safety_lessons"));
+            result.put("npc_profiles", count(connection, "npc_profiles"));
+            result.put("chat_sessions", count(connection, "chat_sessions"));
+            result.put("npc_knowledge_updates", count(connection, "npc_knowledge_updates"));
+            result.put("quota_windows", count(connection, "quota_windows"));
+            result.put("canonical_facts", validator.canonicalFactsSummary());
+            return result;
         } catch (SQLException ex) {
             return Map.of("status", "error", "error", "memory_summary_failed");
         }
@@ -375,6 +655,138 @@ public final class MemoryStore {
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, first);
             return ps.executeUpdate();
+        }
+    }
+
+    private QuotaDecision quotaDecision(String key, int perMinuteLimit, int dailyLimit, boolean reserve) {
+        String quotaKey = key == null || key.isBlank() ? "unknown" : key.strip();
+        int minuteLimit = Math.max(1, perMinuteLimit);
+        int dayLimit = Math.max(1, dailyLimit);
+        long now = Instant.now().toEpochMilli();
+        long minuteStart = now - Math.floorMod(now, 60_000L);
+        long dayStart = now - Math.floorMod(now, 86_400_000L);
+        try (Connection connection = connect()) {
+            long currentMinuteStart = minuteStart;
+            long currentMinuteUsed = 0L;
+            long currentDayStart = dayStart;
+            long currentDailyUsed = 0L;
+            try (PreparedStatement select = connection.prepareStatement("SELECT * FROM quota_windows WHERE quota_key = ?")) {
+                select.setString(1, quotaKey);
+                try (ResultSet rs = select.executeQuery()) {
+                    if (rs.next()) {
+                        currentMinuteStart = rs.getLong("minute_window_start_ms");
+                        currentMinuteUsed = rs.getLong("minute_used");
+                        currentDayStart = rs.getLong("day_start_ms");
+                        currentDailyUsed = rs.getLong("daily_used");
+                    }
+                }
+            }
+            if (currentMinuteStart != minuteStart) {
+                currentMinuteStart = minuteStart;
+                currentMinuteUsed = 0L;
+            }
+            if (currentDayStart != dayStart) {
+                currentDayStart = dayStart;
+                currentDailyUsed = 0L;
+            }
+            long nextMinute = reserve ? currentMinuteUsed + 1 : currentMinuteUsed;
+            long nextDaily = reserve ? currentDailyUsed + 1 : currentDailyUsed;
+            boolean allowed = nextMinute <= minuteLimit && nextDaily <= dayLimit;
+            if (reserve && allowed) {
+                try (PreparedStatement merge = connection.prepareStatement("""
+                        MERGE INTO quota_windows(quota_key, minute_window_start_ms, minute_used, day_start_ms, daily_used, updated_at)
+                        KEY(quota_key) VALUES (?, ?, ?, ?, ?, ?)
+                        """)) {
+                    merge.setString(1, quotaKey);
+                    merge.setLong(2, currentMinuteStart);
+                    merge.setLong(3, nextMinute);
+                    merge.setLong(4, currentDayStart);
+                    merge.setLong(5, nextDaily);
+                    merge.setLong(6, now);
+                    merge.executeUpdate();
+                }
+            }
+            long usedMinute = reserve && allowed ? nextMinute : currentMinuteUsed;
+            long usedDaily = reserve && allowed ? nextDaily : currentDailyUsed;
+            return new QuotaDecision(
+                    allowed,
+                    quotaKey,
+                    minuteLimit,
+                    usedMinute,
+                    Math.max(0L, minuteLimit - usedMinute),
+                    currentMinuteStart + 60_000L,
+                    dayLimit,
+                    usedDaily,
+                    Math.max(0L, dayLimit - usedDaily),
+                    currentDayStart + 86_400_000L
+            );
+        } catch (SQLException ex) {
+            throw new IllegalStateException("quota_window_failed", ex);
+        }
+    }
+
+    private static String profileKey(String worldId, String npcKey) {
+        return (worldId == null ? "" : worldId) + "|" + (npcKey == null ? "" : npcKey);
+    }
+
+    private static Map<String, Object> jsonMap(String json) {
+        try {
+            JsonElement root = JsonParser.parseString(json == null ? "{}" : json);
+            if (root instanceof JsonObject object) {
+                Map<String, Object> values = new LinkedHashMap<>();
+                for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+                    values.put(entry.getKey(), jsonValue(entry.getValue()));
+                }
+                return values;
+            }
+        } catch (RuntimeException ignored) {
+            // Fall back to the small regex parser for older malformed stored rows.
+        }
+        Map<String, Object> fallback = new LinkedHashMap<>(HttpJson.objectStrings(json));
+        fallback.put("stored_json", json == null ? "" : json);
+        return fallback;
+    }
+
+    private static Object jsonValue(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
+        if (element instanceof JsonObject object) {
+            Map<String, Object> values = new LinkedHashMap<>();
+            for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+                values.put(entry.getKey(), jsonValue(entry.getValue()));
+            }
+            return values;
+        }
+        if (element instanceof JsonArray array) {
+            List<Object> values = new ArrayList<>();
+            for (JsonElement item : array) {
+                values.add(jsonValue(item));
+            }
+            return values;
+        }
+        try {
+            var primitive = element.getAsJsonPrimitive();
+            if (primitive.isBoolean()) {
+                return primitive.getAsBoolean();
+            }
+            if (primitive.isNumber()) {
+                Number number = primitive.getAsNumber();
+                double asDouble = number.doubleValue();
+                long asLong = number.longValue();
+                return Math.rint(asDouble) == asDouble ? asLong : asDouble;
+            }
+            return primitive.getAsString();
+        } catch (RuntimeException ex) {
+            return String.valueOf(element);
+        }
+    }
+
+    private static long longValue(Object value, long fallback) {
+        try {
+            return value == null ? fallback : Long.parseLong(String.valueOf(value));
+        } catch (RuntimeException ex) {
+            return fallback;
         }
     }
 
@@ -430,8 +842,24 @@ public final class MemoryStore {
     private MemoryFact newFact(GatewayChatRequest request, MemoryOperation operation, long now) {
         String id = id("memfact");
         String text = operation.subject() + " " + operation.predicate() + " " + operation.value();
+        MemoryAuthorityPolicy.FactAuthority authority = authorityPolicy.classify(operation);
         return new MemoryFact(id, operation.recordId(), now, request.serverId(), request.worldId(), operation.subject(), operation.predicate(),
-                operation.value(), "current", "", "memory:fact:" + id, embeddings.serialize(embeddings.embed(text)));
+                operation.value(), "current", "", "memory:fact:" + id, embeddings.serialize(embeddings.embed(text)),
+                authority.sourceType(), authority.authorityRank(), authority.certainty(), authority.visibility(),
+                authority.validFrom(), authority.validTo(), authority.worldTick(), authority.mcDay(),
+                authority.createdBy(), authority.updatedBy());
+    }
+
+    private MemoryFact replacementFact(MemoryFact oldFact, MemoryOperation operation, long now) {
+        String id = id("memfact");
+        String text = operation.subject() + " " + operation.predicate() + " " + operation.value();
+        MemoryAuthorityPolicy.FactAuthority authority = authorityPolicy.classify(operation);
+        return new MemoryFact(id, oldFact.recordId(), now, oldFact.serverId(), oldFact.worldId(),
+                oldFact.subject(), oldFact.predicate(), operation.value(), "current", "",
+                "memory:fact:" + id, embeddings.serialize(embeddings.embed(text)),
+                authority.sourceType(), authority.authorityRank(), authority.certainty(), authority.visibility(),
+                authority.validFrom(), authority.validTo(), authority.worldTick(), authority.mcDay(),
+                authority.createdBy(), authority.updatedBy());
     }
 
     private MemoryConflict newConflict(MemoryFact oldFact, MemoryFact newFact, long now) {
@@ -451,6 +879,21 @@ public final class MemoryStore {
         List<MemorySafetyLesson> safetyLessons = new ArrayList<>();
         MemoryFact fact = newFact(request, operation, now);
         Optional<MemoryFact> previous = currentFact(connection, fact.serverId(), fact.worldId(), fact.subject(), fact.predicate());
+        if (previous.isPresent() && !previous.get().value().equalsIgnoreCase(fact.value())
+                && !authorityPolicy.canSupersede(previous.get(), authorityPolicy.classify(operation))) {
+            MemoryFact claim = fact.withStatus("claim_conflict");
+            insertFact(connection, claim);
+            MemoryConflict conflict = newConflict(previous.get(), claim, now + 1);
+            insertConflict(connection, conflict);
+            conflicts.add(conflict);
+            MemorySafetyLesson lesson = newSafetyLesson(request, claim.subject(),
+                    "Lower-authority " + claim.sourceType() + " claim did not supersede "
+                            + previous.get().sourceType() + " fact " + previous.get().id(),
+                    claim.recordId(), conflict.id(), conflict.citationIds(), now + 2);
+            insertSafetyLesson(connection, lesson);
+            safetyLessons.add(lesson);
+            return new ApplyFactResult(claim, List.copyOf(conflicts), List.copyOf(safetyLessons));
+        }
         insertFact(connection, fact);
         if (previous.isPresent() && !previous.get().value().equalsIgnoreCase(fact.value())) {
             supersedeFact(connection, previous.get().id(), fact.id());
@@ -490,8 +933,9 @@ public final class MemoryStore {
 
     private void insertFact(Connection connection, MemoryFact fact) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
-                INSERT INTO memory_facts(id, record_id, created_at, server_id, world_id, subject, predicate, fact_value, status, superseded_by, citation_id, embedding)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO memory_facts(id, record_id, created_at, server_id, world_id, subject, predicate, fact_value, status, superseded_by, citation_id, embedding,
+                    source_type, authority_rank, certainty, visibility, valid_from, valid_to, world_tick, mc_day, created_by, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             ps.setString(1, fact.id());
             ps.setString(2, fact.recordId());
@@ -505,6 +949,16 @@ public final class MemoryStore {
             ps.setString(10, fact.supersededBy());
             ps.setString(11, fact.citationId());
             ps.setString(12, fact.embedding());
+            ps.setString(13, fact.sourceType());
+            ps.setInt(14, fact.authorityRank());
+            ps.setDouble(15, fact.certainty());
+            ps.setString(16, fact.visibility());
+            ps.setLong(17, fact.validFrom());
+            ps.setLong(18, fact.validTo());
+            ps.setLong(19, fact.worldTick());
+            ps.setLong(20, fact.mcDay());
+            ps.setString(21, fact.createdBy());
+            ps.setString(22, fact.updatedBy());
             ps.executeUpdate();
         }
     }
@@ -811,6 +1265,47 @@ public final class MemoryStore {
         return new ScoredMemory(record, score, reason);
     }
 
+    private static List<String> recallTokens(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        List<String> tokens = new ArrayList<>();
+        for (String token : query.toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}_:.-]+")) {
+            if (!token.isBlank() && token.length() >= 2) {
+                tokens.add(token);
+            }
+        }
+        return List.copyOf(tokens);
+    }
+
+    private static double factRelevance(MemoryFact fact, List<String> tokens) {
+        return fact == null ? 0.0D : factRelevance(fact.subject(), fact.predicate(), fact.value(), tokens);
+    }
+
+    private static double factRelevance(String subject, String predicate, String value, List<String> tokens) {
+        if (tokens == null || tokens.isEmpty()) {
+            return 0.1D;
+        }
+        String searchable = ((subject == null ? "" : subject) + " "
+                + (predicate == null ? "" : predicate) + " "
+                + (value == null ? "" : value)).toLowerCase(Locale.ROOT);
+        double score = 0.0D;
+        for (String token : tokens) {
+            if (searchable.contains(token)) {
+                score += 1.0D;
+            }
+        }
+        return score;
+    }
+
+    private static boolean containsAny(String value, List<String> tokens) {
+        if (value == null || tokens == null || tokens.isEmpty()) {
+            return false;
+        }
+        String lower = value.toLowerCase(Locale.ROOT);
+        return tokens.stream().anyMatch(lower::contains);
+    }
+
     private static MemoryRecord record(ResultSet rs) throws SQLException {
         return new MemoryRecord(rs.getString("id"), rs.getLong("created_at"), rs.getString("server_id"), rs.getString("world_id"),
                 rs.getString("minecraft_player_uuid"), rs.getString("npc_key"), rs.getString("entity_uuid"), rs.getString("conversation_id"),
@@ -822,7 +1317,50 @@ public final class MemoryStore {
     private static MemoryFact fact(ResultSet rs) throws SQLException {
         return new MemoryFact(rs.getString("id"), rs.getString("record_id"), rs.getLong("created_at"), rs.getString("server_id"), rs.getString("world_id"),
                 rs.getString("subject"), rs.getString("predicate"), rs.getString("fact_value"), rs.getString("status"), rs.getString("superseded_by"),
-                rs.getString("citation_id"), rs.getString("embedding"));
+                rs.getString("citation_id"), rs.getString("embedding"),
+                stringColumn(rs, "source_type", MemoryAuthorityPolicy.LLM_INFERRED),
+                intColumn(rs, "authority_rank", 20),
+                doubleColumn(rs, "certainty", 0.5D),
+                stringColumn(rs, "visibility", "private"),
+                longColumn(rs, "valid_from", 0L),
+                longColumn(rs, "valid_to", 0L),
+                longColumn(rs, "world_tick", 0L),
+                longColumn(rs, "mc_day", 0L),
+                stringColumn(rs, "created_by", "legacy_memory_store"),
+                stringColumn(rs, "updated_by", "legacy_memory_store"));
+    }
+
+    private static String stringColumn(ResultSet rs, String column, String fallback) {
+        try {
+            String value = rs.getString(column);
+            return value == null ? fallback : value;
+        } catch (SQLException ex) {
+            return fallback;
+        }
+    }
+
+    private static int intColumn(ResultSet rs, String column, int fallback) {
+        try {
+            return rs.getInt(column);
+        } catch (SQLException ex) {
+            return fallback;
+        }
+    }
+
+    private static long longColumn(ResultSet rs, String column, long fallback) {
+        try {
+            return rs.getLong(column);
+        } catch (SQLException ex) {
+            return fallback;
+        }
+    }
+
+    private static double doubleColumn(ResultSet rs, String column, double fallback) {
+        try {
+            return rs.getDouble(column);
+        } catch (SQLException ex) {
+            return fallback;
+        }
     }
 
     private static MemoryConflict conflict(ResultSet rs) throws SQLException {

@@ -34,7 +34,7 @@ public final class HttpLlmGatewayAuthClient implements LlmGatewayAuthClient {
     public CompletableFuture<DeviceAuthStartResponse> startDeviceAuth(UUID playerUuid, String serverId) {
         JsonObject body = new JsonObject();
         body.addProperty("minecraft_uuid", playerUuid.toString());
-        body.addProperty("server_id", serverId == null || serverId.isBlank() ? "minecraft-server" : serverId);
+        body.addProperty("server_id", serverId == null || serverId.isBlank() ? "unresolved-server-id" : serverId);
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/auth/device/start"))
                 .timeout(timeout)
                 .header("Content-Type", "application/json")
@@ -101,11 +101,21 @@ public final class HttpLlmGatewayAuthClient implements LlmGatewayAuthClient {
     private DeviceAuthStartResponse parseStart(String json) {
         try {
             JsonObject object = JsonParser.parseString(json).getAsJsonObject();
+            String status = string(object, "status", "error");
+            if (!"pending".equals(status)) {
+                return DeviceAuthStartResponse.error(string(object, "error", "gateway_auth_start_error"));
+            }
+            String authSessionId = string(object, "auth_session_id");
+            String verificationUrl = string(object, "verification_url");
+            String userCode = string(object, "user_code");
+            if (authSessionId.isBlank() || verificationUrl.isBlank() || userCode.isBlank()) {
+                return DeviceAuthStartResponse.error("bad_gateway_auth_start_response");
+            }
             return new DeviceAuthStartResponse(
                     true,
-                    string(object, "auth_session_id"),
-                    string(object, "verification_url"),
-                    string(object, "user_code"),
+                    authSessionId,
+                    verificationUrl,
+                    userCode,
                     longValue(object, "expires_in_seconds", 600L),
                     longValue(object, "interval_seconds", 2L),
                     string(object, "provider", providerName()),

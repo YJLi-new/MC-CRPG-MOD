@@ -2,7 +2,9 @@ package com.crpg.ebb.llm.auth;
 
 import com.crpg.ebb.llm.LlmConfig;
 import com.crpg.ebb.llm.LlmMode;
+import com.crpg.ebb.llm.LlmWorldIdentity;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -156,7 +158,7 @@ public final class LlmAuthService {
     }
 
     private static String serverId(ServerPlayer player) {
-        return "minecraft-server";
+        return LlmWorldIdentity.serverId(((ServerLevel) player.level()).getServer());
     }
 
     private record PendingAuth(String authSessionId, String provider, long intervalSeconds) {

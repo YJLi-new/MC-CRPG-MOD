@@ -1811,3 +1811,122 @@
   - `python3 scripts/p43_llm_safety_audit.py` -> passed.
   - `git diff --check` -> passed.
 - Review/fix notes from final suite: updated stale P42 JUnit widget-location assertion, preserved the P43 no-direct-LLM-`proposed_effects` invariant, and isolated promotion GameTests from shared world-hour rate-limit counters without changing production limiter behavior.
+
+
+### Phase 45 / current_project_review requirement extraction
+- **Status:** in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Read `C:\Users\lanla\Downloads\current_project_review_2026-06-17.md`. The actionable scope is P45 hardening: gateway auth boundaries, memory retrieval before prompt, real server/world identity, chat rate limiting/quota, memory authority policy, LLM-backed minor NPC profile generation endpoint with deterministic fallback, and a repeatable memory proof route.
+- Next: inspect current gateway/mod LLM/memory/profile code and implement the missing runtime/test/documentation surfaces.
+
+### Phase 45 / implementation checkpoint 1
+- **Status:** in progress.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Implemented gateway hardening surfaces: `GatewayConfig` now has production-like player-token/server-token requirements, explicit local-dev blank-token escape hatch, server shared secret env names, and gateway/global/player rate-limit fields.
+- Added `GatewayRateLimiter`, unified gateway auth helpers, player token subject checks via `DeviceAuthService.tokenValidForPlayer`, server-token gates for memory/knowledge/profile admin endpoints, and `/v1/npc/profile/generate` with deterministic fallback/hidden-KB guardrails.
+- Added pre-provider memory retrieval in `/v1/chat/message`: `MemorySearchRequest.forChat`, `MemoryPromptRenderer`, `GatewayChatRequest.withMemoryContext`, prompt segmentation for trusted/untrusted context, and `GatewayChatResponse.withValidatedMemoryCitations`.
+- Added memory authority metadata/policy: `MemoryAuthorityPolicy`, expanded `MemoryFact`/migration columns for source_type, authority_rank, certainty, visibility, validity and audit actors, and low-authority conflict handling that does not supersede higher-authority facts.
+- Removed hard-coded mod chat gateway IDs by adding `LlmWorldIdentity`, LlmConfig server/world-id fields, request server/world fields, and HttpLlmGatewayClient real-id emission. Added mod-side LLM chat rate-limit windows.
+- Added `scripts/p45_review_hardening_audit.py` and `gui_e2e_run.py --scenario memory_proof` dry-run manifest support.
+- Validation so far: gateway compile/test smoke passed; mod `compileJava compileClientJava` passed after API fixes; `p43_llm_safety_audit.py` passed; `DeepResearchDataTest` passed after updating stale P39 authority assertion.
+
+
+### Phase 45 / current_project_review completion audit
+- **Status:** complete.
+- **Time:** 2026-06-17 Asia/Shanghai.
+- Wrote `docs/p45_review_completion_audit_2026-06-17.md` with requirement-by-requirement evidence for all items from `current_project_review_2026-06-17.md`.
+- Final validation passed: build, validateEbbData, run_smoke_checks, runGametestServer (14/14), run_gui_automation_smoke, p43 safety audit, p45 hardening audit, goal static audit, memory_proof dry-run manifest, and git diff --check.
+- P45 artifact hashes: jar `548d39bc66f548e041d8a190f8c959514e03fd4482534ff015311814bb5c2758`, sources `a026d35abdbbeb6e2d5e03a2acd0de5fa70600841bad72f4a3d16b05e7e8f97a`.
+
+### Windows GUI comprehensive test pass — 2026-06-18
+- **Status:** complete.
+- **Time:** 2026-06-18 Asia/Shanghai.
+- Closed stale Windows Minecraft client, refreshed the separate `26.1.2-Fabric-Ebb-Test` profile, relaunched through PCL, and entered save `新的世界 (1)`.
+- Initial runtime check found stale profile jar; after refresh/relaunch, runtime passed with jar `9795116871dbac74ab7e34fa6ec602b30d7851f2a794651982544d78c96d2932` and counts `dialogues=20, block_groups=12, entity_bindings=15, npc_routines=7`.
+- Fixed GUI-pass issues found during real testing:
+  - `stairwell_dust` GUI viewpoint now aims at the collider target (`pitch=45`) instead of the cobweb outline under collider-only raycast policy.
+  - `/ebb summon_npc <routine>` now accepts slash-containing routine ids via `StringArgumentType.greedyString()`.
+  - `gui_e2e_run.py` now returns nonzero if any non-ignored report step fails.
+  - `llm_validation` automation logging now uses `config_name` instead of colliding with the `log_step` method parameter.
+- Actual Windows GUI evidence after fixes:
+  - `python3 scripts/gui_e2e_run.py --scenario runtime_check` → passed; report `build/gui-e2e/runtime-check-report.json`, 1 step, 0 failures.
+  - `python3 scripts/gui_e2e_run.py --scenario gui_retest --gui ...` → passed; report `build/gui-e2e/gui-retest-report.json`, 282 steps, 0 failures, including K menu, 6 NPC role interactions, and all 12 block-group interactions.
+  - `python3 scripts/gui_e2e_run.py --scenario llm_chat --gui ...` → passed; report `build/gui-e2e/llm-chat-report.json`, 131 steps, 0 failures.
+  - `python3 scripts/gui_e2e_run.py --scenario llm_validation --gui ...` → passed; report `build/gui-e2e/p43-llm-validation-report.json`, 110 steps, 0 failures.
+  - `python3 scripts/gui_e2e_run.py --scenario memory_proof --gui ...` → passed; report `build/gui-e2e/memory-proof-report.json`, 3 steps, 0 failures.
+- Additional validation: `python3 -m py_compile scripts/gui_e2e_run.py`, `scripts/gradle-local.sh --no-daemon build`, `scripts/run_gui_automation_smoke.sh`, `git diff --check` all passed.
+- Artifact hashes after hotfix build: jar `9795116871dbac74ab7e34fa6ec602b30d7851f2a794651982544d78c96d2932`, sources `01116f0b28668a4dbf832bc39da7ebbd2e24f04f7018283d1d20939f536738d1`.
+- New report: `docs/windows_gui_test_result_2026-06-18.md`.
+
+### Phase 46 / OpenAI Codex OAuth device-code auth
+- **Status:** complete.
+- **Time:** 2026-06-20 Asia/Shanghai.
+- Implemented in-game `/ebb llm auth` compatibility with OpenAI Codex OAuth device-code login through the gateway auth provider `openai_codex` (`codex`, `codex_cli`, `chatgpt_codex` aliases).
+- Added `CodexCliAuthProvider`: spawns the official `codex login --device-auth` in a gateway-private per-server/per-player `CODEX_HOME`, parses only URL/user-code/expiry, verifies completion with `codex login status`, and returns only the normal Ebb opaque player token through `DeviceAuthService`.
+- Added gateway env fields `EBB_CODEX_CLI_COMMAND`, `EBB_CODEX_HOME`, and `EBB_CODEX_DEVICE_START_TIMEOUT_SECONDS`; `DeviceAuthService` and `HttpLlmGatewayAuthClient` now propagate auth-start errors instead of creating bogus pending sessions.
+- Updated docs/current status/static audits/JUnit/gateway smoke. Also fixed the GUI retest audit to accept existing saves whose Ebb NPC custom names include the `demo/` routine prefix when supported tags are present.
+- Validation passed:
+  - `python3 -m py_compile scripts/goal_static_audit.py scripts/gui_retest_issue_audit.py` -> pass.
+  - `scripts/gradle-local.sh --no-daemon compileJava compileClientJava` -> BUILD SUCCESSFUL.
+  - `source scripts/env.sh && (cd ebb-llm-gateway && ../.tools/gradle-9.5.1/bin/gradle --no-daemon compileJava compileTestJava)` -> BUILD SUCCESSFUL.
+  - `source scripts/env.sh && (cd ebb-llm-gateway && ../.tools/gradle-9.5.1/bin/gradle --no-daemon gatewaySmoke)` -> BUILD SUCCESSFUL with `P36 Codex OAuth device-code smoke passed`.
+  - `scripts/gradle-local.sh --no-daemon test --tests com.crpg.ebb.DeepResearchDataTest` -> BUILD SUCCESSFUL.
+  - `python3 scripts/goal_static_audit.py` -> pass.
+  - `scripts/gui_retest_issue_audit.py --skip-profile` -> pass.
+  - `scripts/run_smoke_checks.sh` -> pass.
+  - `git diff --check` -> pass.
+- Artifact hashes after the Codex auth build: jar `fa078b18baf82075b0401c9b75ac44c285e0303ccc5e9bdb6d3368acad13d473`; sources `b98fa79759c454b86bffc21c2854a595c6480619e1d1c2ff73f6a119c60753c3`.
+
+### Phase 47 / LLM memory review remediation checkpoint
+- **Status:** implementation in progress; gateway compile/smoke checkpoint passed.
+- **Time:** 2026-06-20 Asia/Shanghai.
+- Implemented review fixes from `current_project_review_llm_memory_2026-06-19.md`:
+  - Added `GatewayAuthGuard`, `QuotaDecision`, `MemoryRecall`, and priority `MemoryPromptRenderer` surfaces.
+  - `GatewayServer` now retrieves memory before provider execution and injects allowed memory citations into the prompt.
+  - `LlmMemoryOperationExtractor` parses structured `memory_ops` with Gson in addition to legacy `memory_writes`; validator rejects unsupported/high-risk/LLM-correction ops.
+  - Explicit `player.*`/`self.*`/`npc.*`/`entity.*` memory subjects now resolve to current player/NPC/entity to keep active-fact recall reliable.
+  - `correctFact` now creates replacement active facts and correction conflicts/safety lessons instead of only appending a lesson.
+  - Added persisted `npc_profiles`, `chat_sessions`, `npc_knowledge_updates`, and `quota_windows` migration/tables/methods.
+  - Added `scripts/p47_llm_memory_recall_audit.py`, wired it into smoke checks, and updated docs/current status/task plan.
+- Verification so far:
+  - Gateway `compileJava compileTestJava` -> BUILD SUCCESSFUL.
+  - Gateway `gatewaySmoke` -> BUILD SUCCESSFUL after fixing subject aliasing and the fake-provider memory excerpt proof.
+- Next: run py_compile/P47 audit/goal static audit, then full Gradle/JUnit/smoke/build/hash/diff validation and update final docs.
+
+### Phase 47 / LLM memory review remediation final validation
+- **Status:** complete.
+- **Time:** 2026-06-20 Asia/Shanghai.
+- Final verification passed:
+  - `(cd ebb-llm-gateway && ../.tools/gradle-9.5.1/bin/gradle --no-daemon compileJava compileTestJava gatewaySmoke)` -> BUILD SUCCESSFUL.
+  - `scripts/gradle-local.sh --no-daemon compileJava compileClientJava test --tests com.crpg.ebb.DeepResearchDataTest` -> BUILD SUCCESSFUL.
+  - `python3 -m py_compile scripts/p47_llm_memory_recall_audit.py scripts/goal_static_audit.py scripts/gui_e2e_run.py scripts/p43_llm_safety_audit.py` -> pass.
+  - `python3 scripts/p47_llm_memory_recall_audit.py` -> pass.
+  - `python3 scripts/goal_static_audit.py` -> pass.
+  - `scripts/run_smoke_checks.sh` -> pass, including P43/P45/P47/goal audits and GUI retest issue audit.
+  - `scripts/gradle-local.sh --no-daemon validateEbbData runGametestServer --args nogui` -> BUILD SUCCESSFUL; all 14 required GameTests passed.
+  - `scripts/run_gui_automation_smoke.sh` -> pass.
+  - `git diff --check` -> pass.
+- Artifact hashes after P47: jar `fa078b18baf82075b0401c9b75ac44c285e0303ccc5e9bdb6d3368acad13d473`, sources `b98fa79759c454b86bffc21c2854a595c6480619e1d1c2ff73f6a119c60753c3`.
+- Phase 47 marked complete in the task plan.
+
+### Phase 47 / post-review quality pass
+- **Status:** complete.
+- **Time:** 2026-06-20 Asia/Shanghai.
+- During final code review, improved persisted JSON reads for NPC profiles/chat sessions/knowledge updates: `MemoryStore.jsonMap` now parses stored JSON with Gson and preserves nested arrays/objects instead of returning only flattened string fields. It retains a fallback for malformed legacy rows.
+- Re-ran verification after this quality patch:
+  - Gateway `compileJava compileTestJava gatewaySmoke` -> BUILD SUCCESSFUL.
+  - `scripts/run_smoke_checks.sh` -> passed.
+  - `git diff --check` -> passed.
+  - Artifact hashes unchanged: jar `fa078b18baf82075b0401c9b75ac44c285e0303ccc5e9bdb6d3368acad13d473`, sources `b98fa79759c454b86bffc21c2854a595c6480619e1d1c2ff73f6a119c60753c3`.
+
+### Phase 47 / continuation completion audit
+- **Status:** complete.
+- **Time:** 2026-06-20 Asia/Shanghai.
+- Re-read task plan/progress and re-derived review requirements directly from `C:\Users\lanla\Downloads\current_project_review_llm_memory_2026-06-19.md`: P0-1 memory recall before provider; P0-2 `memory_ops`; P1-1 auth guard; P1-2 real quota; P1-3 gateway persistence; P1-4 correction replacement fact semantics; P1-5 recall priority; P1-6 docs consistency; P2 staging/prompt-injection/output-boundary docs/tests.
+- Current-state verification rerun:
+  - `python3 scripts/p47_llm_memory_recall_audit.py` -> pass.
+  - `python3 scripts/goal_static_audit.py` -> pass with P47 guardrails.
+  - `(cd ebb-llm-gateway && ../.tools/gradle-9.5.1/bin/gradle --no-daemon gatewaySmoke)` -> BUILD SUCCESSFUL.
+  - `git diff --check` -> pass.
+  - Artifact hashes confirmed: jar `fa078b18baf82075b0401c9b75ac44c285e0303ccc5e9bdb6d3368acad13d473`, sources `b98fa79759c454b86bffc21c2854a595c6480619e1d1c2ff73f6a119c60753c3`.
+- The referenced objective is proven complete against current worktree evidence.

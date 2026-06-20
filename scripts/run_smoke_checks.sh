@@ -40,5 +40,7 @@ fi
 scripts/third_review_static_audit.py
 scripts/deep_research_static_audit.py
 scripts/p43_llm_safety_audit.py
+scripts/p45_review_hardening_audit.py
+scripts/p47_llm_memory_recall_audit.py
 scripts/goal_static_audit.py
 scripts/gui_retest_issue_audit.py --skip-profile

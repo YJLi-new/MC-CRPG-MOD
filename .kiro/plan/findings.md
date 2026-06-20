@@ -576,3 +576,41 @@ P36 implementation started: requirements from /mnt/e/MC/PCL/PLAN.md P36 are inde
 - PLAN.md explicitly listed separate LLM chat UI helper classes (`NpcChatHistoryWidget`, `NpcChatInputWidget`, `LlmAuthStatusWidget`); the previous implementation kept this logic inside `NpcChatScreen`/K-menu. Split the rendering/input/status helper surfaces into named classes and updated the P42 static guardrail.
 - PLAN.md used `data/*/npc_knowledge/<path>.json` while the implemented registry used `npc_knowledge_packs`. Added a backward-compatible alias directory to `JsonDataRegistry`/`NarrativeDataRegistries` so both names are accepted and duplicate ids are reported instead of silently overridden.
 - Validation after cleanup: `scripts/gradle-local.sh --no-daemon compileJava compileClientJava` and `python3 scripts/goal_static_audit.py` passed.
+
+### 2026-06-17 current_project_review P45 requirement extraction
+- Source reviewed: `/mnt/c/Users/lanla/Downloads/current_project_review_2026-06-17.md`.
+- Required remediation scope is a P45 hardening pass, not new horizontal systems: gateway auth, memory retrieval into prompt, real server/world identity, LLM chat rate limits/quota, memory fact authority v2, minor NPC LLM profile generation endpoint, and an auditable memory-to-dialogue/Chime/relationship proof route.
+- P0 items: blank/unauthorized gateway tokens must be rejected outside explicit local-dev mode; token subject must match player UUID; player vs server tokens must be distinct; memory/knowledge/profile admin endpoints must be auth-gated; smoke tests must prove blank/wrong/no-server-token failures while local dev still works.
+- P0 item: gateway chat must retrieve MemoryStore context before calling provider and inject rendered memory/fact/conflict context/citations; invalid citations from model should be filtered or warned.
+- P1 items: remove hard-coded `minecraft-server`/`minecraft-world`; add configured/generated server id and world id strategy; add per-player/per-NPC/global rate limiting; add authority/source/validity metadata and policy so player/LLM claims cannot override canon; add LLM profile generation endpoint with deterministic fallback and hidden-KB safety validation.
+- P2/product-proof items: clarify/persist gateway state where needed, strengthen prompt trusted/untrusted segmentation, harden memory operation JSON parsing, and add a repeatable memory proof mini-route with GUI/dry-run evidence.
+
+### 2026-06-17 P45 current-code audit checkpoint
+- `GatewayServer.handleChatMessage` currently rejects only non-blank invalid tokens; blank tokens still pass. `handlePlayerQuota` also treats blank token as authenticated. Memory/knowledge/profile/chat-session endpoints have no unified auth gate yet.
+- `HttpLlmGatewayClient.sendMessage` still hard-codes `server_id=minecraft-server` and `world_id=minecraft-world` for all requests, matching the review's cross-world contamination risk.
+- `GatewayServer.handleChatMessage` calls `chatProvider.send(request)` before `memoryStore.appendTurn`; it does not call `memoryStore.search` or enrich `GatewayChatRequest` with memory context before prompt generation.
+- `LlmConfig.rateLimitPerMinute` exists but `LlmChatService.handleMessage` lacks a per-player/per-NPC rate limiter gate before calling the provider.
+- `MemoryFact`/`memory_facts` currently track status/superseded/citation but not source_type/authority/validity metadata; `DeterministicMemoryValidator` still relies on a hard-coded canonical-facts map for tavern owner conflicts.
+- `LlmMemoryOperationExtractor.structuredMemoryWrites` still uses regex extraction from `structured_json`, confirming the review's parser robustness concern.
+
+### 2026-06-20 / Codex OAuth device-code implementation findings
+- Existing gateway auth stack already has `AuthProvider`, `DeviceAuthService`, `GatewayConfig`, and `/v1/auth/device/*`; Minecraft `/ebb llm auth` consumes `DeviceAuthStartResponse` and stores only opaque Ebb tokens server-side.
+- Local Codex CLI supports `codex login --device-auth`; the safe integration path is to spawn this official CLI under a gateway-private `CODEX_HOME`, parse only URL/user-code/expiry, and mint a normal Ebb opaque player token after `codex login status` reports logged-in.
+- Current branch already contains substantial uncommitted P45 changes; avoid resetting them. Also found an accidental duplicate `return chatProvider.send(...)` in `GatewayServer` that must be cleaned during compile hardening.
+
+### 2026-06-20 / LLM memory review requirement extraction
+- Review `current_project_review_llm_memory_2026-06-19.md` flags the LLM/NPC/Memory line as not fully closed unless stored memories actively influence later NPC chat with citations, conflicts, correction semantics, auth gates, quotas, persistence, and tests.
+- Required high-priority areas: P0 chat-before-provider memory retrieval and structured `memory_ops` ingestion; P1 unified gateway auth, actual rate/quota, persistent gateway profiles/sessions/knowledge/quota state, replacement-fact correction semantics, layered retrieval favoring canonical facts/conflicts/safety lessons, and doc status reconciliation; P2 optional staging checklist, behavior prompt-injection tests, and explicit LLM/script boundary docs.
+- Current code already contains some P45-era hardening (e.g. `MemoryPromptRenderer`, `MemorySearchRequest.forChat`, `GatewayRateLimiter`, server token gates). Need audit exact runtime behavior before changing to avoid duplicating or breaking existing implementation.
+
+## 2026-06-20 Phase 47 compile/smoke checkpoint
+- Fixed Java 9 `Map.of` arity compile blockers in `MemoryStore.deletePlayer` and `MemoryStore.summary` by using ordered `LinkedHashMap` result maps.
+- Gateway compile passed after the fix.
+- First P47 `gatewaySmoke` failed because `fact:player.hometown=Riverside` was stored under generic subject `player`, then active-fact retrieval filtered for `player:<uuid>`; fixed explicit memory fact subject aliases (`player/self/me`, `npc`, `entity`) in both deterministic and structured/legacy LLM memory extractors.
+- Second P47 `gatewaySmoke` failed because the fake provider abbreviated the memory context before `Riverside`; increased fake memory excerpt length to preserve the active fact proof.
+- `gatewaySmoke` now passes, including the new memory_ops-only, persisted gateway state, correction replacement, auth, quota, and memory recall checks.
+
+## 2026-06-20 Phase 47 static audit checkpoint
+- Added `docs/p47_llm_memory_review_remediation_2026-06-20.md`, expanded `docs/json_authoring_guide.md`, and appended a P47 status snapshot.
+- Added and passed `scripts/p47_llm_memory_recall_audit.py`; it guards chat-before-provider recall, structured `memory_ops`, correction replacement semantics, unified auth status, quota persistence, gateway state persistence, and staging/prompt-injection/output-boundary docs.
+- Updated `scripts/goal_static_audit.py` so older P37/P39/P38 guards match the new auth abstraction and memory_ops/persistence requirements, and added P47 guardrails. `python3 scripts/goal_static_audit.py` now passes.

@@ -289,7 +289,7 @@ public final class ModCommands {
                                 .executes(context -> exportSaveDebug(context.getSource()))))
                 .then(Commands.literal("summon_npc")
                         .requires(EbbCommandPermissionGuards.summonNpc())
-                        .then(Commands.argument("routine", StringArgumentType.string())
+                        .then(Commands.argument("routine", StringArgumentType.greedyString())
                                 .executes(context -> summonNpc(context.getSource(), StringArgumentType.getString(context, "routine"))))));
     }
 

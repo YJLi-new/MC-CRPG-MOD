@@ -32,7 +32,10 @@ VIEWPOINTS = {
     "tenant_luggage": "8.5 64 1.5 0 30",
     "cellar_hatch": "6.5 64 5.5 0 47",
     "back_door": "10.5 64 3.5 0 20",
-    "stairwell_dust": "12.5 64 4.5 0 20",
+    # The stairwell evidence contains a cobweb above a carpet.  Ebb uses
+    # collider-only raycasts for prediction/authority, so aim at the carpet
+    # collider rather than the outline-only cobweb.
+    "stairwell_dust": "12.5 64 4.5 0 45",
     "kitchen_manifest": "2.5 64 6.5 0 25",
     "guestbook_torn_page": "4.5 64 7.0 0 5",
     "stable_mud": "14.5 67 3.5 0 90",
@@ -92,6 +95,16 @@ DEMO_SETUP_COMMANDS = [
 
 def run_command(cmd: list[str], *, timeout: int | None = None) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, cwd=PROJECT_ROOT, text=True, capture_output=True, timeout=timeout)
+
+
+def report_has_failures(env: EbbGuiEnv, *, ignore_runtime_check: bool = False) -> bool:
+    for step in env.report.get("steps", []):
+        if bool(step.get("ok")):
+            continue
+        if ignore_runtime_check and step.get("name") == "check_runtime_loaded":
+            continue
+        return True
+    return False
 
 
 def scenario_dry_run(env: EbbGuiEnv, args: argparse.Namespace) -> int:
@@ -200,6 +213,32 @@ def write_p43_llm_validation_manifest(env: EbbGuiEnv) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     env.log_step("write_p43_llm_validation_manifest", True, path=str(path), manifest=manifest)
+    return path
+
+
+def write_p45_memory_proof_manifest(env: EbbGuiEnv) -> Path:
+    manifest = {
+        "scenario": "memory_proof",
+        "review": "current_project_review_2026-06-17 P45.7",
+        "expected_route": [
+            "player_claim_written_to_gateway_memory",
+            "second_chat_retrieves_memory_context_before_provider",
+            "memory_citation_visible_in_dev_citations_overlay",
+            "scripted_dialogue_branch_echoes_memory_proof_story_var",
+            "empathy_or_rhetoric_chime_marks_conflict",
+            "relationship_delta_visible_after_memory_correction",
+        ],
+        "gateway_checks": [
+            "memory=recall fake reply marker",
+            "memory:record citation returned",
+            "invalid_memory_citation_rejected warning when provider invents citation",
+        ],
+        "commands": ["/ebb llm reload_config", "/ebb memory search", "/ebb memory conflicts", "/ebb dialogue vars"],
+    }
+    path = env.work_dir / "expected-p45-memory-proof-manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    env.log_step("write_p45_memory_proof_manifest", True, path=str(path), manifest=manifest)
     return path
 
 
@@ -437,6 +476,8 @@ def scenario_gui_retest(env: EbbGuiEnv, args: argparse.Namespace) -> int:
         env.log_step("gui_control_skipped", True, reason="--gui not set; generated manifest/report only")
     path = env.write_report("gui-retest-report.json")
     print(f"report={path}")
+    if report_has_failures(env, ignore_runtime_check=args.allow_stale_runtime):
+        return 1
     return 0 if runtime_ok or args.allow_stale_runtime else 2
 
 
@@ -527,6 +568,8 @@ def scenario_llm_chat(env: EbbGuiEnv, args: argparse.Namespace) -> int:
         close_interaction_screen_if_open(env, args, returned)
     path = env.write_report("llm-chat-report.json")
     print(f"report={path}")
+    if report_has_failures(env, ignore_runtime_check=args.allow_stale_runtime):
+        return 1
     return 0 if runtime_ok or args.allow_stale_runtime else 2
 
 
@@ -534,7 +577,7 @@ def _write_gui_llm_config(env: EbbGuiEnv, name: str, config: dict[str, object]) 
     llm_config = env.profile_dir / "config" / "ebb-llm-server.json"
     llm_config.parent.mkdir(parents=True, exist_ok=True)
     llm_config.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    env.log_step("write_p43_llm_config", True, name=name, path=str(llm_config), mode=config.get("mode"))
+    env.log_step("write_p43_llm_config", True, config_name=name, path=str(llm_config), mode=config.get("mode"))
     return llm_config
 
 
@@ -621,12 +664,40 @@ def scenario_llm_validation(env: EbbGuiEnv, args: argparse.Namespace) -> int:
             close_interaction_screen_if_open(env, args, reply)
     path = env.write_report("p43-llm-validation-report.json")
     print(f"report={path}")
+    if report_has_failures(env, ignore_runtime_check=args.allow_stale_runtime):
+        return 1
+    return 0 if runtime_ok or args.allow_stale_runtime else 2
+
+
+def scenario_memory_proof(env: EbbGuiEnv, args: argparse.Namespace) -> int:
+    env.report["scenario"] = "memory_proof"
+    env.work_dir.mkdir(parents=True, exist_ok=True)
+    write_p45_memory_proof_manifest(env)
+    runtime_ok = env.check_runtime_loaded()
+    if not args.gui:
+        env.log_step(
+            "p45_gui_control_skipped",
+            True,
+            reason="--gui not set; generated P45 memory-proof manifest/report only",
+        )
+        path = env.write_report("memory-proof-report.json")
+        print(f"report={path}")
+        return 0 if runtime_ok or args.allow_stale_runtime else 2
+    env.log_step(
+        "p45_memory_proof_gui_route_ready",
+        True,
+        note="Use current llm_chat visual route plus gatewaySmoke memory=recall evidence for this hardening pass.",
+    )
+    path = env.write_report("memory-proof-report.json")
+    print(f"report={path}")
+    if report_has_failures(env, ignore_runtime_check=args.allow_stale_runtime):
+        return 1
     return 0 if runtime_ok or args.allow_stale_runtime else 2
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Esoteric Ebb GUI E2E automation scenarios.")
-    parser.add_argument("--scenario", choices=["dry_run", "runtime_check", "bot_probe", "gui_retest", "llm_chat", "llm_validation"], default="dry_run")
+    parser.add_argument("--scenario", choices=["dry_run", "runtime_check", "bot_probe", "gui_retest", "llm_chat", "llm_validation", "memory_proof"], default="dry_run")
     parser.add_argument("--profile", default="26.1.2-Fabric-Ebb-Test")
     parser.add_argument("--mc-dir", type=Path, default=Path("/mnt/e/MC/PCL/.minecraft"))
     parser.add_argument("--save-name", default="新的世界 (1)")
@@ -658,6 +729,8 @@ def main() -> int:
         return scenario_llm_chat(env, args)
     if args.scenario == "llm_validation":
         return scenario_llm_validation(env, args)
+    if args.scenario == "memory_proof":
+        return scenario_memory_proof(env, args)
     return scenario_gui_retest(env, args)
 
 
